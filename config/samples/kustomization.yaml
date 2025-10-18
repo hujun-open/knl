@@ -1,0 +1,5 @@
+## Append samples of your project ##
+resources:
+- knl_v1beta1_lab.yaml
+- knl_v1beta1_knlconfig.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

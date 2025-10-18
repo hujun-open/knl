@@ -1,0 +1,57 @@
+package common
+
+import (
+	"strings"
+)
+
+// System interface is implemented by each node type
+type System interface {
+	//SetToAppDefVal set calling instance to its app defaults
+	SetToAppDefVal()
+	//FillDefaultVal fill default values after defaults in KNLConfig are used
+	//This is to have more advance defaulting logic, like defaulting based on nodeName in SRVM case
+	FillDefaultVal(nodeName string)
+	//Validate is used by validation webhook
+	Validate() error
+	// GetNodeType(name string) NodeType
+}
+
+type NodeType string
+
+const (
+	Unknown NodeType = "unknown"
+)
+
+func (nt NodeType) MarshalText() (text []byte, err error) {
+	return []byte(nt), nil
+}
+
+func (nt *NodeType) UnmarshalText(text []byte) error {
+	*nt = NodeType(text)
+	return nil
+}
+
+// NewSysRegistry contains mapping between node type and a new empty node with corresponding type
+var NewSysRegistry map[NodeType]func() System
+
+func init() {
+	NewSysRegistry = make(map[NodeType]func() System)
+}
+
+func GetNewSystemViaType(t NodeType) System {
+	if f, ok := NewSysRegistry[t]; ok {
+		return f()
+	}
+	return nil
+}
+
+func GetNodeTypeViaName(name string) NodeType {
+	if i := strings.Index(name, "-"); i > 0 {
+		return NodeType(name[:i])
+	}
+	return Unknown
+}
+
+func GetNewSystemViaName(name string) System {
+	return GetNewSystemViaType(GetNodeTypeViaName(name))
+}

@@ -1,0 +1,2 @@
+1. KNL configuration is a its own CRD, only one such CR with a specific name in the same KNL conttroller namespace are treated as configuration; every time such CR is updated, the configuration is copied into a global variable (mutex access controller to be thread safe);
+    - KNLConfiguration CR has its own controller (when adding the API using `kubebuilder` command select `Y` to `Genenerate controller`), however the config controller is running in the same process of main process, no need sperate pod; same for KNLConfiguration webhook

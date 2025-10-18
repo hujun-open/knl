@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Check if the first parameter ($1) is set
+if [ -z "$1" ]; then
+    echo "<IMG> must be specified." >&2 # Print error to standard error
+    exit 1 # Exit with a non-zero status code (indicating an error)
+else
+    echo "deploying with IMG: $1" # Print the first parameter
+    set -e
+    make docker-build IMG=$1
+    kind load docker-image $1 --name kind 
+    make deploy IMG=$1
+    exit 0 # Exit with a zero status code (indicating success)
+fi

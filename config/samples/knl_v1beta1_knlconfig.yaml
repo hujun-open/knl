@@ -1,0 +1,9 @@
+apiVersion: knl.kubenetlab.net/v1beta1
+kind: KNLConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: knl
+    app.kubernetes.io/managed-by: kustomize
+  name: knlconfig-sample
+spec:
+  # TODO(user): Add fields here
