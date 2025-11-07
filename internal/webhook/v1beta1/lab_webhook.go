@@ -27,8 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
 	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
-	"kubenetlab.net/knl/internal/common"
-	"kubenetlab.net/knl/internal/controller"
+	"kubenetlab.net/knl/common"
 )
 
 // nolint:unused
@@ -66,31 +65,61 @@ func (d *LabCustomDefaulter) Default(_ context.Context, obj runtime.Object) erro
 		return fmt.Errorf("expected an Lab object but got %T", obj)
 	}
 	lablog.Info("Defaulting for Lab", "lab", lab.GetName())
-
-	//if any node that only contains name, create a new empty instance based on node name
-	for i := range lab.Spec.NodeList {
-		sys, _ := lab.Spec.NodeList[i].GetSystem()
-		if sys == nil {
-			lablog.Info(fmt.Sprintf("node %v doesn't specify node type", lab.Spec.NodeList[i].Name), "lab", lab.GetName())
-			sys = common.GetNewSystemViaName(lab.Spec.NodeList[i].Name)
-			if sys == nil {
-				return fmt.Errorf("failed to derived node type from name %v", lab.Spec.NodeList[i].Name)
+	if lab.Spec.NodeList == nil {
+		lab.Spec.NodeList = make(map[string]*knlv1beta1.OneOfSystem)
+	}
+	//cross check links and nodes, fill in missing node with empty OneOfSystem
+	//also fill in derived mac if it is not specified
+	var macOffset int
+	for linkName, link := range lab.Spec.LinkList {
+		for i, c := range link.Connectors {
+			macOffset++
+			if _, ok := lab.Spec.NodeList[*c.NodeName]; !ok {
+				lab.Spec.NodeList[*c.NodeName] = new(knlv1beta1.OneOfSystem)
 			}
-			knlv1beta1.AssignSystem(sys, &(lab.Spec.NodeList[i].OneOfSystem))
+			//derive mac
+			derivedMAC := common.DeriveMac(common.BaseMACAddr, macOffset)
+			common.SetDefaultGeneric(lab.Spec.LinkList[linkName].Connectors[i].Mac, derivedMAC.String())
+		}
+	}
+	//check missing CPM
+	for nodeName := range lab.Spec.NodeList {
+		vmt, vmid, _, err := knlv1beta1.ParseSRVMName(nodeName)
+		if err == nil {
+			switch vmt {
+			case knlv1beta1.VSIM, knlv1beta1.MAGC:
+				cpmName := fmt.Sprintf("%v-%d-a", vmt, vmid)
+				if _, ok := lab.Spec.NodeList[cpmName]; !ok {
+					lab.Spec.NodeList[cpmName] = new(knlv1beta1.OneOfSystem)
+				}
+			}
 		}
 	}
 
-	gconf := controller.GCONF.Get()
+	//if any node that only contains name, create a new empty instance based on node name
+	// note: at least "{}" must be specified in value of a map, otherwise k8s api server won't even include the key
+	for nodeName := range lab.Spec.NodeList {
+		sys, _ := lab.Spec.NodeList[nodeName].GetSystem()
+		if sys == nil {
+			lablog.Info(fmt.Sprintf("node %v doesn't specify node type", nodeName), "lab", lab.GetName())
+			sys = common.GetNewSystemViaName(nodeName)
+			if sys == nil {
+				return fmt.Errorf("failed to derived node type from name %v", nodeName)
+			}
+			knlv1beta1.AssignSystem(sys, lab.Spec.NodeList[nodeName])
+		}
+	}
+
+	gconf := knlv1beta1.GCONF.Get()
 	lablog.Info(fmt.Sprintf("defaulting lab, got GCONF:%+v", gconf))
 	err := knlv1beta1.LoadDef(&lab.Spec, gconf)
 	if err != nil {
 		return err
 	}
-	//Todo: add missing node
 	//fill node specific Default
-	for i := range lab.Spec.NodeList {
-		sys, _ := lab.Spec.NodeList[i].GetSystem()
-		sys.FillDefaultVal(lab.Spec.NodeList[i].Name)
+	for nodeName := range lab.Spec.NodeList {
+		sys, _ := lab.Spec.NodeList[nodeName].GetSystem()
+		sys.FillDefaultVal(nodeName)
 	}
 
 	return nil

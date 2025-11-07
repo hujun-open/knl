@@ -20,7 +20,7 @@ import (
 	"reflect"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"kubenetlab.net/knl/internal/common"
+	"kubenetlab.net/knl/common"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -34,8 +34,12 @@ type LabSpec struct {
 	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
 
 	// nodes lists all nodes in the lab
-	// +required
-	NodeList []Node `json:"nodes,omitempty"`
+	// +optional
+	// +nullable
+	NodeList map[string]*OneOfSystem `json:"nodes"`
+	// +optional
+	// +nullable
+	LinkList map[string]*Link `json:"links"`
 }
 
 // LabStatus defines the observed state of Lab.
@@ -109,4 +113,15 @@ func AssignSystem(s common.System, node *OneOfSystem) {
 		}
 	}
 
+}
+
+func (lab *Lab) getLinkandConnector(node, linkName string) (*Link, *Connector) {
+	if link, ok := lab.Spec.LinkList[linkName]; ok {
+		for _, c := range link.Connectors {
+			if *c.NodeName == node {
+				return link, &c
+			}
+		}
+	}
+	return nil, nil
 }

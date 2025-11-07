@@ -4,14 +4,8 @@ import (
 	"fmt"
 	"reflect"
 
-	"kubenetlab.net/knl/internal/common"
+	"kubenetlab.net/knl/common"
 )
-
-type Node struct {
-	// +required
-	Name        string `json:"name,omitempty"`
-	OneOfSystem `json:",inline"`
-}
 
 type OneOfSystem struct {
 	// +optional
@@ -64,9 +58,9 @@ func (onesys *OneOfSystem) GetSystem() (common.System, string) {
 }
 
 func (spec *LabSpec) Validate() error {
-	for i := range spec.NodeList {
-		if err := spec.NodeList[i].OneOfSystem.validate(); err != nil {
-			return fmt.Errorf("Node %d:%v is invalid, %w", i+1, spec.NodeList[i].Name, err)
+	for nodeName := range spec.NodeList {
+		if err := spec.NodeList[nodeName].validate(); err != nil {
+			return fmt.Errorf("Node %v is invalid, %w", nodeName, err)
 		}
 	}
 	return nil

@@ -54,7 +54,7 @@ const TARGET_KNLCONFIG_NAME = "knlcfg"
 func (r *KNLConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
 	var knlcfg v1beta1.KNLConfig
-	if req.NamespacedName.Name != TARGET_KNLCONFIG_NAME || req.NamespacedName.Namespace != MYNAMESPACE {
+	if req.NamespacedName.Name != TARGET_KNLCONFIG_NAME || req.NamespacedName.Namespace != knlv1beta1.MYNAMESPACE {
 		log.Info(fmt.Sprintf("%v is not target KNLConfig, ignored", req.NamespacedName.String()))
 		return ctrl.Result{}, nil
 	}
@@ -71,11 +71,11 @@ func (r *KNLConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 
 	newSpec := knlcfg.Spec
-	changed := GCONF.Set(&newSpec, knlcfg.Generation)
+	changed := knlv1beta1.GCONF.Set(&newSpec, knlcfg.Generation)
 	if changed {
-		*knlcfg.Status.ObservedGeneration = GCONF.GetGen()
+		*knlcfg.Status.ObservedGeneration = knlv1beta1.GCONF.GetGen()
 		r.Status().Update(ctx, &knlcfg)
-		log.Info(fmt.Sprintf("%v is updated to Generation %d, %+v", req.NamespacedName, knlcfg.Generation, GCONF.Get()))
+		log.Info(fmt.Sprintf("%v is updated to Generation %d, %+v", req.NamespacedName, knlcfg.Generation, knlv1beta1.GCONF.Get()))
 	}
 
 	return ctrl.Result{}, nil

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"kubenetlab.net/knl/internal/common"
+	"kubenetlab.net/knl/common"
 )
 
 // sysinfo detauls

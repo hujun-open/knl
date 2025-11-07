@@ -1,28 +1,28 @@
-package controller
+package v1beta1
 
 import (
 	"fmt"
 	"os"
 	"strings"
 	"sync"
-
-	"kubenetlab.net/knl/api/v1beta1"
 )
 
+// +kubebuilder:object:generate=false
+// +kubebuilder:object:root=false
 type Config struct {
-	config     *v1beta1.KNLConfigSpec
+	config     *KNLConfigSpec
 	lock       *sync.RWMutex
 	generation int64
 }
 
-func (cfg *Config) Get() v1beta1.KNLConfigSpec {
+func (cfg *Config) Get() KNLConfigSpec {
 	cfg.lock.RLock()
 	defer cfg.lock.RUnlock()
 	return *cfg.config
 }
 
 // return true if changed
-func (cfg *Config) Set(new *v1beta1.KNLConfigSpec, gen int64) bool {
+func (cfg *Config) Set(new *KNLConfigSpec, gen int64) bool {
 	cfg.lock.Lock()
 	defer cfg.lock.Unlock()
 	if cfg.generation != gen {
@@ -40,7 +40,7 @@ func (cfg *Config) GetGen() int64 {
 }
 
 func newConfig() *Config {
-	defCfg := v1beta1.DefKNLConfig()
+	defCfg := DefKNLConfig()
 	return &Config{
 		config:     &defCfg,
 		lock:       new(sync.RWMutex),

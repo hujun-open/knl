@@ -2,7 +2,7 @@ package v1beta1
 
 import (
 	"k8s.io/apimachinery/pkg/api/resource"
-	"kubenetlab.net/knl/internal/common"
+	"kubenetlab.net/knl/common"
 )
 
 func init() {

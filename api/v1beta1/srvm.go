@@ -2,7 +2,8 @@ package v1beta1
 
 import (
 	"k8s.io/apimachinery/pkg/api/resource"
-	"kubenetlab.net/knl/internal/common"
+	"kubenetlab.net/knl/common"
+	kvv1 "kubevirt.io/api/core/v1"
 )
 
 func init() {
@@ -25,6 +26,7 @@ type SRVM struct {
 	ReqCPU       *resource.Quantity `json:"cpu,omitempty"`
 	Image        *string            `json:"image,omitempty"` //for node type that use ftp, this is the folder name, not full URL
 	LicURL       *string            `json:"lic,omitempty"`
+	Ports        *[]kvv1.Port       `json:"ports,omitempty"` //list of open port for management interface
 }
 
 func (srvm *SRVM) FillDefaultVal(name string) {
@@ -36,6 +38,29 @@ func (srvm *SRVM) FillDefaultVal(name string) {
 	if err != nil {
 		return
 	}
+	//set managment open ports
+	defaultPorts := new([]kvv1.Port)
+	*defaultPorts = append(*defaultPorts, kvv1.Port{
+		Name:     "ssh",
+		Protocol: "tcp",
+		Port:     22,
+	})
+	*defaultPorts = append(*defaultPorts, kvv1.Port{
+		Name:     "netconf",
+		Protocol: "tcp",
+		Port:     830,
+	})
+	*defaultPorts = append(*defaultPorts, kvv1.Port{
+		Name:     "gnmi",
+		Protocol: "tcp",
+		Port:     57400,
+	})
+	*defaultPorts = append(*defaultPorts, kvv1.Port{
+		Name:     "radiuscoa",
+		Protocol: "udp",
+		Port:     3799,
+	})
+	srvm.Ports = common.SetDefaultGeneric(srvm.Ports, *defaultPorts)
 	//set srsysinfo
 	switch nt {
 	case VSIM:

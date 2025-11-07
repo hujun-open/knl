@@ -20,9 +20,10 @@ import (
 	"fmt"
 	"net/netip"
 	"reflect"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"kubenetlab.net/knl/internal/common"
+	"kubenetlab.net/knl/common"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -36,11 +37,24 @@ type KNLConfigSpec struct {
 	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
 
 	// +optional
-	FTPUser *string `json:"ftpUser,omitempty"`
+	SFTPUser *string `json:"fileUser,omitempty"`
 	// +optional
-	FTPPassword *string `json:"ftpPass,omitempty"`
+	SFTPPassword *string `json:"filePass,omitempty"`
 	// +optional
-	FTPSever *string `json:"ftpSvr,omitempty"`
+	SFTPSever *string `json:"fileSvr,omitempty"`
+	// +optional
+	VXLANGrpPrefix *string `json:"vxlanGrp,omitempty"`
+	// +optional
+	LinkMtu *uint `json:"linkMTU,omitempty"`
+	// +optional
+	PVCStorageClass *string `json:"storageClass,omitempty"`
+	// +optional
+	SRCPMLoaderImage *string `json:"srCPMLoaderImage,omitempty"`
+	// +optional
+	SRIOMLoaderImage *string `json:"srIOMLoaderImage,omitempty"`
+	// +optional
+	SideCarHookImg *string `json:"sideCarImage,omitempty"`
+
 	// defaultNode specifies default values for types of node
 	// +optional
 	DefaultNode OneOfSystem `json:"defaultNode,omitempty"`
@@ -50,8 +64,11 @@ type KNLConfigSpec struct {
 // this is the application default, meaning when user didn't specify the corresponding field in KNLconfig
 func DefKNLConfig() KNLConfigSpec {
 	var r KNLConfigSpec
-	common.AssignPointerVal(&r.FTPUser, "ftp")
-	common.AssignPointerVal(&r.FTPPassword, "ftp")
+	common.AssignPointerVal(&r.SFTPUser, "ftp")
+	common.AssignPointerVal(&r.SFTPPassword, "ftp")
+	common.AssignPointerVal(&r.VXLANGrpPrefix, "ff18::100/64")
+	common.AssignPointerVal(&r.LinkMtu, 7000)
+	common.AssignPointerVal(&r.PVCStorageClass, "nfs-client")
 	//create app default for each node type
 	defOne := OneOfSystem{}
 	val := reflect.ValueOf(&defOne)
@@ -115,10 +132,11 @@ func LoadDef(in *LabSpec, def KNLConfigSpec) error {
 	//node defaults
 	defVal := reflect.ValueOf(def.DefaultNode)
 	var err error
-	for i := range in.NodeList {
-		node, fieldName := in.NodeList[i].OneOfSystem.GetSystem()
+	for nodeName := range in.NodeList {
+		nodesys := in.NodeList[nodeName]
+		node, fieldName := nodesys.GetSystem()
 		if node == nil {
-			return fmt.Errorf("node %d's type is not specified", i+1)
+			return fmt.Errorf("node %v's type is not specified", nodeName)
 		}
 		def := defVal.FieldByName(fieldName)
 		if !def.IsValid() {
@@ -136,14 +154,56 @@ func LoadDef(in *LabSpec, def KNLConfigSpec) error {
 	return nil
 }
 
+func isStrNotSpecfied(str *string) bool {
+	if str == nil {
+		return true
+	}
+	if strings.TrimSpace(*str) == "" {
+		return true
+	}
+	return false
+}
+
 func (knlcfg *KNLConfig) Validate() error {
-	if knlcfg.Spec.FTPSever != nil {
-		if len(*knlcfg.Spec.FTPSever) > 0 {
-			_, err := netip.ParseAddr(*knlcfg.Spec.FTPSever)
+
+	if p, err := netip.ParsePrefix(*knlcfg.Spec.VXLANGrpPrefix); err != nil {
+		return fmt.Errorf("%v is not valid VxLAN Group IP prefix", *knlcfg.Spec.VXLANGrpPrefix)
+	} else {
+		if !p.Addr().IsMulticast() {
+			return fmt.Errorf("%v is not a multicast address prefix", *knlcfg.Spec.VXLANGrpPrefix)
+		}
+	}
+
+	if *knlcfg.Spec.LinkMtu < 100 || *knlcfg.Spec.LinkMtu > 10000 {
+		return fmt.Errorf("invalid linkmtu %d, must be in range of 100..10000", *knlcfg.Spec.LinkMtu)
+	}
+	if isStrNotSpecfied(knlcfg.Spec.PVCStorageClass) {
+		return fmt.Errorf("storage class not specified")
+	}
+	if isStrNotSpecfied(knlcfg.Spec.SRCPMLoaderImage) {
+		return fmt.Errorf("SR CPM loader image not specified")
+	}
+	if isStrNotSpecfied(knlcfg.Spec.SRIOMLoaderImage) {
+		return fmt.Errorf("SR IOM loader image not specified")
+	}
+	if isStrNotSpecfied(knlcfg.Spec.SideCarHookImg) {
+		return fmt.Errorf("sidecar image not specified")
+	}
+	if knlcfg.Spec.SFTPSever != nil {
+		if len(*knlcfg.Spec.SFTPSever) > 0 {
+			_, err := netip.ParseAddr(*knlcfg.Spec.SFTPSever)
 			if err != nil {
-				return err
+				return fmt.Errorf("invalid file server address %v, %w", *knlcfg.Spec.SFTPSever, err)
 			}
 		}
+	} else {
+		return fmt.Errorf("file server address not specified")
+	}
+	if isStrNotSpecfied(knlcfg.Spec.SFTPUser) {
+		return fmt.Errorf("file server username not specified")
+	}
+	if isStrNotSpecfied(knlcfg.Spec.SFTPPassword) {
+		return fmt.Errorf("file server password not specified")
 	}
 	return nil
 }

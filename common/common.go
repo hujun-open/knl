@@ -1,0 +1,452 @@
+package common
+
+import (
+	"bytes"
+	"context"
+	"encoding/binary"
+	"errors"
+	"fmt"
+	"log"
+	"math/big"
+	"net"
+	"os"
+	"path/filepath"
+	"reflect"
+	"runtime"
+	"strings"
+	"time"
+
+	"github.com/dchest/siphash"
+	ncv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/wait"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	K8SLABELAPPVAL       = `kubenetlab`
+	K8SLABELAPPKey       = `app.kubernetes.io/name`
+	K8SLABELSETUPKEY     = `lab.kubenetlab.net/name`
+	K8SLABELNodeKEY      = `node.kubenetlab.net/name`
+	KNLROOTName          = `knlroot`
+	VMDiskSubFolder      = `vmdisks`
+	IMGSubFolder         = `imgs`
+	CfgSubFolder         = `cfgs`
+	KVirtPodPVCMountRoot = `/var/run/kubevirt-private/vmi-disks/`
+	PVCName              = `knl-pvc` //this must be inline with config/default/pvc
+)
+
+const (
+	macVTAPResourceKey       = `k8s.v1.cni.cncf.io/resourceName`
+	macVTAPResourceValPrefix = `macvtap.network.kubevirt.io`
+	NADAnnonKey              = `k8s.v1.cni.cncf.io/networks`
+)
+
+// SetDefaultStr return inval if it is not "", otherwise return defval
+func SetDefaultStr(inval, defval string) string {
+	if inval == "" {
+		return defval
+	}
+	return inval
+}
+
+// SetDefaultGeneric return inval if it is not nil, otherwise return defVal
+func SetDefaultGeneric[T any](inval *T, defVal T) *T {
+	if inval != nil {
+		return inval
+	}
+	r := new(T)
+	*r = defVal
+	return r
+}
+
+// FillNilPointers copies pointer fields from src into dst when dst's pointer fields are nil.
+// dst must be a pointer to a struct; src must be a struct of the same concrete type.
+//
+// Notes:
+// - Only exported (settable) fields are touched.
+// - If src field is a pointer and non-nil, the pointer value is copied (both dst and src will point to the same underlying value).
+// - If src field is a non-pointer value assignable to the pointer element type, a new pointer is allocated and its value copied.
+func FillNilPointers(dst any, src any) error {
+
+	srcVal := reflect.ValueOf(src)
+	if !srcVal.IsValid() {
+		return fmt.Errorf("src value is not valid")
+	}
+	if srcVal.Kind() == reflect.Interface {
+		srcVal = srcVal.Elem()
+	}
+	dstVal := reflect.ValueOf(dst)
+	if !dstVal.IsValid() {
+		return fmt.Errorf("dst value is not valid")
+	}
+	if dstVal.Kind() == reflect.Interface {
+		dstVal = dstVal.Elem()
+	}
+	if dstVal.Kind() != reflect.Ptr || dstVal.Elem().Kind() != reflect.Struct {
+		return fmt.Errorf("dst must be pointer to struct")
+	}
+
+	if srcVal.Kind() == reflect.Pointer {
+		srcVal = srcVal.Elem()
+	}
+	if srcVal.Kind() != reflect.Struct {
+		return fmt.Errorf("src must be a struct, but got a %v, %v", srcVal.Type().String(), srcVal.Kind())
+	}
+	if srcVal.Type() != dstVal.Elem().Type() {
+		return fmt.Errorf("src type %s doesn't match dst type %s", srcVal.Type(), dstVal.Elem().Type())
+	}
+
+	fillNilPointersValue(dstVal.Elem(), srcVal)
+	return nil
+}
+
+// recursive helper: dstStruct and srcStruct are reflect.Values of kind Struct (addressable for dst).
+func fillNilPointersValue(dstStruct, srcStruct reflect.Value) {
+	for i := 0; i < dstStruct.NumField(); i++ {
+		dstField := dstStruct.Field(i)
+		srcField := srcStruct.Field(i)
+
+		// skip unexported / unsettable fields
+		if !dstField.CanSet() {
+			continue
+		}
+
+		switch dstField.Kind() {
+		case reflect.Ptr:
+			// Only fill when dst pointer is nil and src has a non-zero value
+			if dstField.IsNil() && srcField.IsValid() && !srcField.IsZero() {
+				// If src is a pointer and assignable to dst type, set directly
+				if srcField.Kind() == reflect.Ptr && srcField.Type().AssignableTo(dstField.Type()) {
+					if !srcField.IsNil() {
+						dstField.Set(srcField)
+					}
+				} else {
+					// src is not a pointer: if its type is assignable to pointer elem, allocate and copy
+					elemType := dstField.Type().Elem()
+					if srcField.Type().AssignableTo(elemType) {
+						newPtr := reflect.New(elemType)
+						newPtr.Elem().Set(srcField)
+						dstField.Set(newPtr)
+					}
+				}
+			}
+		case reflect.Struct:
+			// Recurse into nested struct
+			fillNilPointersValue(dstField, srcField)
+		// other kinds ignored
+		default:
+			// do nothing
+		}
+		// For other possible pointer-like container types (slices/maps/interfaces) we intentionally do nothing
+	}
+}
+
+// DO NOT Use this function for API defaulting, because it will create new pointer for all nil fields,
+// which is against of purpose of nil pointer field (meaning it has no user input)
+// NewStructPointerFields create a new value for all pointer top level fields of s
+// s must be a pointer to struct
+func NewStructPointerFields(s any) error {
+	val := reflect.ValueOf(s)
+	if val.Kind() != reflect.Pointer {
+		return fmt.Errorf("not a pointer")
+	}
+	val = val.Elem()
+	if val.Kind() != reflect.Struct {
+		return fmt.Errorf("not a pointer to struct")
+	}
+	for i := 0; i < val.NumField(); i++ {
+		if val.Field(i).Kind() == reflect.Pointer {
+			newval := reflect.New(val.Field(i).Type().Elem())
+			val.Field(i).Set(newval)
+		}
+	}
+	return nil
+}
+
+// AssignPointerVal create a new pointer for inp, and assign val to it
+func AssignPointerVal[T any](inp **T, val T) {
+	*inp = new(T)
+	**inp = val
+
+}
+
+var BaseMACAddr = net.HardwareAddr{0x12, 32, 34, 0, 0, 0}
+
+func DeriveMac(basemac net.HardwareAddr, offset int) net.HardwareAddr {
+	buf := make([]byte, 2)
+	buf = append(buf, basemac...)
+	basenum := binary.BigEndian.Uint64(buf)
+	basenum += uint64(offset)
+	binary.BigEndian.PutUint64(buf, basenum)
+	return buf[2:8]
+}
+
+func MakeErr(ierr error) error {
+	var buf bytes.Buffer
+	pc, _, line, _ := runtime.Caller(1)
+	logger := log.New(&buf, "", 0)
+	logger.Printf("[%s:%d]: %v", runtime.FuncForPC(pc).Name(), line, ierr)
+	return errors.New(buf.String())
+}
+
+func MakeErrviaStr(errs string) error {
+	var buf bytes.Buffer
+	pc, _, line, _ := runtime.Caller(1)
+	logger := log.New(&buf, "", 0)
+	logger.Printf("[%s:%d]: %v", runtime.FuncForPC(pc).Name(), line, errs)
+	return errors.New(buf.String())
+}
+
+func GetObjMeta(objName, labName, labNS string) metav1.ObjectMeta {
+	return metav1.ObjectMeta{
+		Name:      objName,
+		Namespace: labNS,
+		Labels: map[string]string{
+			K8SLABELAPPKey:   K8SLABELAPPVAL,
+			K8SLABELSETUPKEY: labName,
+		},
+	}
+}
+
+func NewFBBridgeNetworkDef(nsName, labName, brName string, mtu int) *ncv1.NetworkAttachmentDefinition {
+	const specTempalte = `
+	{
+		"cniVersion": "0.3.1",
+		"name": "%v",
+		"type": "bridge",
+		"mtu": %d,
+		"bridge": "%v",
+		"ipam": {}
+	}
+	`
+	return &ncv1.NetworkAttachmentDefinition{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "k8s.cni.cncf.io/v1",
+			Kind:       "NetworkAttachmentDefinition",
+		},
+		ObjectMeta: GetObjMeta(brName, labName, nsName),
+		Spec: ncv1.NetworkAttachmentDefinitionSpec{
+			Config: fmt.Sprintf(specTempalte, brName, mtu, brName),
+		},
+	}
+}
+
+func NewPortMACVTAPNAD(nsName, labName, nadname, resname string, mtu uint16, mac *net.HardwareAddr) *ncv1.NetworkAttachmentDefinition {
+	const specTempalte = `
+	{
+		"cniVersion": "0.3.1",
+		"name": "%v",
+		"type": "macvtap",
+		"mode": "passthru", 
+		"removeparents": true,
+		"promiscMode": true,
+		"mtu": %d
+	}`
+
+	const specWithMACTempalte = `
+	{
+		"cniVersion": "0.3.1",
+		"plugins": [
+		  {
+			"cniVersion": "0.3.1",
+			"name": "%v",
+			"type": "macvtap",
+			"mode": "passthru", 
+			"removeparents": true,
+			"promiscMode": true,
+			"mtu": %d
+		  },
+		  {
+			"type": "tuning",
+			"mac": "%v"
+		  }
+		]
+	  }
+	
+	
+	`
+
+	r := &ncv1.NetworkAttachmentDefinition{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "k8s.cni.cncf.io/v1",
+			Kind:       "NetworkAttachmentDefinition",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      nadname,
+			Namespace: nsName,
+			Labels: map[string]string{
+				K8SLABELAPPKey:   K8SLABELAPPVAL,
+				K8SLABELSETUPKEY: labName,
+			},
+			Annotations: map[string]string{
+				macVTAPResourceKey: macVTAPResourceValPrefix + "/" + resname,
+			},
+		},
+		Spec: ncv1.NetworkAttachmentDefinitionSpec{
+			Config: fmt.Sprintf(specTempalte, nadname, mtu),
+		},
+	}
+	if mac != nil {
+		r.Spec.Config = fmt.Sprintf(specWithMACTempalte, nadname, mtu, mac.String())
+	}
+	return r
+}
+
+// GetFTPSROSImgPath returns sros image ftp path for a given vsim
+func GetFTPSROSImgPath(vsimid int) string {
+	// return filepath.Join(gconf.SROSImgRoot, fmt.Sprintf("vsim%d-os", vsimid))
+	return filepath.Join("/"+IMGSubFolder, fmt.Sprintf("vsim%d-os", vsimid))
+
+}
+
+func ReCreateSymLink(vsimid int, newtarget string) error {
+	// gconf := conf.GCONF
+	newTargetPath := filepath.Join("/"+KNLROOTName, IMGSubFolder, newtarget)
+	os.MkdirAll(newTargetPath, 0750)
+	os.Remove(filepath.Join("/"+KNLROOTName, GetFTPSROSImgPath(vsimid)))
+	return os.Symlink(newTargetPath,
+		filepath.Join("/"+KNLROOTName, GetFTPSROSImgPath(vsimid)))
+}
+
+func WaitForObjGone(ctx context.Context, clnt client.Client, ns string, obj client.Object) {
+	wg := new(wait.Group)
+	wctx, cancelf := context.WithDeadline(ctx, time.Now().Add(60*time.Second))
+	defer cancelf()
+	wg.StartWithContext(wctx, func(c context.Context) {
+		wait.PollUntilContextCancel(c, time.Second, false, func(cc context.Context) (bool, error) {
+			err := clnt.Get(cc, types.NamespacedName{Namespace: ns, Name: obj.GetName()},
+				obj,
+			)
+			if err != nil {
+				if apierrors.IsNotFound(err) {
+					return true, nil
+				} else {
+					return false, err
+				}
+			}
+			return false, nil
+		})
+
+	})
+}
+
+func IsCPM(slot string) bool {
+	return slot == "A" || slot == "B"
+}
+
+func GetVSROSFBName(vmtype NodeType, vmid int) string {
+	return fmt.Sprintf("%v-%v-fb", vmtype, vmid)
+}
+
+func GetMAGCDFName(vmid int) string {
+	return fmt.Sprintf("magc-%d-fb", vmid)
+}
+
+func GetMACVTAPResName(lab, node, link string) string {
+	return GenerateHashedInterfaceName(GetNodeLinkCombName(lab, node, link), "a")
+}
+func GenerateHashedInterfaceName(linkName, suffix string) string {
+	hashNum := siphash.Hash(0x32487, 0xaed2345, []byte(linkName))
+	base62str := big.NewInt(int64(hashNum)).Text(62)
+	if strings.HasPrefix(base62str, "-") {
+		base62str = "N" + base62str[1:]
+	}
+	rstr := fmt.Sprintf("%s%s", base62str, suffix)
+	if len(rstr) > 14 {
+		panic(fmt.Sprintf("%v is too long", rstr))
+	}
+	return rstr
+}
+func GetNodeLinkCombName(lab, node, link string) string {
+	return fmt.Sprintf("%v-%v-%v", lab, node, link)
+}
+func GetMACVTAPBrName(lab, link string) string {
+	return GenerateHashedInterfaceName(lab+link, "")
+}
+func GetMACVTAPVethBrName(lab, node, link string) string {
+	return GenerateHashedInterfaceName(
+		GetNodeLinkCombName(lab, node, link), "b")
+}
+func GetMACVTAPVXLANIfName(lab, link string) string {
+	return GenerateHashedInterfaceName(lab+link, "v")
+}
+func GetLinkMACVTAPNADName(lab, node, link string) string {
+	return GetNodeLinkCombName(lab, node, link)
+}
+
+// GetFTPSROSCfgPath return ftp path for config folder for a SR node in a lab
+func GetSRConfigFTPSubFolder(labname string, vsimid int) string {
+	return filepath.Join("/"+KNLROOTName, CfgSubFolder, labname, fmt.Sprintf("vsim-%d", vsimid))
+
+}
+func NewDV(namespace, labName, dvName, nodeImg string, stroageclass *string, disksize *resource.Quantity) *cdiv1.DataVolume {
+	// func newDV(lab *ParsedLabSpec, nodeName, nodeImg string) *cdiv1.DataVolume {
+	r := new(cdiv1.DataVolume)
+
+	r.ObjectMeta = metav1.ObjectMeta{
+		Name:      dvName,
+		Namespace: namespace,
+		Labels: map[string]string{
+			K8SLABELAPPKey:   K8SLABELAPPVAL,
+			K8SLABELSETUPKEY: labName,
+		},
+	}
+	r.Spec.PVC = &corev1.PersistentVolumeClaimSpec{
+		StorageClassName: stroageclass,
+		AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
+	}
+	r.Spec.PVC.Resources.Requests = make(corev1.ResourceList)
+	r.Spec.PVC.Resources.Requests[corev1.ResourceStorage] = *disksize
+	r.Spec.Source = &cdiv1.DataVolumeSource{
+		Registry: &cdiv1.DataVolumeSourceRegistry{
+			URL: &nodeImg,
+		},
+	}
+	return r
+}
+
+func GetDVName(lab, node string) string {
+	return fmt.Sprintf("%v-%v", lab, node)
+}
+
+const (
+	FixedSRVMMgmtAddrPrefixStr = "10.0.2.2/24"
+	FixedFTPProxyUser          = "ftp"
+	FixedFTPProxyPass          = "ftp"
+	FixedFTPProxySvr           = "10.0.2.1"
+)
+
+// chassis is sysinfo string specified in API that only contains chassis,card, mda, sfm
+func GenSysinfo(chassis string, cardid, cfgURL, licURL string) string {
+
+	return fmt.Sprintf("TIMOS: slot=%v %v address=%v@active primary-config=%v license-file=%v",
+		cardid, chassis, FixedSRVMMgmtAddrPrefixStr, cfgURL, licURL)
+}
+
+func IsIntegratedChassis(chassis string) bool {
+	switch chassis {
+	case "SR-1", "SR-1s", "VSR-I":
+		return true
+	}
+	return false
+}
+
+func IsIntegratedChassisViaSysinfo(sysinfo string) bool {
+	return IsIntegratedChassis(GetChassisFromSysinfoStr(sysinfo))
+}
+func GetChassisFromSysinfoStr(sysinfostr string) string {
+	flist := strings.Fields(strings.TrimSpace(sysinfostr))
+	for _, f := range flist {
+		f = strings.TrimSpace(f)
+		if rs, ok := strings.CutPrefix(f, "chassis="); ok {
+			return rs
+		}
+	}
+	return ""
+}

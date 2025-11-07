@@ -28,7 +28,7 @@ import (
 
 	"kubenetlab.net/knl/api/v1beta1"
 	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
-	"kubenetlab.net/knl/internal/common"
+	"kubenetlab.net/knl/common"
 )
 
 // nolint:unused
