@@ -4,12 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
-	"net/netip"
 	"os"
 	"path/filepath"
 
-	"github.com/kubevirt/macvtap-cni/pkg/deviceplugin"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,59 +70,59 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 	} else {
 		//IOM VM, check link NAD and macvtapcfg
 		//macvatpcfg
-		cfgList := []deviceplugin.MacvtapConfig{}
-		if linkList, ok := lab.ConnectorMap[nodeName]; ok {
-			for _, linkName := range linkList {
-				var gwPrefix *netip.Prefix = nil
-				if lab.Lab.Spec.LinkList[linkName].GWAddr != nil {
-					p := netip.MustParsePrefix(*lab.Lab.Spec.LinkList[linkName].GWAddr)
-					gwPrefix = &p
-				}
-				cfgList = append(cfgList, deviceplugin.MacvtapConfig{
-					Name:        common.GetMACVTAPResName(lab.Lab.Name, nodeName, linkName),
-					LowerDevice: common.GetMACVTAPResName(lab.Lab.Name, nodeName, linkName),
-					Desc:        fmt.Sprintf("%v-%v-%v", lab.Lab.Name, nodeName, linkName),
-					Mode:        "passthru",
-					Capacity:    1,
-					MacVethBR: &deviceplugin.MacVethBRConfig{
-						BridgeAddr:           gwPrefix,
-						Bridge:               common.GetMACVTAPBrName(lab.Lab.Name, linkName),
-						VethBR:               common.GetMACVTAPVethBrName(lab.Lab.Name, nodeName, linkName),
-						VxLANIfName:          common.GetMACVTAPVXLANIfName(lab.Lab.Name, nodeName),
-						VxLANMutilcastPrefix: netip.MustParsePrefix(*gconf.VXLANGrpPrefix),
-						MTU:                  int(*gconf.LinkMtu),
-					},
-				})
+		// cfgList := []deviceplugin.MacvtapConfig{}
+		// if linkList, ok := lab.ConnectorMap[nodeName]; ok {
+		// 	for _, linkName := range linkList {
+		// 		var gwPrefix *netip.Prefix = nil
+		// 		if lab.Lab.Spec.LinkList[linkName].GWAddr != nil {
+		// 			p := netip.MustParsePrefix(*lab.Lab.Spec.LinkList[linkName].GWAddr)
+		// 			gwPrefix = &p
+		// 		}
+		// 		cfgList = append(cfgList, deviceplugin.MacvtapConfig{
+		// 			Name:        common.GetMACVTAPResName(lab.Lab.Name, nodeName, linkName),
+		// 			LowerDevice: common.GetMACVTAPResName(lab.Lab.Name, nodeName, linkName),
+		// 			Desc:        fmt.Sprintf("%v-%v-%v", lab.Lab.Name, nodeName, linkName),
+		// 			Mode:        "passthru",
+		// 			Capacity:    1,
+		// 			MacVethBR: &deviceplugin.MacVethBRConfig{
+		// 				BridgeAddr:           gwPrefix,
+		// 				Bridge:               common.GetMACVTAPBrName(lab.Lab.Name, linkName),
+		// 				VethBR:               common.GetMACVTAPVethBrName(lab.Lab.Name, nodeName, linkName),
+		// 				VxLANIfName:          common.GetMACVTAPVXLANIfName(lab.Lab.Name, nodeName),
+		// 				VxLANMutilcastPrefix: netip.MustParsePrefix(*gconf.VXLANGrpPrefix),
+		// 				MTU:                  int(*gconf.LinkMtu),
+		// 			},
+		// 		})
 
-				_, c := lab.Lab.getLinkandConnector(nodeName, linkName)
-				var mac *net.HardwareAddr = nil
-				if c != nil {
-					if c.Mac != nil {
-						pmac, err := net.ParseMAC(*c.Mac)
-						if err == nil {
-							mac = &pmac
-						}
-					}
-				}
-				linkNAD := common.NewPortMACVTAPNAD(
-					lab.Lab.Namespace,
-					lab.Lab.Name,
-					common.GetLinkMACVTAPNADName(lab.Lab.Name, nodeName, linkName),
-					common.GetMACVTAPResName(lab.Lab.Name, nodeName, linkName),
-					uint16(*gconf.LinkMtu),
-					mac,
-				)
-				err = createIfNotExistsOrRemove(ctx, clnt, lab, linkNAD, true, forceRemoval)
-				if err != nil {
-					return common.MakeErr(err)
-				}
+		// 		_, c := lab.Lab.getLinkandConnector(nodeName, linkName)
+		// 		var mac *net.HardwareAddr = nil
+		// 		if c != nil {
+		// 			if c.Mac != nil {
+		// 				pmac, err := net.ParseMAC(*c.Mac)
+		// 				if err == nil {
+		// 					mac = &pmac
+		// 				}
+		// 			}
+		// 		}
+		// 		linkNAD := common.NewPortMACVTAPNAD(
+		// 			lab.Lab.Namespace,
+		// 			lab.Lab.Name,
+		// 			common.GetLinkMACVTAPNADName(lab.Lab.Name, nodeName, linkName),
+		// 			common.GetMACVTAPResName(lab.Lab.Name, nodeName, linkName),
+		// 			uint16(*gconf.LinkMtu),
+		// 			mac,
+		// 		)
+		// 		err = createIfNotExistsOrRemove(ctx, clnt, lab, linkNAD, true, forceRemoval)
+		// 		if err != nil {
+		// 			return common.MakeErr(err)
+		// 		}
 
-			}
-		}
-		err := UpdateMACVTAPDPCfg(clnt, cfgList, !forceRemoval)
-		if err != nil {
-			return common.MakeErr(err)
-		}
+		// 	}
+		// }
+		// err := UpdateMACVTAPDPCfg(clnt, cfgList, !forceRemoval)
+		// if err != nil {
+		// 	return common.MakeErr(err)
+		// }
 
 	}
 	//per system operation (one time per system)

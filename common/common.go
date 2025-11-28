@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
@@ -449,4 +450,65 @@ func GetChassisFromSysinfoStr(sysinfostr string) string {
 		}
 	}
 	return ""
+}
+
+// Regex for a basic FQDN check based on RFCs 952 and 1123,
+// allowing letters, numbers, and hyphens in labels, but not starting/ending with a hyphen.
+// It also ensures a top-level domain (TLD) exists. This is a common, though not exhaustive, validation.
+const fqdnRegex = `^(([a-zA-Z0-9]|[a-zA-Z0-9][a-zA-Z0-9\-]*[a-zA-Z0-9])\.)*([A-Za-z0-9]|[A-Za-z0-9][A-Za-z0-9\-]*[A-Za-z0-9])$`
+
+var fqdnPattern = regexp.MustCompile(fqdnRegex)
+
+// IsValidFQDN performs a basic FQDN validation using a regular expression.
+func IsValidFQDN(s string) bool {
+	// FQDN length constraint: max 253 characters (excluding a trailing dot, if present)
+	if len(s) > 253 {
+		return false
+	}
+
+	// A domain name label (part between dots) cannot exceed 63 characters.
+	// The regex implicitly handles other RFC rules like allowed characters.
+
+	// FQDN regex match
+	return fqdnPattern.MatchString(s)
+}
+
+// IsIPOrFQDN checks if the input string is a valid IP address or a valid FQDN.
+func IsIPOrFQDN(host string) bool {
+	// 1. Check for IP Address (IPv4 or IPv6)
+	if net.ParseIP(host) != nil {
+		return true
+	}
+
+	// 2. Check for FQDN (if not an IP)
+	return IsValidFQDN(host)
+
+}
+func GetPodName(lab, node string) string {
+	return lab + "-" + node
+}
+func NewBasePod(labName, nodeName, nameSpace, image string) *corev1.Pod {
+	// gconf := conf.GCONF
+	r := new(corev1.Pod)
+	r.ObjectMeta = GetObjMeta(
+		GetPodName(labName, nodeName),
+		labName,
+		nameSpace,
+	)
+	r.ObjectMeta.Labels[K8SLABELNodeKEY] = nodeName
+	r.Spec.Containers = []corev1.Container{
+		{
+			Name:  "main",
+			Image: image,
+		},
+	}
+	r.ObjectMeta.Annotations = make(map[string]string)
+	return r
+}
+
+func GetPointerVal[T any](v T) *T {
+	r := new(T)
+	*r = v
+	return r
+
 }

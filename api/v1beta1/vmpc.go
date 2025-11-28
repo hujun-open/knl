@@ -6,7 +6,7 @@ import (
 )
 
 func init() {
-	common.NewSysRegistry[VPC] = func() common.System { return new(VMPC) }
+	// common.NewSysRegistry[VPC] = func() common.System { return new(VMPC) }
 }
 
 type VMPC struct {
@@ -15,7 +15,7 @@ type VMPC struct {
 	DiskSize      *resource.Quantity `json:"diskSize,omitempty"`
 	PinCPU        bool               `json:"cpuPin,omitempty"`
 	HugePage      bool               `json:"hugePage,omitempty"`
-	Image         string             `json:"image,omitempty"` //for node type that use ftp, this is the folder name, not full URL
+	Image         string             `json:"image,omitempty"`
 	DisablePodNet bool               `json:"disablePodNet,omitempty"`
 	InitMethod    string             `json:"init,omitempty"`
 	Ports         *[]int32           `json:"ports,omitempty"`

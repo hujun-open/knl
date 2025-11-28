@@ -43,7 +43,11 @@ type KNLConfigSpec struct {
 	// +optional
 	SFTPSever *string `json:"fileSvr,omitempty"`
 	// +optional
-	VXLANGrpPrefix *string `json:"vxlanGrp,omitempty"`
+	VXLANGrpAddr *string `json:"vxlanGrp,omitempty"`
+	// +optional
+	VXLANDefaultDev *string `json:"defaultVxlanDev,omitempty"`
+	// +optional
+	VxDevMap map[string]string `json:"vxlanDevMap,omitempty"`
 	// +optional
 	LinkMtu *uint `json:"linkMTU,omitempty"`
 	// +optional
@@ -64,9 +68,10 @@ type KNLConfigSpec struct {
 // this is the application default, meaning when user didn't specify the corresponding field in KNLconfig
 func DefKNLConfig() KNLConfigSpec {
 	var r KNLConfigSpec
+	common.AssignPointerVal(&r.SFTPSever, "knl-sftp-service.knl-system.svc.cluster.local")
 	common.AssignPointerVal(&r.SFTPUser, "ftp")
 	common.AssignPointerVal(&r.SFTPPassword, "ftp")
-	common.AssignPointerVal(&r.VXLANGrpPrefix, "ff18::100/64")
+	common.AssignPointerVal(&r.VXLANGrpAddr, "ff18::100")
 	common.AssignPointerVal(&r.LinkMtu, 7000)
 	common.AssignPointerVal(&r.PVCStorageClass, "nfs-client")
 	//create app default for each node type
@@ -127,7 +132,7 @@ func init() {
 	SchemeBuilder.Register(&KNLConfig{}, &KNLConfigList{})
 }
 
-// loadDef load non-specified fields of in with def
+// loadDef load non-specified fields of in with def, using DefaultNode in KNLConfigSpec
 func LoadDef(in *LabSpec, def KNLConfigSpec) error {
 	//node defaults
 	defVal := reflect.ValueOf(def.DefaultNode)
@@ -166,13 +171,20 @@ func isStrNotSpecfied(str *string) bool {
 
 func (knlcfg *KNLConfig) Validate() error {
 
-	if p, err := netip.ParsePrefix(*knlcfg.Spec.VXLANGrpPrefix); err != nil {
-		return fmt.Errorf("%v is not valid VxLAN Group IP prefix", *knlcfg.Spec.VXLANGrpPrefix)
+	if addr, err := netip.ParseAddr(*knlcfg.Spec.VXLANGrpAddr); err != nil {
+		return fmt.Errorf("%v is not valid VxLAN Group IP addr", *knlcfg.Spec.VXLANGrpAddr)
 	} else {
-		if !p.Addr().IsMulticast() {
-			return fmt.Errorf("%v is not a multicast address prefix", *knlcfg.Spec.VXLANGrpPrefix)
+		if addr.Is4() || !addr.IsMulticast() {
+			return fmt.Errorf("VxLAN Group IP addr %v is not a IPv6 multicast address", *knlcfg.Spec.VXLANGrpAddr)
 		}
 	}
+	// if p, err := netip.ParsePrefix(*knlcfg.Spec.VXLANGrpPrefix); err != nil {
+	// 	return fmt.Errorf("%v is not valid VxLAN Group IP prefix", *knlcfg.Spec.VXLANGrpPrefix)
+	// } else {
+	// 	if !p.Addr().IsMulticast() {
+	// 		return fmt.Errorf("%v is not a multicast address prefix", *knlcfg.Spec.VXLANGrpPrefix)
+	// 	}
+	// }
 
 	if *knlcfg.Spec.LinkMtu < 100 || *knlcfg.Spec.LinkMtu > 10000 {
 		return fmt.Errorf("invalid linkmtu %d, must be in range of 100..10000", *knlcfg.Spec.LinkMtu)
@@ -190,11 +202,8 @@ func (knlcfg *KNLConfig) Validate() error {
 		return fmt.Errorf("sidecar image not specified")
 	}
 	if knlcfg.Spec.SFTPSever != nil {
-		if len(*knlcfg.Spec.SFTPSever) > 0 {
-			_, err := netip.ParseAddr(*knlcfg.Spec.SFTPSever)
-			if err != nil {
-				return fmt.Errorf("invalid file server address %v, %w", *knlcfg.Spec.SFTPSever, err)
-			}
+		if !common.IsIPOrFQDN(*knlcfg.Spec.SFTPSever) {
+			return fmt.Errorf("%v is not a valid IP address or FQDN", *knlcfg.Spec.SFTPSever)
 		}
 	} else {
 		return fmt.Errorf("file server address not specified")

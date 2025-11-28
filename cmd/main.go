@@ -35,6 +35,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	lanv1beta1 "github.com/hujun-open/k8slan/api/v1beta1"
 	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
 	"kubenetlab.net/knl/internal/controller"
 	webhookv1beta1 "kubenetlab.net/knl/internal/webhook/v1beta1"
@@ -50,6 +51,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(knlv1beta1.AddToScheme(scheme))
+	utilruntime.Must(lanv1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 

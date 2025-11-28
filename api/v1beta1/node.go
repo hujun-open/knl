@@ -10,10 +10,13 @@ import (
 type OneOfSystem struct {
 	// +optional
 	// +nullable
-	SRVM *SRVM `json:"srvm,omitempty"`
+	// SRVM *SRVM `json:"srvm,omitempty"`
 	// +optional
 	// +nullable
-	VMPC *VMPC `json:"vpc,omitempty"`
+	// VMPC *VMPC `json:"vpc,omitempty"`
+	// +optional
+	// +nullable
+	SRL *SRLinux `json:"srl,omitempty"`
 }
 
 //nullable marker + omitempty in OneOfSystem is important, it allows have a empty node specific in the CR with `{}`

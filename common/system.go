@@ -1,7 +1,10 @@
 package common
 
 import (
+	"context"
 	"strings"
+
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // System interface is implemented by each node type
@@ -13,7 +16,8 @@ type System interface {
 	FillDefaultVal(nodeName string)
 	//Validate is used by validation webhook
 	Validate() error
-	// GetNodeType(name string) NodeType
+	//Ensure is called by controller to reconcile
+	Ensure(ctx context.Context, nodeName string, clnt client.Client, forceRemoval bool) error
 }
 
 type NodeType string

@@ -152,3 +152,8 @@ func checkVMIfail(obj client.Object) error {
 		return fmt.Errorf("object is not a vmi")
 	}
 }
+
+const (
+	MultusAnnoKey      = "k8s.v1.cni.cncf.io/networks"
+	K8sLANResKeyPrefix = "macvtap.k8slan.io"
+)

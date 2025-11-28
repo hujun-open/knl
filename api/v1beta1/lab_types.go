@@ -18,6 +18,7 @@ package v1beta1
 
 import (
 	"reflect"
+	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kubenetlab.net/knl/common"
@@ -124,4 +125,18 @@ func (lab *Lab) getLinkandConnector(node, linkName string) (*Link, *Connector) {
 		}
 	}
 	return nil, nil
+}
+
+func (labspec *LabSpec) GetNodeSortIndex(nodeName string) int {
+	var keys []string
+	for key := range labspec.NodeList {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for i, name := range keys {
+		if name == nodeName {
+			return i
+		}
+	}
+	return -1
 }

@@ -7,10 +7,10 @@ import (
 )
 
 func init() {
-	newf := func() common.System { return new(SRVM) }
-	common.NewSysRegistry[VSIM] = newf
-	common.NewSysRegistry[VSRI] = newf
-	common.NewSysRegistry[MAGC] = newf
+	// newf := func() common.System { return new(SRVM) }
+	// common.NewSysRegistry[VSIM] = newf
+	// common.NewSysRegistry[VSRI] = newf
+	// common.NewSysRegistry[MAGC] = newf
 
 }
 
@@ -40,26 +40,36 @@ func (srvm *SRVM) FillDefaultVal(name string) {
 	}
 	//set managment open ports
 	defaultPorts := new([]kvv1.Port)
-	*defaultPorts = append(*defaultPorts, kvv1.Port{
-		Name:     "ssh",
-		Protocol: "tcp",
-		Port:     22,
-	})
-	*defaultPorts = append(*defaultPorts, kvv1.Port{
-		Name:     "netconf",
-		Protocol: "tcp",
-		Port:     830,
-	})
-	*defaultPorts = append(*defaultPorts, kvv1.Port{
-		Name:     "gnmi",
-		Protocol: "tcp",
-		Port:     57400,
-	})
-	*defaultPorts = append(*defaultPorts, kvv1.Port{
-		Name:     "radiuscoa",
-		Protocol: "udp",
-		Port:     3799,
-	})
+
+	if isCPM {
+
+		*defaultPorts = append(*defaultPorts, kvv1.Port{
+			Name:     "ssh",
+			Protocol: "tcp",
+			Port:     22,
+		})
+		*defaultPorts = append(*defaultPorts, kvv1.Port{
+			Name:     "netconf",
+			Protocol: "tcp",
+			Port:     830,
+		})
+		*defaultPorts = append(*defaultPorts, kvv1.Port{
+			Name:     "gnmi",
+			Protocol: "tcp",
+			Port:     57400,
+		})
+		*defaultPorts = append(*defaultPorts, kvv1.Port{
+			Name:     "radiuscoa",
+			Protocol: "udp",
+			Port:     3799,
+		})
+	} else {
+		*defaultPorts = append(*defaultPorts, kvv1.Port{
+			Name:     "dummy",
+			Protocol: "tcp",
+			Port:     1,
+		})
+	}
 	srvm.Ports = common.SetDefaultGeneric(srvm.Ports, *defaultPorts)
 	//set srsysinfo
 	switch nt {
