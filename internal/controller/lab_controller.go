@@ -19,14 +19,18 @@ package controller
 import (
 	"context"
 
+	k8slan "github.com/hujun-open/k8slan/api/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"kubenetlab.net/knl/api/v1beta1"
+	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
+	"kubenetlab.net/knl/common"
+	kvv1 "kubevirt.io/api/core/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	"kubenetlab.net/knl/api/v1beta1"
-	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
 )
 
 // LabReconciler reconciles a Lab object
@@ -121,10 +125,57 @@ func (r *LabReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	return ctrl.Result{}, nil
 }
 
+type myObj[B any] interface {
+	client.Object
+	*B
+}
+
+var (
+	OwnerKey = ".metadata.controller"
+	apiGVStr = knlv1beta1.GroupVersion.String()
+)
+
+func extractKey[T client.Object](rawObj client.Object) []string {
+	job := rawObj.(T)
+	owner := metav1.GetControllerOf(job)
+	if owner == nil {
+		return nil
+	}
+
+	if owner.APIVersion != apiGVStr || owner.Kind != "Lab" {
+		return nil
+	}
+
+	// ...and if so, return it
+	return []string{owner.Name}
+}
+
+func registrResource[T any, PT myObj[T]](ctx context.Context, mgr ctrl.Manager) error {
+	return mgr.GetFieldIndexer().IndexField(ctx,
+		PT(new(T)),
+		OwnerKey,
+		extractKey[PT])
+}
+
 // SetupWithManager sets up the controller with the Manager.
 func (r *LabReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	if err := registrResource[corev1.Pod](context.Background(), mgr); err != nil {
+		return common.MakeErr(err)
+	}
+	if err := registrResource[corev1.PersistentVolumeClaim](context.Background(), mgr); err != nil {
+		return common.MakeErr(err)
+	}
+	if err := registrResource[kvv1.VirtualMachineInstance](context.Background(), mgr); err != nil {
+		return common.MakeErr(err)
+	}
+	if err := registrResource[k8slan.LAN](context.Background(), mgr); err != nil {
+		return common.MakeErr(err)
+	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&knlv1beta1.Lab{}).
+		Owns(&kvv1.VirtualMachineInstance{}).
+		Owns(&corev1.Pod{}).
+		Owns(&k8slan.LAN{}).
 		Named("lab").
 		Complete(r)
 }

@@ -20,7 +20,9 @@ func init() {
 }
 
 const (
-	SRL common.NodeType = "srl"
+	SRL           common.NodeType = "srl"
+	BaseMACPrefix string          = "FA:FA"
+	EtcPVCSize    string          = "100Mi"
 )
 
 // chassis_type-base_mac-cpm-slot-iom-mda
@@ -66,10 +68,6 @@ func parseChassisStr(chassis string) (*SRLChassis, error) {
 	r.SlotConfig[slotId] = slotCfg
 	return r, nil
 }
-
-const (
-	BaseMACPrefix = "FA:FA"
-)
 
 func getBaseMAC(i int) string {
 	return fmt.Sprintf("%v:%X:00:00:00", BaseMACPrefix, i)
@@ -124,10 +122,16 @@ func getSRLChassisViaTypeStr(chassisType string) (*SRLChassis, error) {
 	}
 }
 
+/*
+SRLinux creates a pod for SRL:
+- the specified Chassis will creates a configmap and mounted as /tmp/topology.yml
+- the specified LicSecrete reference to a secret, mounted as /opt/srlinux/etc/license.key
+- create a PVC mount on /etc/opt/srlinux/checkpoint for persistent configuration
+*/
 type SRLinux struct {
-	Image        *string `json:"image,omitempty"`
-	Chassis      *string `json:"chassis,omitempty"`
-	LicConfigMap *string `json:"license,omitempty"`
+	Image     *string `json:"image,omitempty"`
+	Chassis   *string `json:"chassis,omitempty"`
+	LicSecret *string `json:"license,omitempty"`
 }
 
 func (srl *SRLinux) SetToAppDefVal() {
@@ -173,6 +177,23 @@ type SRLChassis struct {
 	SlotConfig           map[int]slotConfig   `yaml:"slot_configuration"`
 }
 
+func (srl *SRLinux) getEtcPVC(ns, nodeName, labName string) *corev1.PersistentVolumeClaim {
+	gconf := GCONF.Get()
+	name := fmt.Sprintf("%v-%v-etc", labName, nodeName)
+	return &corev1.PersistentVolumeClaim{
+		ObjectMeta: common.GetObjMeta(name, labName, ns),
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
+			StorageClassName: common.GetPointerVal(*gconf.PVCStorageClass),
+			Resources: corev1.VolumeResourceRequirements{
+				Requests: map[corev1.ResourceName]resource.Quantity{
+					corev1.ResourceStorage: resource.MustParse(EtcPVCSize),
+				},
+			},
+		},
+	}
+}
+
 func (srl *SRLinux) getConfigMapFromSRLChassis(ns, nodeName, labName string, nodeIndex int) *corev1.ConfigMap {
 	name := fmt.Sprintf("%v-%v-topo", labName, nodeName)
 
@@ -206,13 +227,18 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 		return common.MakeErr(fmt.Errorf("context stored value is not a ParsedLabSpec"))
 	}
 	//create configmap
-
 	topoCM := srl.getConfigMapFromSRLChassis(lab.Lab.Namespace, nodeName, lab.Lab.Name, lab.Lab.Spec.GetNodeSortIndex(nodeName))
-
 	err := createIfNotExistsOrRemove(ctx, clnt, lab, topoCM, true, false)
 	if err != nil {
 		return fmt.Errorf("failed to create topology configmap for SRL %v in lab %v, %w", nodeName, lab.Lab.Name, err)
 	}
+	//create PVC for etc
+	etcPVC := srl.getEtcPVC(lab.Lab.Namespace, nodeName, lab.Lab.Name)
+	err = createIfNotExistsOrRemove(ctx, clnt, lab, etcPVC, false, false)
+	if err != nil {
+		return fmt.Errorf("failed to create etc pvc for SRL %v in lab %v, %w", nodeName, lab.Lab.Name, err)
+	}
+
 	//create pod
 	pod := common.NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *srl.Image)
 	pod.Spec.Containers[0].Command = []string{"/tini", "--", "fixuid", "-q", "/entrypoint.sh", "sudo", "bash", "/opt/srlinux/bin/sr_linux"}
@@ -226,11 +252,10 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 			MountPath: "/tmp/topology.yml",
 			SubPath:   "topology.yml",
 		},
-		// {
-		// 	Name:      "lic",
-		// 	MountPath: "/opt/srlinux/etc/license.key",
-		// 	SubPath:   "license.key",
-		// },
+		{ //this is to persistent configuration, can't mount to /etc/opt/srlinux/ directly due to filesystem ACL requirement, will cause linux_mgr to crash
+			Name:      "etc",
+			MountPath: "/etc/opt/srlinux/checkpoint",
+		},
 	}
 	pod.Spec.Volumes = []corev1.Volume{
 		{
@@ -243,19 +268,18 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 				},
 			},
 		},
-		// {
-		// 	Name: "lic",
-		// 	VolumeSource: corev1.VolumeSource{
-		// 		ConfigMap: &corev1.ConfigMapVolumeSource{
-		// 			LocalObjectReference: corev1.LocalObjectReference{
-		// 				Name: *srl.LicConfigMap,
-		// 			},
-		// 		},
-		// 	},
-		// },
+		{
+			Name: "etc",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: etcPVC.Name,
+					ReadOnly:  false,
+				},
+			},
+		},
 	}
 	//add lic if specified
-	if srl.LicConfigMap != nil {
+	if srl.LicSecret != nil {
 		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
 			Name:      "lic",
 			MountPath: "/opt/srlinux/etc/license.key",
@@ -264,10 +288,8 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 			Name: "lic",
 			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: *srl.LicConfigMap,
-					},
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: *srl.LicSecret,
 				},
 			},
 		})

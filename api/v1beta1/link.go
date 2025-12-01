@@ -6,6 +6,8 @@ import (
 
 	"github.com/bits-and-blooms/bitset"
 	k8slan "github.com/hujun-open/k8slan/api/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"kubenetlab.net/knl/common"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -36,32 +38,27 @@ func Getk8lanVxName(lab, link string) string {
 }
 
 // This function requires controller's MaxConcurrentReconciles == 1, otherwise there is race issue
-func GetAvailableVNI(ctx context.Context, clnt client.Client, requiredNum int) ([]int32, error) {
+func GetAvailableVNI(ctx context.Context, clnt client.Client, requiredNum int) (int32, error) {
 	const maxVNI = 16777215
 	bset := bitset.New(maxVNI)
 	bset = bset.Set(0)
 	lans := new(k8slan.LANList)
 	err := clnt.List(ctx, lans)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list lans, %w", err)
+		return -1, fmt.Errorf("failed to list lans, %w", err)
 	}
 	for _, lan := range lans.Items {
 		bset.Set(uint(*lan.Spec.VNI))
 	}
-	r := []int32{}
-	for i := 0; i < requiredNum; i++ {
-		next, ok := bset.NextClear(0)
-		if !ok {
-			return nil, fmt.Errorf("no available vni to allocate")
-		}
-		if next > maxVNI {
-			return nil, fmt.Errorf("no available vni to allocate")
-		}
-		r = append(r, int32(next))
+
+	next, ok := bset.NextClear(0)
+	if !ok {
+		return -1, fmt.Errorf("no available vni to allocate")
 	}
-
-	return r, nil
-
+	if next > maxVNI {
+		return -1, fmt.Errorf("no available vni to allocate")
+	}
+	return int32(next), nil
 }
 
 const (
@@ -76,26 +73,36 @@ func getSpokeName(vni int32, connectorIndex int) string {
 // return a map, 1st key is nodename, 2nd key is LAN name, val is list of spoke name
 func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map[string]map[string][]string, error) {
 	gconf := GCONF.Get()
-	vniList, err := GetAvailableVNI(ctx, clnt, len(plab.Lab.Spec.LinkList))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get %d vnis, %w", len(plab.Lab.Spec.LinkList), err)
-	}
-	i := 0
 	rmap := make(map[string]map[string][]string)
 	for linkName, link := range plab.Lab.Spec.LinkList {
-		lan := &k8slan.LAN{
-			ObjectMeta: common.GetObjMeta(Getk8lanName(plab.Lab.Name, linkName), plab.Lab.Name, plab.Lab.Namespace),
-			Spec: k8slan.LANSpec{
-				NS:           common.GetPointerVal(Getk8lanName(plab.Lab.Name, linkName)),
-				BridgeName:   common.GetPointerVal(Getk8lanBRName(plab.Lab.Name, linkName)),
-				VxLANName:    common.GetPointerVal(Getk8lanVxName(plab.Lab.Name, linkName)),
-				VNI:          common.GetPointerVal(int32(vniList[i])),
-				DefaultVxDev: *gconf.VXLANDefaultDev,
-				VxDevMap:     gconf.VxDevMap,
-				VxPort:       common.GetPointerVal(VxLANPort),
-				VxLANGrp:     gconf.VXLANGrpAddr,
-				SpokeList:    []string{},
-			},
+		lan := new(k8slan.LAN)
+		err := clnt.Get(ctx,
+			types.NamespacedName{Namespace: plab.Lab.Namespace, Name: Getk8lanName(plab.Lab.Name, linkName)},
+			lan,
+		)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return nil, fmt.Errorf("unexpected error getting existing LAN %v, %w", Getk8lanName(plab.Lab.Name, linkName), err)
+			}
+			//not found, create new one
+			vni, err := GetAvailableVNI(ctx, clnt, len(plab.Lab.Spec.LinkList))
+			if err != nil {
+				return nil, fmt.Errorf("failed to get %d vni, %w", len(plab.Lab.Spec.LinkList), err)
+			}
+			lan = &k8slan.LAN{
+				ObjectMeta: common.GetObjMeta(Getk8lanName(plab.Lab.Name, linkName), plab.Lab.Name, plab.Lab.Namespace),
+				Spec: k8slan.LANSpec{
+					NS:           common.GetPointerVal(Getk8lanName(plab.Lab.Name, linkName)),
+					BridgeName:   common.GetPointerVal(Getk8lanBRName(plab.Lab.Name, linkName)),
+					VxLANName:    common.GetPointerVal(Getk8lanVxName(plab.Lab.Name, linkName)),
+					VNI:          common.GetPointerVal(vni),
+					DefaultVxDev: *gconf.VXLANDefaultDev,
+					VxDevMap:     gconf.VxDevMap,
+					VxPort:       common.GetPointerVal(VxLANPort),
+					VxLANGrp:     gconf.VXLANGrpAddr,
+					SpokeList:    []string{},
+				},
+			}
 		}
 		for i, c := range link.Connectors {
 			spokeName := getSpokeName(*lan.Spec.VNI, i)

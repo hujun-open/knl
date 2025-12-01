@@ -19,8 +19,10 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/util/validation/field"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -160,7 +162,20 @@ func (v *LabCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj ru
 	if !ok {
 		return nil, fmt.Errorf("expected a Lab object for the newObj but got %T", newObj)
 	}
+
+	old, ok := oldObj.(*knlv1beta1.Lab)
+	if !ok {
+		return nil, fmt.Errorf("expected a Lab object for the oldObj but got %T", newObj)
+	}
+
 	lablog.Info("Validation for Lab upon update", "name", lab.GetName())
+
+	if !reflect.DeepEqual(lab.Spec, old.Spec) {
+		return nil, field.Forbidden(
+			field.NewPath("spec"),
+			"updates to the spec are not allowed; delete and recreate the resource instead",
+		)
+	}
 
 	// TODO(user): fill in your validation logic upon object update.
 

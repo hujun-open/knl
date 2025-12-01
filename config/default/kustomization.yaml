@@ -1,5 +1,5 @@
 # Adds namespace to all resources.
-namespace: knl
+namespace: knl-system
 
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named
@@ -36,7 +36,6 @@ resources:
 
 # addtional resoruces
 - sftp_svc.yaml
-- knl-pvc.yaml
 - knl-sftp-secret.yaml
 
 # Uncomment the patches line if you enable Metrics

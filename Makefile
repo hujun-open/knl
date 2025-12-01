@@ -119,6 +119,9 @@ run: manifests generate fmt vet ## Run a controller from your host.
 docker-build: build ## Build docker image with the manager.
 	cp bin/manager .
 	$(CONTAINER_TOOL) build . -t ${IMG}
+	-rm knl2.tar.gz
+	$(CONTAINER_TOOL) save ${IMG} -o knl2.tar
+	gzip knl2.tar
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
@@ -167,6 +170,11 @@ uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified 
 deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
+
+.PHONY: deploymanifests
+deploymanifests: generate manifests kustomize  ## Deploy controller to the K8s cluster specified in ~/.kube/config.
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/default > all.yaml
 
 .PHONY: undeploy
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
@@ -239,3 +247,7 @@ mv $(1) $(1)-$(3) ;\
 } ;\
 ln -sf $$(realpath $(1)-$(3)) $(1)
 endef
+
+
+.PHONY: export
+export: docker-build deploymanifests ## export image tar.gz and all.yaml

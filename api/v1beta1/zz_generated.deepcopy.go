@@ -429,8 +429,8 @@ func (in *SRLinux) DeepCopyInto(out *SRLinux) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.LicConfigMap != nil {
-		in, out := &in.LicConfigMap, &out.LicConfigMap
+	if in.LicSecret != nil {
+		in, out := &in.LicSecret, &out.LicSecret
 		*out = new(string)
 		**out = **in
 	}

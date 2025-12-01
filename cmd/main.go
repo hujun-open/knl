@@ -39,6 +39,7 @@ import (
 	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
 	"kubenetlab.net/knl/internal/controller"
 	webhookv1beta1 "kubenetlab.net/knl/internal/webhook/v1beta1"
+	kvv1 "kubevirt.io/api/core/v1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -49,7 +50,7 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-
+	utilruntime.Must(kvv1.AddToScheme(scheme))
 	utilruntime.Must(knlv1beta1.AddToScheme(scheme))
 	utilruntime.Must(lanv1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme

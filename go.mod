@@ -6,7 +6,7 @@ require (
 	github.com/bits-and-blooms/bitset v1.24.4
 	github.com/dchest/siphash v1.2.3
 	github.com/goccy/go-yaml v1.18.0
-	github.com/hujun-open/k8slan v0.0.0-00010101000000-000000000000
+	github.com/hujun-open/k8slan v0.0.1
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.7
 	github.com/onsi/ginkgo/v2 v2.25.1
 	github.com/onsi/gomega v1.38.1
@@ -109,9 +109,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
-
-replace github.com/kubevirt/macvtap-cni => ../macvtap-cni
-
-replace vxintersvr => ../vxintersvr
-
-replace github.com/hujun-open/k8slan => ../k8slan
