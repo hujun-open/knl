@@ -18,11 +18,14 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	k8slan "github.com/hujun-open/k8slan/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"kubenetlab.net/knl/api/v1beta1"
 	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
 	"kubenetlab.net/knl/common"
@@ -72,22 +75,21 @@ func (r *LabReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	ensureCTX := context.WithValue(ctx, v1beta1.ParsedLabKey, plab)
 
 	// name of our custom finalizer
-	myFinalizerName := "lab.kubenetlab.net/finalizer"
 
 	// examine DeletionTimestamp to determine if object is under deletion
 	if lab.ObjectMeta.DeletionTimestamp.IsZero() {
 		// The object is not being deleted, so if it does not have our finalizer,
 		// then let's add the finalizer and update the object. This is equivalent
 		// to registering our finalizer.
-		if !controllerutil.ContainsFinalizer(lab, myFinalizerName) {
-			controllerutil.AddFinalizer(lab, myFinalizerName)
+		if !controllerutil.ContainsFinalizer(lab, knlv1beta1.FinalizerName) {
+			controllerutil.AddFinalizer(lab, knlv1beta1.FinalizerName)
 			if err := r.Update(ctx, lab); err != nil {
 				return ctrl.Result{}, err
 			}
 		}
 	} else {
 		// The object is being deleted
-		if controllerutil.ContainsFinalizer(lab, myFinalizerName) {
+		if controllerutil.ContainsFinalizer(lab, knlv1beta1.FinalizerName) {
 			// our finalizer is present, so let's handle any external dependency
 			if err := r.deleteExternalResources(ctx, lab); err != nil {
 				// if fail to delete the external dependency here, return with error
@@ -96,7 +98,7 @@ func (r *LabReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 			}
 
 			// remove our finalizer from the list and update it.
-			controllerutil.RemoveFinalizer(lab, myFinalizerName)
+			controllerutil.RemoveFinalizer(lab, knlv1beta1.FinalizerName)
 			if err := r.Update(ctx, lab); err != nil {
 				return ctrl.Result{}, err
 			}
@@ -181,8 +183,25 @@ func (r *LabReconciler) SetupWithManager(mgr ctrl.Manager) error {
 }
 
 func (r *LabReconciler) deleteExternalResources(ctx context.Context, lab *v1beta1.Lab) error {
-	//delete MACvtap configmap entries of lab
 	logger := log.FromContext(ctx)
 	logger.Info("deleting external resource", "lab", lab.Name)
+	//removing finalizer on LAN CR
+	for link := range lab.Spec.LinkList {
+		lan := new(k8slan.LAN)
+		lanName := knlv1beta1.Getk8lanName(lab.Name, link)
+		err := r.Client.Get(ctx, types.NamespacedName{Namespace: lab.Namespace, Name: lanName}, lan)
+		if err != nil {
+			if !apierrors.IsNotFound(err) {
+				return fmt.Errorf("failed to check finalizer on LAN %v, %w", lanName, err)
+			}
+			//already gone
+		}
+		//remove the finalizer
+		controllerutil.RemoveFinalizer(lan, knlv1beta1.FinalizerName)
+		if err := r.Update(ctx, lan); err != nil {
+			return fmt.Errorf("failed to remove finalizer on LAN %v, %w", lanName, err)
+		}
+	}
+
 	return nil
 }

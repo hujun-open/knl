@@ -62,7 +62,8 @@ func GetAvailableVNI(ctx context.Context, clnt client.Client, requiredNum int) (
 }
 
 const (
-	VxLANPort int32 = 48622
+	VxLANPort     int32 = 48622
+	FinalizerName       = "lab.kubenetlab.net/finalizer"
 )
 
 func getSpokeName(vni int32, connectorIndex int) string {
@@ -103,6 +104,7 @@ func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map
 					SpokeList:    []string{},
 				},
 			}
+			lan.Finalizers = append(lan.Finalizers, FinalizerName)
 		}
 		for i, c := range link.Connectors {
 			spokeName := getSpokeName(*lan.Spec.VNI, i)
@@ -115,6 +117,7 @@ func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map
 			}
 			rmap[*c.NodeName][linkName] = append(rmap[*c.NodeName][linkName], spokeName)
 		}
+
 		err = createIfNotExistsOrRemove(ctx, clnt, plab, lan, true, false)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create LAN CR for lab %v link %v, %w", plab.Lab.Name, linkName, err)

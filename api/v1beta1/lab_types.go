@@ -116,17 +116,6 @@ func AssignSystem(s common.System, node *OneOfSystem) {
 
 }
 
-func (lab *Lab) getLinkandConnector(node, linkName string) (*Link, *Connector) {
-	if link, ok := lab.Spec.LinkList[linkName]; ok {
-		for _, c := range link.Connectors {
-			if *c.NodeName == node {
-				return link, &c
-			}
-		}
-	}
-	return nil, nil
-}
-
 func (labspec *LabSpec) GetNodeSortIndex(nodeName string) int {
 	var keys []string
 	for key := range labspec.NodeList {
