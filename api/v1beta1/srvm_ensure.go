@@ -7,21 +7,19 @@ import (
 	"os"
 	"path/filepath"
 
+	k8slan "github.com/hujun-open/k8slan/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kubenetlab.net/knl/common"
+	"kubenetlab.net/knl/dict"
 	kvv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
-	SRVMFBMTU           = 9000
-	vSROSIDLabel        = `kubnetlab.net/vSROSSystemID`
-	vSROSSysinfoAnno    = `smbios.vm.kubevirt.io/vSROSSysinfo`
-	sftpSVRAnnontation  = "kubenetlab.net/sftpsvr"
-	sftpUserAnnontation = "kubenetlab.net/sftpuser"
-	sftpPassAnnontation = "kubenetlab.net/sftppasswd"
+	SRVMFBMTU    = 9000
+	vSROSIDLabel = `kubnetlab.net/vSROSSystemID`
 )
 
 var (
@@ -151,10 +149,12 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 	}
 	//SRVM CPM DV
 	if isCPM {
+		// imageURL := fmt.Sprintf("docker://%v", *gconf.SRCPMLoaderImage)
+
 		dv := common.NewDV(lab.Lab.Namespace, lab.Lab.Name,
 			common.GetDVName(lab.Lab.Name, nodeName),
 			*gconf.SRCPMLoaderImage, gconf.PVCStorageClass, &SRCPMVMDiskSize)
-		err = createIfNotExistsOrRemove(ctx, clnt, lab, dv, true, forceRemoval)
+		err = createIfNotExistsOrRemove(ctx, clnt, lab, dv, false, forceRemoval)
 		if err != nil {
 			return common.MakeErr(err)
 		}
@@ -181,13 +181,14 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachineInst
 	)
 	r.ObjectMeta.Labels[vSROSIDLabel] = fmt.Sprintf("%d", vmid)
 	//add sysinfo for SR like node
-	cfgURL := common.GetSRConfigFTPSubFolder(lab.Lab.Name, vmid)
+	cfgURL := fmt.Sprintf("ftp://ftp:ftp@%v%v", common.FixedFTPProxySvr, common.GetSRConfigFTPSubFolder(lab.Lab.Name, vmid))
 	r.ObjectMeta.Annotations = map[string]string{
-		sftpSVRAnnontation:               *gconf.SFTPSever,
-		sftpPassAnnontation:              *gconf.SFTPPassword,
-		sftpUserAnnontation:              *gconf.SFTPUser,
-		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"image": "%v"}]`, gconf.SideCarHookImg),
-		vSROSSysinfoAnno: common.GenSysinfo(*srvm.SRSysinfoStr,
+		dict.SftpSVRAnnontation:          *gconf.SFTPSever,
+		dict.SftpPassAnnontation:         *gconf.SFTPPassword,
+		dict.SftpUserAnnontation:         *gconf.SFTPUser,
+		dict.LabNameAnnotation:           lab.Lab.Name,
+		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"image": "%v"}]`, *gconf.SideCarHookImg),
+		dict.VSROSSysinfoAnno: common.GenSysinfo(*srvm.SRSysinfoStr,
 			cardid, cfgURL, *srvm.LicURL),
 	}
 
@@ -216,6 +217,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachineInst
 	//cpu & memory
 	r.Spec.Domain.CPU.Cores = uint32(srvm.ReqCPU.AsApproximateFloat64()) //if the cpu is decimal, this round down to the int
 	//NOTE: kubevirt currently doesn't support memory balloning, to save memory, see https://kubevirt.io/user-guide/operations/node_overcommit/#overcommit-guest-memory
+	//NOTE: user could also set `spec.configuration.developerConfiguration.memoryOvercommit` in kubevirt CR
 	r.Spec.Domain.Memory = &kvv1.Memory{
 		Guest: srvm.ReqMemory,
 	}
@@ -346,20 +348,23 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachineInst
 	}
 
 	//port links
-	if links, ok := lab.ConnectorMap[vmname]; ok {
-		for _, linkname := range links {
+	// if links, ok := lab.ConnectorMap[vmname]; ok {
+	// 	for _, linkname := range links {
+	for _, spokes := range lab.SpokeMap[vmname] {
+		for _, spokeName := range spokes {
+			nadName := k8slan.GetNADName(spokeName, false)
 			r.Spec.Networks = append(r.Spec.Networks,
 				kvv1.Network{
-					Name: linkname,
+					Name: spokeName,
 					NetworkSource: kvv1.NetworkSource{
 						Multus: &kvv1.MultusNetwork{
-							NetworkName: common.GetLinkMACVTAPNADName(lab.Lab.Name, vmname, linkname),
+							NetworkName: nadName,
 						},
 					},
 				})
 			r.Spec.Domain.Devices.Interfaces = append(r.Spec.Domain.Devices.Interfaces,
 				kvv1.Interface{
-					Name: linkname,
+					Name: spokeName,
 					Binding: &kvv1.PluginBinding{
 						Name: "macvtap",
 					},

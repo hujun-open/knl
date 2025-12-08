@@ -108,6 +108,10 @@ lint-config: golangci-lint ## Verify golangci-lint linter configuration
 build: manifests generate fmt vet ## Build manager binary.
 	CGO_ENABLED=0 go build -o bin/manager cmd/main.go
 
+.PHONY: build-sidecar
+build-sidecar: manifests generate fmt vet ## Build manager binary.
+	CGO_ENABLED=0 go build -o kvirtsidecar/docker/onDefineDomain kvirtsidecar/main.go
+
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./cmd/main.go
@@ -117,11 +121,29 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: build ## Build docker image with the manager.
+	cp docker/cpm/vsimload.img cpmload.img
 	cp bin/manager .
 	$(CONTAINER_TOOL) build . -t ${IMG}
 	-rm knl2.tar.gz
 	$(CONTAINER_TOOL) save ${IMG} -o knl2.tar
 	gzip knl2.tar
+
+
+.PHONY: docker-build-sidecar
+docker-build-sidecar: build-sidecar ## Build kvirt sidecar image
+ifndef SCIMG # if statment can't have tab as prefix
+#error statment is used to stop make file execution with error msg	
+	$(error SCIMG not specified) 
+endif
+
+	$(CONTAINER_TOOL) build -t ${SCIMG} --file ./kvirtsidecar/docker/Dockerfile ./kvirtsidecar/docker/
+	-rm kvirtsidecar.tar.gz
+	$(CONTAINER_TOOL) save ${SCIMG} -o kvirtsidecar.tar
+	gzip kvirtsidecar.tar
+
+.PHONY: load-sidecar-kind
+load-sidecar-kind: docker-build-sidecar ## build and load sidecar image to local kind cluster
+	kind load docker-image ${SCIMG} --name kind
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
@@ -250,4 +272,4 @@ endef
 
 
 .PHONY: export
-export: docker-build deploymanifests ## export image tar.gz and all.yaml
+export: docker-build deploymanifests docker-build-sidecar ## export controller and sidecar image tar.gz and all.yaml

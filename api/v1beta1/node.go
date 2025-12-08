@@ -10,7 +10,7 @@ import (
 type OneOfSystem struct {
 	// +optional
 	// +nullable
-	// SRVM *SRVM `json:"srvm,omitempty"`
+	SRVM *SRVM `json:"srvm,omitempty"`
 	// +optional
 	// +nullable
 	// VMPC *VMPC `json:"vpc,omitempty"`

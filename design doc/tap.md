@@ -1,0 +1,4 @@
+due to using libvirt VM launcher pod, the best choice for SR VM MDA port is using a [TAP interface](https://kubevirt.io/user-guide/network/network_binding_plugins/#domainattachmenttype)
+1. libvirt network binding plugin allows to use any method that could attach a TAP interface to the VM, libvirt support macvtap;
+    - note: a plain tap interface will NOT work, because a plain tap interface's master bridge can't be in a different NS; but macvtap's underly device could be in another NS
+    - note2: you can't create macvtap directly on the host bridge interface, because VSIM is a router, it might need to have multiple mac supports per port, so macvtap must be in `passthrough` mode, it essentially means all traffic recevied by the underlying interface will be all forwarded to this macvtap interface

@@ -41,6 +41,7 @@ type KNLConfigSpec struct {
 	// +optional
 	SFTPPassword *string `json:"filePass,omitempty"`
 	// +optional
+	//SFTPSever must have format as addr/hostname:port
 	SFTPSever *string `json:"fileSvr,omitempty"`
 	// +optional
 	VXLANGrpAddr *string `json:"vxlanGrp,omitempty"`
@@ -53,6 +54,7 @@ type KNLConfigSpec struct {
 	// +optional
 	PVCStorageClass *string `json:"storageClass,omitempty"`
 	// +optional
+	//this url supported by kvirt cdi, either http or docker url
 	SRCPMLoaderImage *string `json:"srCPMLoaderImage,omitempty"`
 	// +optional
 	SRIOMLoaderImage *string `json:"srIOMLoaderImage,omitempty"`
@@ -68,12 +70,13 @@ type KNLConfigSpec struct {
 // this is the application default, meaning when user didn't specify the corresponding field in KNLconfig
 func DefKNLConfig() KNLConfigSpec {
 	var r KNLConfigSpec
-	common.AssignPointerVal(&r.SFTPSever, "knl-sftp-service.knl-system.svc.cluster.local")
-	common.AssignPointerVal(&r.SFTPUser, "ftp")
-	common.AssignPointerVal(&r.SFTPPassword, "ftp")
+	common.AssignPointerVal(&r.SFTPSever, "knl-sftp-service.knl-system.svc.cluster.local:22")
+	common.AssignPointerVal(&r.SFTPUser, "knlftp")
+	common.AssignPointerVal(&r.SFTPPassword, "knlftp")
 	common.AssignPointerVal(&r.VXLANGrpAddr, "ff18::100")
 	common.AssignPointerVal(&r.LinkMtu, 7000)
 	common.AssignPointerVal(&r.PVCStorageClass, "nfs-client")
+	common.AssignPointerVal(&r.SRCPMLoaderImage, "http://knl-http.knl-system.svc.cluster.local/cpmload.img")
 	//create app default for each node type
 	defOne := OneOfSystem{}
 	val := reflect.ValueOf(&defOne)
@@ -86,6 +89,11 @@ func DefKNLConfig() KNLConfigSpec {
 	r.DefaultNode = defOne
 	return r
 }
+
+const (
+	StaticHTTPFileFolder = "/static"
+	StaticHTTPSvrPort    = 8880
+)
 
 // KNLConfigStatus defines the observed state of KNLConfig.
 type KNLConfigStatus struct {
@@ -202,8 +210,8 @@ func (knlcfg *KNLConfig) Validate() error {
 		return fmt.Errorf("sidecar image not specified")
 	}
 	if knlcfg.Spec.SFTPSever != nil {
-		if !common.IsIPOrFQDN(*knlcfg.Spec.SFTPSever) {
-			return fmt.Errorf("%v is not a valid IP address or FQDN", *knlcfg.Spec.SFTPSever)
+		if !common.IsHostPort(*knlcfg.Spec.SFTPSever) {
+			return fmt.Errorf("%v must be in format as addr/host:port", *knlcfg.Spec.SFTPSever)
 		}
 	} else {
 		return fmt.Errorf("file server address not specified")

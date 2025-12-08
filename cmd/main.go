@@ -19,6 +19,8 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
+	"net/http"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -36,10 +38,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	lanv1beta1 "github.com/hujun-open/k8slan/api/v1beta1"
+	ncv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
 	"kubenetlab.net/knl/internal/controller"
 	webhookv1beta1 "kubenetlab.net/knl/internal/webhook/v1beta1"
 	kvv1 "kubevirt.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -51,8 +55,10 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(kvv1.AddToScheme(scheme))
+	utilruntime.Must(ncv1.AddToScheme(scheme))
 	utilruntime.Must(knlv1beta1.AddToScheme(scheme))
 	utilruntime.Must(lanv1beta1.AddToScheme(scheme))
+	utilruntime.Must(cdiv1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -87,6 +93,7 @@ func main() {
 		Development: true,
 	}
 	opts.BindFlags(flag.CommandLine)
+
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
@@ -220,7 +227,15 @@ func main() {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
-
+	//starting static http file server
+	setupLog.Info("starting http static file server")
+	go func() {
+		err = http.ListenAndServe(fmt.Sprintf(":%d", knlv1beta1.StaticHTTPSvrPort), http.FileServer(http.Dir(knlv1beta1.StaticHTTPFileFolder)))
+		if err != nil {
+			setupLog.Error(err, "static http server failed")
+			os.Exit(1)
+		}
+	}()
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")

@@ -36,6 +36,7 @@ resources:
 
 # addtional resoruces
 - sftp_svc.yaml
+- static_http_svc.yaml
 - knl-sftp-secret.yaml
 
 # Uncomment the patches line if you enable Metrics

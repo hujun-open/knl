@@ -1,16 +1,18 @@
 package v1beta1
 
 import (
+	"fmt"
+
 	"k8s.io/apimachinery/pkg/api/resource"
 	"kubenetlab.net/knl/common"
 	kvv1 "kubevirt.io/api/core/v1"
 )
 
 func init() {
-	// newf := func() common.System { return new(SRVM) }
-	// common.NewSysRegistry[VSIM] = newf
-	// common.NewSysRegistry[VSRI] = newf
-	// common.NewSysRegistry[MAGC] = newf
+	newf := func() common.System { return new(SRVM) }
+	common.NewSysRegistry[VSIM] = newf
+	common.NewSysRegistry[VSRI] = newf
+	common.NewSysRegistry[MAGC] = newf
 
 }
 
@@ -25,7 +27,7 @@ type SRVM struct {
 	ReqMemory    *resource.Quantity `json:"memory,omitempty"`
 	ReqCPU       *resource.Quantity `json:"cpu,omitempty"`
 	Image        *string            `json:"image,omitempty"` //for node type that use ftp, this is the folder name, not full URL
-	LicURL       *string            `json:"lic,omitempty"`
+	LicURL       *string            `json:"lic,omitempty"`   //a FTP URL, if not specified, use a fixed URL of SFTP sever in opeartor pod
 	Ports        *[]kvv1.Port       `json:"ports,omitempty"` //list of open port for management interface
 }
 
@@ -45,32 +47,34 @@ func (srvm *SRVM) FillDefaultVal(name string) {
 
 		*defaultPorts = append(*defaultPorts, kvv1.Port{
 			Name:     "ssh",
-			Protocol: "tcp",
+			Protocol: "TCP",
 			Port:     22,
 		})
 		*defaultPorts = append(*defaultPorts, kvv1.Port{
 			Name:     "netconf",
-			Protocol: "tcp",
+			Protocol: "TCP",
 			Port:     830,
 		})
 		*defaultPorts = append(*defaultPorts, kvv1.Port{
 			Name:     "gnmi",
-			Protocol: "tcp",
+			Protocol: "TCP",
 			Port:     57400,
 		})
 		*defaultPorts = append(*defaultPorts, kvv1.Port{
 			Name:     "radiuscoa",
-			Protocol: "udp",
+			Protocol: "UDP",
 			Port:     3799,
 		})
 	} else {
 		*defaultPorts = append(*defaultPorts, kvv1.Port{
 			Name:     "dummy",
-			Protocol: "tcp",
+			Protocol: "TCP",
 			Port:     1,
 		})
 	}
 	srvm.Ports = common.SetDefaultGeneric(srvm.Ports, *defaultPorts)
+	//set lic
+	srvm.LicURL = common.SetDefaultGeneric(srvm.LicURL, fmt.Sprintf("ftp://ftp:ftp@%v/lic", common.FixedFTPProxySvr))
 	//set srsysinfo
 	switch nt {
 	case VSIM:
@@ -114,6 +118,7 @@ func (srvm *SRVM) FillDefaultVal(name string) {
 }
 func (srvm *SRVM) SetToAppDefVal() {
 	common.AssignPointerVal(&srvm.Image, "R")
+
 }
 
 func (srvm *SRVM) Validate() error {

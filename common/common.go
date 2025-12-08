@@ -299,10 +299,16 @@ func NewPortMACVTAPNAD(nsName, labName, nadname, resname string, mtu uint16, mac
 	return r
 }
 
-// GetFTPSROSImgPath returns sros image ftp path for a given vsim
+// GetFTPSROSImgPath returns sros image ftp path for a given vsim, without knlroot prefix
 func GetFTPSROSImgPath(vsimid int) string {
 	// return filepath.Join(gconf.SROSImgRoot, fmt.Sprintf("vsim%d-os", vsimid))
 	return filepath.Join("/"+IMGSubFolder, fmt.Sprintf("vsim%d-os", vsimid))
+
+}
+
+// GetSFTPSROSImgPath return sros image SFTP path for a given vsim, with knlroot prefix
+func GetSFTPSROSImgPath(vsimid int) string {
+	return filepath.Join("/"+KNLROOTName, GetFTPSROSImgPath(vsimid))
 
 }
 
@@ -409,6 +415,13 @@ func NewDV(namespace, labName, dvName, nodeImg string, stroageclass *string, dis
 			URL: &nodeImg,
 		},
 	}
+	if strings.HasPrefix(strings.ToLower(nodeImg), "http") {
+		r.Spec.Source = &cdiv1.DataVolumeSource{
+			HTTP: &cdiv1.DataVolumeSourceHTTP{
+				URL: nodeImg,
+			},
+		}
+	}
 	return r
 }
 
@@ -426,8 +439,8 @@ const (
 // chassis is sysinfo string specified in API that only contains chassis,card, mda, sfm
 func GenSysinfo(chassis string, cardid, cfgURL, licURL string) string {
 
-	return fmt.Sprintf("TIMOS: slot=%v %v address=%v@active primary-config=%v license-file=%v",
-		cardid, chassis, FixedSRVMMgmtAddrPrefixStr, cfgURL, licURL)
+	return fmt.Sprintf("TIMOS: slot=%v %v address=%v@active primary-config=%v license-file=%v static-route=0.0.0.0/0@%v",
+		cardid, chassis, FixedSRVMMgmtAddrPrefixStr, cfgURL, licURL, FixedFTPProxySvr)
 }
 
 func IsIntegratedChassis(chassis string) bool {
@@ -484,6 +497,16 @@ func IsIPOrFQDN(host string) bool {
 	return IsValidFQDN(host)
 
 }
+
+// IsHostPort check if inputs is addr:port or fqdn:port
+func IsHostPort(inputs string) bool {
+	host, _, err := net.SplitHostPort(inputs)
+	if err != nil {
+		return false
+	}
+	return IsIPOrFQDN(host)
+}
+
 func GetPodName(lab, node string) string {
 	return lab + "-" + node
 }

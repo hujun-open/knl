@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	k8slan "github.com/hujun-open/k8slan/api/v1beta1"
+	ncv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +31,7 @@ import (
 	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
 	"kubenetlab.net/knl/common"
 	kvv1 "kubevirt.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -178,6 +180,8 @@ func (r *LabReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&kvv1.VirtualMachineInstance{}).
 		Owns(&corev1.Pod{}).
 		Owns(&k8slan.LAN{}).
+		Owns(&cdiv1.DataVolume{}).
+		Owns(&ncv1.NetworkAttachmentDefinition{}).
 		Named("lab").
 		Complete(r)
 }

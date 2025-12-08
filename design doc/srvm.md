@@ -16,7 +16,8 @@ this PVC need to be mounted on sftp server container mentioned below
 2. by default, kubevirt assign 10.0.2.2/24 to the first interface in the VM, which connects to a bridge interface `k6t-eth0` interface in the virt-launcher pod, which has ip `10.0.2.1/24`
 3. the idea is to run a ftp server inside kubevirt hook container, that ftp server proxy the ftp request from SRVM to real backend, e.g. using `https://github.com/fclairamb/ftpserver/`, which supports using sftp server as backend
     - the kubevirt hook program launch the ftp server via "nohup" at end of execution 
-4. config SRVM disk `nvram.dat` and `bof.cfg` to use `10.0.2.2/24` as VM's ip and `10.0.2.1` as the ftp server address
+4. configure SRVM disk `nvram.dat` and `bof.cfg` to use `10.0.2.2/24` as VM's ip and `10.0.2.1` as the ftp server address
+  - the CPM disk must have a bof.cfg that contains "primary-image" line
 5. the ftp server run in the virt-launcher pod has capbility to translate path, so that the path name in `nvram.dat` and `bof.cfg` could be fixed 
     - example nvram.dat: fei(0,0)10.0.2.1:/i386-boot.tim e=10.0.2.2:ffffff00 h=10.0.2.1 g=10.0.2.1 u=sw pw=sw123 tn=vsim-2-a f=0x8 s=p1=1
     - example primar-image in bof.cfg: `primary-image    ftp://sw:sw123@10.0.2.1/sros/`
@@ -25,7 +26,22 @@ this PVC need to be mounted on sftp server container mentioned below
         - kubevirt hook get's vm name, derived the actual file/folder path on backend server (e.g. sftp server path for a given vsim)
         - the hook generate the config file that contains translation rule for the ftp server and launch the ftp server
         - note: both cpm and iom vm could use same nvram.dat, because in case of iom-vm,TIMOS boot loader will automatically changes the "/i386-boot.time" to "/i386-iom.tim"
+```mermaid
+architecture-beta
+  group vmpod[vm pod]
+    service vmcontainer[vm container] in vmpod
+    group sidecar[sidecar container] in vmpod
+      service ftpproxy[ftp proxy] in sidecar
+    vmcontainer:L --> R:ftpproxy
+  group operator[operator pod]
+    service sftpsvr[sftp svr container] in operator
+  
+  ftpproxy:L --> R:sftpsvr
+  service knlpvc[KNL PVC]
+  knlpvc:B --> T:sftpsvr
 
+
+```
 
 This way, we achieve following:
 - we don't need to assign or derive SRVM's managment address, since is always `10.0.2.2/24`
