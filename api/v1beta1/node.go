@@ -17,6 +17,9 @@ type OneOfSystem struct {
 	// +optional
 	// +nullable
 	SRL *SRLinux `json:"srl,omitempty"`
+	// +optional
+	// +nullable
+	Pod *GeneralPod `json:"pod,omitempty"`
 }
 
 //nullable marker + omitempty in OneOfSystem is important, it allows have a empty node specific in the CR with `{}`

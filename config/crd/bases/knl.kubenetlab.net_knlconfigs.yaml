@@ -42,6 +42,17 @@ spec:
               defaultNode:
                 description: defaultNode specifies default values for types of node
                 properties:
+                  pod:
+                    description: GeneralPod creates a general pod
+                    nullable: true
+                    properties:
+                      cmd:
+                        type: string
+                      image:
+                        type: string
+                      privileged:
+                        type: boolean
+                    type: object
                   srl:
                     description: VMPC *VMPC `json:"vpc,omitempty"`
                     nullable: true

@@ -242,10 +242,8 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 	//create pod
 	pod := common.NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *srl.Image)
 	pod.Spec.Containers[0].Command = []string{"/tini", "--", "fixuid", "-q", "/entrypoint.sh", "sudo", "bash", "/opt/srlinux/bin/sr_linux"}
-	pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
-		Privileged: new(bool),
-	}
-	*pod.Spec.Containers[0].SecurityContext.Privileged = true
+	pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{}
+	common.AssignPointerVal(&(pod.Spec.Containers[0].SecurityContext.Privileged), true)
 	pod.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
 		{
 			Name:      "topo",
