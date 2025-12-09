@@ -1,24 +1,43 @@
 package v1beta1
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/netip"
+	"net/url"
+
+	ignitiontypes "github.com/coreos/ignition/v2/config/v3_5/types"
+	k8slan "github.com/hujun-open/k8slan/api/v1beta1"
+	"github.com/tredoe/osutil/user/crypt/sha512_crypt"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"kubenetlab.net/knl/common"
+	"kubenetlab.net/knl/dict"
+	kvv1 "kubevirt.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	InitMethod_CLOUDINIT     = "cloudinit"
+	InitMethod_IGNITION_NMGR = "ignition_netmgr"
 )
 
 func init() {
-	// common.NewSysRegistry[VPC] = func() common.System { return new(VMPC) }
+	common.NewSysRegistry[VM] = func() common.System { return new(GeneralVM) }
 }
 
-type VMPC struct {
-	ReqMemory     *resource.Quantity `json:"memory,omitempty"`
-	ReqCPU        *resource.Quantity `json:"cpu,omitempty"`
-	DiskSize      *resource.Quantity `json:"diskSize,omitempty"`
-	PinCPU        bool               `json:"cpuPin,omitempty"`
-	HugePage      bool               `json:"hugePage,omitempty"`
-	Image         string             `json:"image,omitempty"`
-	DisablePodNet bool               `json:"disablePodNet,omitempty"`
-	InitMethod    string             `json:"init,omitempty"`
-	Ports         *[]int32           `json:"ports,omitempty"`
+// GeneralVM creates a generic kubevirt VM
+type GeneralVM struct {
+	ReqMemory  *resource.Quantity `json:"memory,omitempty"`
+	ReqCPU     *resource.Quantity `json:"cpu,omitempty"`
+	DiskSize   *resource.Quantity `json:"diskSize,omitempty"`
+	PinCPU     *bool              `json:"cpuPin,omitempty"`
+	HugePage   *bool              `json:"hugePage,omitempty"`
+	Image      *string            `json:"image,omitempty"` //support HTTP or registry source
+	InitMethod *string            `json:"init,omitempty"`
+	Ports      *[]kvv1.Port       `json:"ports,omitempty"`
+	Username   *string            `json:"user,omitempty"` //username and password are feed into vm initialization mechinism like cloud-init
+	Password   *string            `json:"passwd,omitempty"`
 }
 
 const (
@@ -27,22 +46,341 @@ const (
 )
 
 const (
-	VPC common.NodeType = "vpc"
+	VM common.NodeType = "vm"
 )
 
-func (vpc *VMPC) SetToAppDefVal() {
-	common.AssignPointerVal(&vpc.ReqCPU, resource.MustParse(DefVPCCPU))
-	common.AssignPointerVal(&vpc.ReqMemory, resource.MustParse(DefVPCMem))
+func (gvm *GeneralVM) SetToAppDefVal() {
+	common.AssignPointerVal(&gvm.ReqCPU, resource.MustParse(DefVPCCPU))
+	common.AssignPointerVal(&gvm.ReqMemory, resource.MustParse(DefVPCMem))
+	common.AssignPointerVal(&gvm.PinCPU, false)
+	common.AssignPointerVal(&gvm.HugePage, false)
+	common.AssignPointerVal(&gvm.Username, "lab")
+	common.AssignPointerVal(&gvm.Password, "lab123")
+	common.AssignPointerVal(&gvm.InitMethod, InitMethod_CLOUDINIT)
+	common.AssignPointerVal(&gvm.Image, "docker://quay.io/kubevirt/cirros-container-disk-demo")
+	common.AssignPointerVal(&gvm.DiskSize, resource.MustParse("64Mi"))
+	common.AssignPointerVal(&gvm.Ports, []kvv1.Port{
+		{
+			Name:     "ssh",
+			Protocol: "TCP",
+			Port:     22,
+		},
+	})
+
 }
 
-func (vpc *VMPC) FillDefaultVal(nodeName string) {
+func (gvm *GeneralVM) FillDefaultVal(nodeName string) {
 
 }
 
-func (vpc *VMPC) GetNodeType(name string) common.NodeType {
-	return VPC
+func (gvm *GeneralVM) GetNodeType(name string) common.NodeType {
+
+	return VM
 }
 
-func (vpc *VMPC) Validate() error {
+func (gvm *GeneralVM) Validate() error {
 	return nil
+}
+func (gvm *GeneralVM) Ensure(ctx context.Context, nodeName string, clnt client.Client, forceRemoval bool) error {
+	gconf := GCONF.Get()
+	val := ctx.Value(ParsedLabKey)
+	if val == nil {
+		return common.MakeErr(fmt.Errorf("failed to get parsed lab obj from context"))
+	}
+	var lab *ParsedLab
+	var ok bool
+	if lab, ok = val.(*ParsedLab); !ok {
+		return common.MakeErr(fmt.Errorf("context stored value is not a ParsedLabSpec"))
+	}
+	//create DV
+	dv := common.NewDV(lab.Lab.Namespace, lab.Lab.Name,
+		common.GetDVName(lab.Lab.Name, nodeName),
+		*gvm.Image, gconf.PVCStorageClass, gvm.DiskSize)
+	err := createIfNotExistsOrRemove(ctx, clnt, lab, dv, false, forceRemoval)
+	if err != nil {
+		return common.MakeErr(err)
+	}
+	//create vm
+	vmi := gvm.getVMI(lab, nodeName)
+	err = createIfNotExistsOrFailedOrRemove(ctx, clnt, lab, vmi, checkVMIfail, true, forceRemoval)
+	if err != nil {
+		return common.MakeErr(err)
+	}
+	return nil
+}
+
+func (gvm *GeneralVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachineInstance {
+	r := new(kvv1.VirtualMachineInstance)
+	r.ObjectMeta = common.GetObjMeta(
+		vmname,
+		lab.Lab.Name,
+		lab.Lab.Namespace,
+	)
+	r.ObjectMeta.Annotations = map[string]string{
+		dict.LabNameAnnotation: lab.Lab.Name,
+	}
+	r.Spec.Domain.CPU = &kvv1.CPU{
+		Model: "host-passthrough",
+	}
+	if *gvm.PinCPU {
+		r.Spec.Domain.CPU.DedicatedCPUPlacement = true
+		r.Spec.Domain.CPU.IsolateEmulatorThread = true
+	}
+	r.Spec.Domain.CPU.Cores = uint32(gvm.ReqCPU.AsApproximateFloat64()) //if the cpu is decimal, this round down to the int
+	//NOTE: kubevirt currently doesn't support memory balloning, to save memory, see https://kubevirt.io/user-guide/operations/node_overcommit/#overcommit-guest-memory
+	//NOTE: user could also set `spec.configuration.developerConfiguration.memoryOvercommit` in kubevirt CR
+	r.Spec.Domain.Memory = &kvv1.Memory{
+		Guest: gvm.ReqMemory,
+	}
+
+	if *gvm.HugePage {
+		r.Spec.Domain.Memory.Hugepages = &kvv1.Hugepages{
+			PageSize: "1Gi",
+		}
+	}
+	//enable video, no need to remove video
+	r.Spec.Domain.Devices.AutoattachGraphicsDevice = new(bool)
+	*r.Spec.Domain.Devices.AutoattachGraphicsDevice = true
+	//disk
+	r.Spec.Volumes = append(r.Spec.Volumes,
+		kvv1.Volume{
+			Name: "root",
+			VolumeSource: kvv1.VolumeSource{
+				DataVolume: &kvv1.DataVolumeSource{
+					Name: common.GetDVName(lab.Lab.Name, vmname),
+				},
+			},
+		},
+	)
+	r.Spec.Domain.Devices.Disks = append(r.Spec.Domain.Devices.Disks,
+		kvv1.Disk{
+			Name: "root",
+			DiskDevice: kvv1.DiskDevice{
+				Disk: &kvv1.DiskTarget{
+					Bus: kvv1.DiskBusVirtio,
+				},
+			},
+		})
+	//add cloud-init vol
+	const initVolName = "cloudinitvol"
+	const cloudinitNetworkDataTemplateBase = `network:
+  version: 2
+  ethernets:`
+	const cloudinitNetworkDataTemplateIntf = `
+    nic%d:
+      match:
+        macaddress: "%v"
+      addresses:
+        - %v
+      %v`
+	const cloudinitUserDataTemplate = `
+#cloud-config
+ssh_pwauth: True
+users:
+  - name: %v
+    shell: /bin/bash
+    plain_text_passwd: %v
+    lock_passwd: false
+    sudo: ALL=(ALL) NOPASSWD:ALL`
+
+	initVolIndex := len(r.Spec.Volumes)
+	//ignition
+	pHash, _ := genPasswdHash(*gvm.Password)
+	userShell := "/bin/bash"
+	sudoerFile := encodeDataURL(*gvm.Username + " ALL=(ALL) NOPASSWD:ALL")
+	ignitionData := ignitiontypes.Config{
+		Ignition: ignitiontypes.Ignition{
+			Version: "3.2.0", //version is mandatory
+		},
+		Passwd: ignitiontypes.Passwd{
+			Users: []ignitiontypes.PasswdUser{
+				{
+					Name:         *gvm.Username,
+					PasswordHash: &pHash,
+					Shell:        &userShell,
+					Groups:       []ignitiontypes.Group{"wheel"},
+				},
+			},
+		},
+		Storage: ignitiontypes.Storage{
+			Files: []ignitiontypes.File{
+				{
+					Node: ignitiontypes.Node{
+						Path: "/etc/sudoers.d/" + *gvm.Username,
+					},
+					FileEmbedded1: ignitiontypes.FileEmbedded1{
+						Contents: ignitiontypes.Resource{
+							Source: &sudoerFile,
+						},
+					},
+				},
+			},
+		},
+	}
+	nm_file_template := `
+[connection]
+id=static-%v
+type=ethernet
+
+[ethernet]
+mac-address=%v
+[ipv4]
+method=manual
+# Format: IP_ADDRESS/CIDR,GATEWAY
+%v
+
+[ipv6]
+method=manual
+# Format: IP_ADDRESS/PREFIX_LENGTH,GATEWAY
+%v`
+	switch *gvm.InitMethod {
+	case InitMethod_IGNITION_NMGR:
+		r.Spec.Volumes = append(r.Spec.Volumes,
+			kvv1.Volume{
+				Name: initVolName,
+				VolumeSource: kvv1.VolumeSource{
+					CloudInitConfigDrive: &kvv1.CloudInitConfigDriveSource{
+						UserData: "",
+					},
+				},
+			})
+
+	case InitMethod_CLOUDINIT:
+		r.Spec.Volumes = append(r.Spec.Volumes,
+			kvv1.Volume{
+				Name: initVolName,
+				VolumeSource: kvv1.VolumeSource{
+					CloudInitNoCloud: &kvv1.CloudInitNoCloudSource{
+						UserData: fmt.Sprintf(cloudinitUserDataTemplate, *gvm.Username, *gvm.Password),
+					},
+				},
+			})
+		r.Spec.Domain.Devices.Disks = append(r.Spec.Domain.Devices.Disks,
+			kvv1.Disk{
+				Name: initVolName,
+				DiskDevice: kvv1.DiskDevice{
+					Disk: &kvv1.DiskTarget{
+						Bus: kvv1.DiskBusVirtio,
+					},
+				},
+			})
+
+	}
+
+	//net
+	//add pod interface, this is used for console telnet access
+	r.Spec.Networks = append(r.Spec.Networks,
+		kvv1.Network{
+			Name: "pod-net",
+			NetworkSource: kvv1.NetworkSource{
+				Pod: &kvv1.PodNetwork{},
+			},
+		})
+	r.Spec.Domain.Devices.Interfaces = append(r.Spec.Domain.Devices.Interfaces,
+		kvv1.Interface{
+			Name: "pod-net",
+			//the port is needed here to prevent all traffic go into VM
+			Ports: *gvm.Ports,
+			InterfaceBindingMethod: kvv1.InterfaceBindingMethod{
+				Masquerade: &kvv1.InterfaceMasquerade{},
+			},
+		})
+	//port links
+	for _, spokes := range lab.SpokeMap[vmname] {
+		for _, spokeName := range spokes {
+			nadName := k8slan.GetNADName(spokeName, false)
+			r.Spec.Networks = append(r.Spec.Networks,
+				kvv1.Network{
+					Name: spokeName,
+					NetworkSource: kvv1.NetworkSource{
+						Multus: &kvv1.MultusNetwork{
+							NetworkName: nadName,
+						},
+					},
+				})
+			r.Spec.Domain.Devices.Interfaces = append(r.Spec.Domain.Devices.Interfaces,
+				kvv1.Interface{
+					Name: spokeName,
+					Binding: &kvv1.PluginBinding{
+						Name: "macvtap",
+					},
+				},
+			)
+		}
+	}
+	//assign link address
+	if links, ok := lab.ConnectorMap[vmname]; ok {
+		for i, linkname := range links {
+			_, c := lab.getLinkandConnector(vmname, linkname)
+			if c != nil {
+				if c.Addr != nil {
+					gwStr := ""
+					if lab.Lab.Spec.LinkList[linkname].GWAddr != nil {
+						gwAddr := netip.MustParsePrefix(*lab.Lab.Spec.LinkList[linkname].GWAddr)
+						gwStr = fmt.Sprintf("gateway4: %v", gwAddr.Addr().String())
+						if gwAddr.Addr().Is6() {
+							gwStr = fmt.Sprintf("gateway6: %v", gwAddr.Addr().String())
+						}
+					}
+					//add network data for startup config
+
+					switch *gvm.InitMethod {
+					case InitMethod_IGNITION_NMGR:
+						caddr := netip.MustParsePrefix(*c.Addr)
+						v4addrstr := ""
+						v6addstr := ""
+						if caddr.Addr().Is4() {
+							v4addrstr = fmt.Sprintf("address1=%v,%v", caddr.String(), gwStr)
+						}
+						if caddr.Addr().Is6() {
+							v6addstr = fmt.Sprintf("address1=%v,%v", caddr.String(), gwStr)
+						}
+						connectionFile := encodeDataURL(fmt.Sprintf(nm_file_template, i, *c.Mac, v4addrstr, v6addstr))
+						ignitionData.Storage.Files = append(ignitionData.Storage.Files,
+							ignitiontypes.File{
+								Node: ignitiontypes.Node{
+									Path: fmt.Sprintf("/etc/NetworkManager/system-connections/static-%d.nmconnection", i),
+								},
+								FileEmbedded1: ignitiontypes.FileEmbedded1{
+									Contents: ignitiontypes.Resource{
+										Source: &connectionFile,
+									},
+								},
+							},
+						)
+					case InitMethod_CLOUDINIT:
+						if r.Spec.Volumes[initVolIndex].CloudInitNoCloud.NetworkData == "" {
+							r.Spec.Volumes[initVolIndex].CloudInitNoCloud.NetworkData = cloudinitNetworkDataTemplateBase
+						}
+
+						r.Spec.Volumes[initVolIndex].CloudInitNoCloud.NetworkData += fmt.Sprintf(
+							cloudinitNetworkDataTemplateIntf,
+							i,
+							*c.Mac,
+							*c.Addr,
+							gwStr,
+						)
+					}
+
+				}
+			}
+		}
+	}
+
+	if *gvm.InitMethod == InitMethod_IGNITION_NMGR {
+		buf, _ := json.MarshalIndent(ignitionData, "", "  ")
+		r.Spec.Volumes[initVolIndex].CloudInitConfigDrive.UserData = string(buf)
+	}
+	return r
+}
+
+// this functon generate hash for passwd, used for linux passwd hash provsion
+func genPasswdHash(passwd string) (string, error) {
+	c := sha512_crypt.New()
+	return c.Generate([]byte(passwd), []byte(""))
+}
+
+// this encode msg in data URL according to rfc2397, this is what ignition requires: https://coreos.github.io/ignition/examples/#create-files-on-the-root-filesystem
+func encodeDataURL(msg string) string {
+	return fmt.Sprintf("data:,%v", url.PathEscape(msg))
 }

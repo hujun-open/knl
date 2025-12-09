@@ -81,7 +81,11 @@ spec:
                           type: boolean
                       type: object
                     srl:
-                      description: VMPC *VMPC `json:"vpc,omitempty"`
+                      description: |-
+                        SRLinux creates a pod for SRL:
+                        - the specified Chassis will creates a configmap and mounted as /tmp/topology.yml
+                        - the specified LicSecrete reference to a secret, mounted as /opt/srlinux/etc/license.key
+                        - create a PVC mount on /etc/opt/srlinux/checkpoint for persistent configuration
                       nullable: true
                       properties:
                         chassis:
@@ -139,6 +143,69 @@ spec:
                             type: object
                           type: array
                         sysinfo:
+                          type: string
+                      type: object
+                    vm:
+                      description: GeneralVM creates a generic kubevirt VM
+                      nullable: true
+                      properties:
+                        cpu:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        cpuPin:
+                          type: boolean
+                        diskSize:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        hugePage:
+                          type: boolean
+                        image:
+                          type: string
+                        init:
+                          type: string
+                        memory:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
+                        passwd:
+                          type: string
+                        ports:
+                          items:
+                            description: |-
+                              Port represents a port to expose from the virtual machine.
+                              Default protocol TCP.
+                              The port field is mandatory
+                            properties:
+                              name:
+                                description: |-
+                                  If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
+                                  named port in a pod must have a unique name. Name for the port that can be
+                                  referred to by services.
+                                type: string
+                              port:
+                                description: |-
+                                  Number of port to expose for the virtual machine.
+                                  This must be a valid port number, 0 < x < 65536.
+                                format: int32
+                                type: integer
+                              protocol:
+                                description: |-
+                                  Protocol for port. Must be UDP or TCP.
+                                  Defaults to "TCP".
+                                type: string
+                            required:
+                            - port
+                            type: object
+                          type: array
+                        user:
                           type: string
                       type: object
                   type: object

@@ -33,8 +33,8 @@ func Getk8lanName(lab, link string) string {
 func Getk8lanBRName(lab, link string) string {
 	return "k8slanbr"
 }
-func Getk8lanVxName(lab, link string) string {
-	return "k8slanvx"
+func Getk8lanVxName(lab, link string, vni int32) string {
+	return fmt.Sprintf("klanvx%d", vni)
 }
 
 // This function requires controller's MaxConcurrentReconciles == 1, otherwise there is race issue
@@ -95,7 +95,7 @@ func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map
 				Spec: k8slan.LANSpec{
 					NS:           common.GetPointerVal(Getk8lanName(plab.Lab.Name, linkName)),
 					BridgeName:   common.GetPointerVal(Getk8lanBRName(plab.Lab.Name, linkName)),
-					VxLANName:    common.GetPointerVal(Getk8lanVxName(plab.Lab.Name, linkName)),
+					VxLANName:    common.GetPointerVal(Getk8lanVxName(plab.Lab.Name, linkName, vni)),
 					VNI:          common.GetPointerVal(vni),
 					DefaultVxDev: *gconf.VXLANDefaultDev,
 					VxDevMap:     gconf.VxDevMap,

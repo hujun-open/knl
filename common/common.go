@@ -408,8 +408,10 @@ func NewDV(namespace, labName, dvName, nodeImg string, stroageclass *string, dis
 		StorageClassName: stroageclass,
 		AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
 	}
-	r.Spec.PVC.Resources.Requests = make(corev1.ResourceList)
-	r.Spec.PVC.Resources.Requests[corev1.ResourceStorage] = *disksize
+	if disksize != nil {
+		r.Spec.PVC.Resources.Requests = make(corev1.ResourceList)
+		r.Spec.PVC.Resources.Requests[corev1.ResourceStorage] = *disksize
+	}
 	r.Spec.Source = &cdiv1.DataVolumeSource{
 		Registry: &cdiv1.DataVolumeSourceRegistry{
 			URL: &nodeImg,

@@ -13,7 +13,7 @@ type OneOfSystem struct {
 	SRVM *SRVM `json:"srvm,omitempty"`
 	// +optional
 	// +nullable
-	// VMPC *VMPC `json:"vpc,omitempty"`
+	VM *GeneralVM `json:"vm,omitempty"`
 	// +optional
 	// +nullable
 	SRL *SRLinux `json:"srl,omitempty"`

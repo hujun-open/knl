@@ -45,3 +45,13 @@ func ParseLab(lab *Lab, sch *runtime.Scheme) *ParsedLab {
 	}
 	return r
 }
+func (lab *ParsedLab) getLinkandConnector(node, linkName string) (*Link, *Connector) {
+	if link, ok := lab.Lab.Spec.LinkList[linkName]; ok {
+		for _, c := range link.Connectors {
+			if *c.NodeName == node {
+				return link, &c
+			}
+		}
+	}
+	return nil, nil
+}

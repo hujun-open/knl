@@ -348,8 +348,6 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachineInst
 	}
 
 	//port links
-	// if links, ok := lab.ConnectorMap[vmname]; ok {
-	// 	for _, linkname := range links {
 	for _, spokes := range lab.SpokeMap[vmname] {
 		for _, spokeName := range spokes {
 			nadName := k8slan.GetNADName(spokeName, false)
