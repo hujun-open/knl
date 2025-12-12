@@ -117,34 +117,28 @@ func fillNilPointersValue(dstStruct, srcStruct reflect.Value) {
 		if !dstField.CanSet() {
 			continue
 		}
-
 		switch dstField.Kind() {
-		case reflect.Ptr:
-			// Only fill when dst pointer is nil and src has a non-zero value
-			if dstField.IsNil() && srcField.IsValid() && !srcField.IsZero() {
-				// If src is a pointer and assignable to dst type, set directly
-				if srcField.Kind() == reflect.Ptr && srcField.Type().AssignableTo(dstField.Type()) {
-					if !srcField.IsNil() {
-						dstField.Set(srcField)
+		case reflect.Pointer:
+			if dstField.Type().Elem().Kind() == reflect.Struct {
+				//if pointer to a struct, go downif src field is not nil
+				if !srcField.IsNil() {
+					if dstField.IsNil() {
+						dstField.Set(reflect.New(dstField.Type().Elem()))
 					}
-				} else {
-					// src is not a pointer: if its type is assignable to pointer elem, allocate and copy
-					elemType := dstField.Type().Elem()
-					if srcField.Type().AssignableTo(elemType) {
-						newPtr := reflect.New(elemType)
-						newPtr.Elem().Set(srcField)
-						dstField.Set(newPtr)
-					}
+					fillNilPointersValue(dstField.Elem(), srcField.Elem())
+				}
+			} else {
+				//if not pointer to a struct
+				if dstField.IsNil() && !srcField.IsNil() {
+					dstField.Set(srcField)
 				}
 			}
-		case reflect.Struct:
-			// Recurse into nested struct
-			fillNilPointersValue(dstField, srcField)
-		// other kinds ignored
-		default:
-			// do nothing
+		case reflect.Map:
+			if dstField.IsNil() && !srcField.IsNil() {
+				dstField.Set(srcField)
+			}
 		}
-		// For other possible pointer-like container types (slices/maps/interfaces) we intentionally do nothing
+		// For other possible pointer-like container types (slices/interfaces) we intentionally do nothing
 	}
 }
 
@@ -175,6 +169,13 @@ func AssignPointerVal[T any](inp **T, val T) {
 	*inp = new(T)
 	**inp = val
 
+}
+
+// ReturnPointerVal return a new pointer type *T, points to a value val
+func ReturnPointerVal[T any](val T) *T {
+	r := new(T)
+	*r = val
+	return r
 }
 
 var BaseMACAddr = net.HardwareAddr{0x12, 32, 34, 0, 0, 0}

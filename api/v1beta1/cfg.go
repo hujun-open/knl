@@ -66,9 +66,11 @@ var MYNAMESPACE string
 func init() {
 	GCONF = newConfig()
 	var err error
-	MYNAMESPACE, err = getWatchNamespace()
-	if err != nil {
-		panic(err)
+	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
+		MYNAMESPACE, err = getWatchNamespace()
+		if err != nil {
+			panic(err)
+		}
 	}
 
 }

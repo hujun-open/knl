@@ -95,6 +95,41 @@ spec:
                         license:
                           type: string
                       type: object
+                    srsim:
+                      nullable: true
+                      properties:
+                        chassis:
+                          nullable: true
+                          properties:
+                            cards:
+                              additionalProperties:
+                                properties:
+                                  mdas:
+                                    items:
+                                      items:
+                                        type: string
+                                      type: array
+                                    type: array
+                                  type:
+                                    type: string
+                                  xioms:
+                                    items:
+                                      type: string
+                                    type: array
+                                type: object
+                              type: object
+                            sfm:
+                              type: string
+                            type:
+                              type: string
+                          type: object
+                        image:
+                          nullable: true
+                          type: string
+                        license:
+                          nullable: true
+                          type: string
+                      type: object
                     srvm:
                       nullable: true
                       properties:
@@ -102,16 +137,20 @@ spec:
                           anyOf:
                           - type: integer
                           - type: string
+                          nullable: true
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         image:
+                          nullable: true
                           type: string
                         lic:
+                          nullable: true
                           type: string
                         memory:
                           anyOf:
                           - type: integer
                           - type: string
+                          nullable: true
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         ports:
@@ -141,8 +180,10 @@ spec:
                             required:
                             - port
                             type: object
+                          nullable: true
                           type: array
                         sysinfo:
+                          nullable: true
                           type: string
                       type: object
                     vm:

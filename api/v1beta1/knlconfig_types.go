@@ -63,7 +63,7 @@ type KNLConfigSpec struct {
 
 	// defaultNode specifies default values for types of node
 	// +optional
-	DefaultNode OneOfSystem `json:"defaultNode,omitempty"`
+	DefaultNode *OneOfSystem `json:"defaultNode,omitempty"`
 }
 
 // this is default knlconfig to use to fill any non-specified field,
@@ -86,7 +86,7 @@ func DefKNLConfig() KNLConfigSpec {
 		newPointerVal.Interface().(common.System).SetToAppDefVal()
 		val.Field(i).Set(newPointerVal)
 	}
-	r.DefaultNode = defOne
+	r.DefaultNode = &defOne
 	return r
 }
 
@@ -143,7 +143,7 @@ func init() {
 // loadDef load non-specified fields of in with def, using DefaultNode in KNLConfigSpec
 func LoadDef(in *LabSpec, def KNLConfigSpec) error {
 	//node defaults
-	defVal := reflect.ValueOf(def.DefaultNode)
+	defVal := reflect.ValueOf(def.DefaultNode).Elem()
 	var err error
 	for nodeName := range in.NodeList {
 		nodesys := in.NodeList[nodeName]
@@ -151,14 +151,14 @@ func LoadDef(in *LabSpec, def KNLConfigSpec) error {
 		if node == nil {
 			return fmt.Errorf("node %v's type is not specified", nodeName)
 		}
-		def := defVal.FieldByName(fieldName)
-		if !def.IsValid() {
+		defNode := defVal.FieldByName(fieldName)
+		if !defNode.IsValid() {
 			continue
 		}
-		if def.IsNil() {
+		if defNode.IsNil() {
 			continue
 		}
-		err = common.FillNilPointers(node, def.Interface().(common.System))
+		err = common.FillNilPointers(node, defNode.Interface().(common.System))
 		if err != nil {
 			return err
 		}

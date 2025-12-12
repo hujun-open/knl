@@ -112,7 +112,7 @@ func (r *LabReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	//reconcile logic here
 	//create k8sLAN CRs
 	var err error
-	plab.SpokeMap, err = plab.EnsureLinks(ensureCTX, r.Client)
+	plab.SpokeMap, plab.SpokeConnectorMap, err = plab.EnsureLinks(ensureCTX, r.Client)
 	if err != nil {
 		logger.Error(err, "failed to create links")
 		return ctrl.Result{}, nil

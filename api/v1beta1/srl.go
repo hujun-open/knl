@@ -307,9 +307,11 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 		}
 
 	}
-	netStr = netStr[:len(netStr)-1]
-	pod.Annotations = map[string]string{
-		MultusAnnoKey: netStr,
+	if netStr != "" {
+		netStr = netStr[:len(netStr)-1]
+		pod.Annotations = map[string]string{
+			MultusAnnoKey: netStr,
+		}
 	}
 
 	err = createIfNotExistsOrRemove(ctx, clnt, lab, pod, true, false)

@@ -21,10 +21,11 @@ type SetOwnerFuncType func(controlled metav1.Object) error
 // +kubebuilder:object:generate=false
 // +kubebuilder:object:root=false
 type ParsedLab struct {
-	Lab          *Lab
-	ConnectorMap map[string][]string //key is node name, val is a list of link name
-	SetOwnerFunc SetOwnerFuncType
-	SpokeMap     map[string]map[string][]string //1st key is nodename, 2nd key is LAN name, val is list of spoke name
+	Lab               *Lab
+	ConnectorMap      map[string][]string //key is node name, val is a list of link name
+	SetOwnerFunc      SetOwnerFuncType
+	SpokeMap          map[string]map[string][]string //1st key is nodename, 2nd key is LAN name, val is list of spoke name
+	SpokeConnectorMap map[string]*Connector          //key is the spokename
 }
 
 func ParseLab(lab *Lab, sch *runtime.Scheme) *ParsedLab {

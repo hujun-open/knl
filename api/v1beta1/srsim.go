@@ -1,0 +1,254 @@
+package v1beta1
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	k8slan "github.com/hujun-open/k8slan/api/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
+	"kubenetlab.net/knl/common"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+func init() {
+	common.NewSysRegistry[SRSIM] = func() common.System { return new(SRSim) }
+}
+
+type SRSIMCard struct {
+	Type *string    `json:"type,omitempty"`
+	MDAs [][]string `json:"mdas,omitempty"` //first index is XIOM, 2nd is the MDA
+	XIOM []string   `json:"xioms,omitempty"`
+}
+
+type SRChassis struct {
+	Type  *string               `json:"type,omitempty"`
+	Cards map[string]*SRSIMCard `json:"cards,omitempty"` //key is slot id, "A","B" for CPM, number for IOM
+	SFM   *string               `json:"sfm,omitempty"`
+}
+
+// SRSIM creates a Nokia SR-SIM
+// note: it is important to set `tx-checksum-ip-generic` off in corresponding bridge interface, otherwise TCP/UDP toward management interface won't work (only ping works)
+// in kind, it is docker bridge
+// in general k8s, it is cni0 bridge in each worker
+type SRSim struct {
+	// +optional
+	// +nullable
+	Image *string `json:"image,omitempty"`
+	// +optional
+	// +nullable
+	Chassis *SRChassis `json:"chassis,omitempty"`
+	// +optional
+	// +nullable
+	LicSecret *string `json:"license,omitempty"`
+}
+
+func DefaultChassis() *SRChassis {
+	r := new(SRChassis)
+	common.AssignPointerVal(&r.Type, "SR-7")
+	common.AssignPointerVal(&r.SFM, "m-sfm6-7")
+	r.Cards = make(map[string]*SRSIMCard)
+	r.Cards["A"] = &SRSIMCard{
+		Type: common.ReturnPointerVal("cpm5"),
+	}
+	r.Cards["1"] = &SRSIMCard{
+		Type: common.ReturnPointerVal("iom4-e"),
+		MDAs: [][]string{{"me10-10gb-sfp+", "isa2-tunnel"}},
+	}
+	return r
+}
+
+const (
+	SRSIM  common.NodeType = "srsim"
+	CFSize string          = "64Mi"
+)
+
+func (srsim *SRSim) SetToAppDefVal() {
+	common.AssignPointerVal(&srsim.Chassis, *DefaultChassis())
+}
+
+func (srsim *SRSim) FillDefaultVal(nodeName string) {
+}
+
+func (srsim *SRSim) GetNodeType(name string) common.NodeType {
+	return SRSIM
+}
+
+func (srsim *SRSim) Validate() error {
+	if srsim.Image == nil {
+		return fmt.Errorf("image not specified")
+	}
+	if srsim.Chassis == nil {
+		return fmt.Errorf("chassis not specified")
+	}
+	if _, ok := srsim.Chassis.Cards["A"]; !ok {
+		return fmt.Errorf("slot A not specified")
+	}
+
+	return nil
+}
+
+func (srsim *SRSim) getCFPVC(ns, nodeName, labName, slot string, id int) *corev1.PersistentVolumeClaim {
+	gconf := GCONF.Get()
+
+	return &corev1.PersistentVolumeClaim{
+		ObjectMeta: common.GetObjMeta(srsim.getCFPVCName(nodeName, labName, slot, id), labName, ns),
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
+			StorageClassName: common.GetPointerVal(*gconf.PVCStorageClass),
+			Resources: corev1.VolumeResourceRequirements{
+				Requests: map[corev1.ResourceName]resource.Quantity{
+					corev1.ResourceStorage: resource.MustParse(CFSize),
+				},
+			},
+		},
+	}
+}
+
+func (srsim *SRSim) getCFPVCName(nodeName, labName, slot string, id int) string {
+	return strings.ToLower(fmt.Sprintf("%v-%v-cf-%v-%d", labName, nodeName, slot, id))
+}
+
+func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Client, forceRemoval bool) error {
+	// gconf := GCONF.Get()
+	val := ctx.Value(ParsedLabKey)
+	if val == nil {
+		return common.MakeErr(fmt.Errorf("failed to get parsed lab obj from context"))
+	}
+	var lab *ParsedLab
+	var ok bool
+	if lab, ok = val.(*ParsedLab); !ok {
+		return common.MakeErr(fmt.Errorf("context stored value is not a ParsedLabSpec"))
+	}
+
+	//create pod
+	pod := common.NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *srsim.Image)
+	pod.Spec.Containers = []corev1.Container{}
+	for slotid, card := range srsim.Chassis.Cards {
+		container := corev1.Container{
+			Name:  strings.ToLower("slot-" + slotid),
+			Image: *srsim.Image,
+			SecurityContext: &corev1.SecurityContext{
+				Privileged: common.ReturnPointerVal(true),
+			},
+		}
+		//license file
+		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+			Name:      "lic",
+			MountPath: "/nokia/license/license.txt",
+			SubPath:   "license.txt",
+		})
+		//envs
+		container.Env = []corev1.EnvVar{
+			{
+				Name:  "NOKIA_SROS_CHASSIS",
+				Value: *srsim.Chassis.Type,
+			},
+			{
+				Name:  "NOKIA_SROS_SLOT",
+				Value: slotid,
+			},
+			{
+				Name:  "NOKIA_SROS_CARD",
+				Value: *card.Type,
+			},
+		}
+		if srsim.Chassis.SFM != nil {
+			container.Env = append(container.Env, corev1.EnvVar{
+				Name:  "NOKIA_SROS_SFM",
+				Value: *srsim.Chassis.SFM,
+			})
+		}
+		if !common.IsCPM(slotid) {
+			//iom
+			for i, xiom := range card.XIOM {
+				container.Env = append(container.Env, corev1.EnvVar{
+					Name:  fmt.Sprintf("NOKIA_SROS_XIOM_%d", i+1),
+					Value: xiom,
+				})
+			}
+			for xiom, mdas := range card.MDAs {
+				for i, mda := range mdas {
+					if len(card.MDAs) > 1 {
+						container.Env = append(container.Env, corev1.EnvVar{
+							Name:  fmt.Sprintf("NOKIA_SROS_MDA_%d_%d", xiom+1, i+1),
+							Value: mda,
+						})
+					} else {
+						container.Env = append(container.Env, corev1.EnvVar{
+							Name:  fmt.Sprintf("NOKIA_SROS_MDA_%d", i+1),
+							Value: mda,
+						})
+					}
+				}
+			}
+		} else {
+			//cpm
+			//cf cards
+			for i := 1; i <= 3; i++ {
+				cfPVC := srsim.getCFPVC(lab.Lab.Namespace, nodeName, lab.Lab.Name, slotid, i)
+				err := createIfNotExistsOrRemove(ctx, clnt, lab, cfPVC, false, false)
+				if err != nil {
+					return fmt.Errorf("failed to create cf card %d pvc for SRSIM %v in lab %v, %w", i, nodeName, lab.Lab.Name, err)
+				}
+				container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
+					Name:      cfPVC.Name,
+					MountPath: fmt.Sprintf("/cf%d", i),
+				})
+				pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+					Name: cfPVC.Name,
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: cfPVC.Name,
+							ReadOnly:  false,
+						},
+					},
+				})
+
+			}
+
+		}
+		pod.Spec.Containers = append(pod.Spec.Containers, container)
+	}
+	//volumes
+	pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
+		Name: "lic",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: *srsim.LicSecret,
+			},
+		},
+	})
+
+	//refer to NADs
+	netStr := ""
+	i := 1
+	pod.Spec.Containers[0].Resources.Limits = make(corev1.ResourceList)
+	for _, spokes := range lab.SpokeMap[nodeName] {
+		for _, spokeName := range spokes {
+			nadName := k8slan.GetNADName(spokeName, true)
+			if lab.SpokeConnectorMap[spokeName].PortId != nil {
+				netStr += fmt.Sprintf("%v@%v,", nadName, lab.SpokeConnectorMap[spokeName].PortId)
+			} else {
+				//if port is not specified, default to card 1 mda 1
+				netStr += fmt.Sprintf("%v@e1-1-%d,", nadName, i)
+			}
+			resKey := fmt.Sprintf("%v/%v", K8sLANResKeyPrefix, nadName)
+			pod.Spec.Containers[0].Resources.Limits[corev1.ResourceName(resKey)] = resource.MustParse("1")
+			i += 1
+		}
+
+	}
+	if netStr != "" {
+		netStr = netStr[:len(netStr)-1]
+		pod.Annotations = map[string]string{
+			MultusAnnoKey: netStr,
+		}
+	}
+	err := createIfNotExistsOrRemove(ctx, clnt, lab, pod, true, false)
+	if err != nil {
+		return fmt.Errorf("failed to create SRL pod %v in lab %v, %w", nodeName, lab.Lab.Name, err)
+	}
+	return nil
+}

@@ -23,12 +23,24 @@ const (
 )
 
 type SRVM struct {
-	SRSysinfoStr *string            `json:"sysinfo,omitempty"` //only contains chassis, sfm, card and mda
-	ReqMemory    *resource.Quantity `json:"memory,omitempty"`
-	ReqCPU       *resource.Quantity `json:"cpu,omitempty"`
-	Image        *string            `json:"image,omitempty"` //for node type that use ftp, this is the folder name, not full URL
-	LicURL       *string            `json:"lic,omitempty"`   //a FTP URL, if not specified, use a fixed URL of SFTP sever in opeartor pod
-	Ports        *[]kvv1.Port       `json:"ports,omitempty"` //list of open port for management interface
+	// +optional
+	// +nullable
+	SRSysinfoStr *string `json:"sysinfo,omitempty"` //only contains chassis, sfm, card and mda
+	// +optional
+	// +nullable
+	ReqMemory *resource.Quantity `json:"memory,omitempty"`
+	// +optional
+	// +nullable
+	ReqCPU *resource.Quantity `json:"cpu,omitempty"`
+	// +optional
+	// +nullable
+	Image *string `json:"image,omitempty"` //for node type that use ftp, this is the folder name, not full URL
+	// +optional
+	// +nullable
+	LicURL *string `json:"license,omitempty"` //a FTP URL, if not specified, use a fixed URL of SFTP sever in opeartor pod
+	// +optional
+	// +nullable
+	Ports *[]kvv1.Port `json:"ports,omitempty"` //list of open port for management interface
 }
 
 func (srvm *SRVM) FillDefaultVal(name string) {

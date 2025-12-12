@@ -97,9 +97,11 @@ func (gpod *GeneralPod) Ensure(ctx context.Context, nodeName string, clnt client
 			pod.Spec.Containers[0].Resources.Limits[corev1.ResourceName(resKey)] = resource.MustParse("1")
 		}
 	}
-	netStr = netStr[:len(netStr)-1]
-	pod.Annotations = map[string]string{
-		MultusAnnoKey: netStr,
+	if netStr != "" {
+		netStr = netStr[:len(netStr)-1]
+		pod.Annotations = map[string]string{
+			MultusAnnoKey: netStr,
+		}
 	}
 
 	err = createIfNotExistsOrRemove(ctx, clnt, lab, pod, true, false)

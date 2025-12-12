@@ -21,8 +21,8 @@ type Link struct {
 
 type Connector struct {
 	//+required
-	NodeName *string `json:"node"` //node name, in case of distruited system like vsim/mag-c, it is the name of IOM VM
-	PortId   *string `json:"port,omitempty"`
+	NodeName *string `json:"node"`           //node name, in case of distruited system like vsim/mag-c, it is the name of IOM VM
+	PortId   *string `json:"port,omitempty"` //only used by srsim for mda port id
 	Addr     *string `json:"addr,omitempty"` //a prefix, used for cloud-init on vmLinux, and podlinux
 	Mac      *string `json:"mac,omitempty"`  //used for cloud-init on vmLinux, and podlinux
 }
@@ -71,10 +71,12 @@ func getSpokeName(vni int32, connectorIndex int) string {
 }
 
 // this creates k8slan CR for all links
-// return a map, 1st key is nodename, 2nd key is LAN name, val is list of spoke name
-func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map[string]map[string][]string, error) {
+// return two maps, first map: 1st key is nodename, 2nd key is LAN name, val is list of spoke name
+// 2nd map: key is spokename, value is corrsponding connector
+func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map[string]map[string][]string, map[string]*Connector, error) {
 	gconf := GCONF.Get()
 	rmap := make(map[string]map[string][]string)
+	spokeConnectorMap := make(map[string]*Connector)
 	for linkName, link := range plab.Lab.Spec.LinkList {
 		lan := new(k8slan.LAN)
 		err := clnt.Get(ctx,
@@ -83,12 +85,12 @@ func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map
 		)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
-				return nil, fmt.Errorf("unexpected error getting existing LAN %v, %w", Getk8lanName(plab.Lab.Name, linkName), err)
+				return nil, nil, fmt.Errorf("unexpected error getting existing LAN %v, %w", Getk8lanName(plab.Lab.Name, linkName), err)
 			}
 			//not found, create new one
 			vni, err := GetAvailableVNI(ctx, clnt, len(plab.Lab.Spec.LinkList))
 			if err != nil {
-				return nil, fmt.Errorf("failed to get %d vni, %w", len(plab.Lab.Spec.LinkList), err)
+				return nil, nil, fmt.Errorf("failed to get %d vni, %w", len(plab.Lab.Spec.LinkList), err)
 			}
 			lan = &k8slan.LAN{
 				ObjectMeta: common.GetObjMeta(Getk8lanName(plab.Lab.Name, linkName), plab.Lab.Name, plab.Lab.Namespace),
@@ -116,13 +118,14 @@ func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map
 				rmap[*c.NodeName][linkName] = []string{}
 			}
 			rmap[*c.NodeName][linkName] = append(rmap[*c.NodeName][linkName], spokeName)
+			spokeConnectorMap[spokeName] = &c
 		}
 
 		err = createIfNotExistsOrRemove(ctx, clnt, plab, lan, true, false)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create LAN CR for lab %v link %v, %w", plab.Lab.Name, linkName, err)
+			return nil, nil, fmt.Errorf("failed to create LAN CR for lab %v link %v, %w", plab.Lab.Name, linkName, err)
 		}
 
 	}
-	return rmap, nil
+	return rmap, spokeConnectorMap, nil
 }
