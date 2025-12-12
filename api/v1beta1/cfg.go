@@ -9,6 +9,7 @@ import (
 
 // +kubebuilder:object:generate=false
 // +kubebuilder:object:root=false
+// +hidefromdoc
 type Config struct {
 	config     *KNLConfigSpec
 	lock       *sync.RWMutex

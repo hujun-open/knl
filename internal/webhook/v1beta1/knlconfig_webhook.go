@@ -67,7 +67,6 @@ func (d *KNLConfigCustomDefaulter) Default(_ context.Context, obj runtime.Object
 	}
 	knlconfiglog.Info("Defaulting for KNLConfig", "name", knlconfig.GetName())
 	spec := knlconfig.Spec
-	knlconfiglog.Info("input knlconfig struct field nil status", "status", rs)
 	err := common.FillNilPointers(&spec, v1beta1.DefKNLConfig())
 	if err != nil {
 		return err

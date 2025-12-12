@@ -29,9 +29,11 @@ type SRChassis struct {
 }
 
 // SRSIM creates a Nokia SR-SIM
+
 // note: it is important to set `tx-checksum-ip-generic` off in corresponding bridge interface, otherwise TCP/UDP toward management interface won't work (only ping works)
-// in kind, it is docker bridge
-// in general k8s, it is cni0 bridge in each worker
+// in kind, it is docker bridge;
+// in general k8s, it is cni0 bridge in each worker;
+// "ethtool -K <interface> tx-checksum-ip-generic off"
 type SRSim struct {
 	// +optional
 	// +nullable

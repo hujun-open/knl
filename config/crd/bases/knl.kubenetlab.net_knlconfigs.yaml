@@ -69,6 +69,11 @@ spec:
                         type: string
                     type: object
                   srsim:
+                    description: |-
+                      note: it is important to set `tx-checksum-ip-generic` off in corresponding bridge interface, otherwise TCP/UDP toward management interface won't work (only ping works)
+                      in kind, it is docker bridge;
+                      in general k8s, it is cni0 bridge in each worker;
+                      "ethtool -K <interface> tx-checksum-ip-generic off"
                     nullable: true
                     properties:
                       chassis:
@@ -116,7 +121,7 @@ spec:
                       image:
                         nullable: true
                         type: string
-                      lic:
+                      license:
                         nullable: true
                         type: string
                       memory:

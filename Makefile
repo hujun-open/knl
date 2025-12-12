@@ -273,3 +273,9 @@ endef
 
 .PHONY: export
 export: docker-build deploymanifests docker-build-sidecar ## export controller and sidecar image tar.gz and all.yaml
+
+.PHONY: api-doc
+api-doc: ## generate API docs
+	- mkdir apidocs
+	crd-ref-docs --max-depth 99 --source-path ./api/v1beta1/ --renderer=markdown --config crd-ref-docs_config.yaml --output-path=./apidocs/
+	

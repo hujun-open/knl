@@ -1,0 +1,19 @@
+processor:
+  maxDepth: 176
+  ignoreGroupVersions:
+    - "GVK"
+  ignoreTypes:
+    - '\bConfig\b'
+    - "CtxValueKey"
+    - "Embedded[2-4]$"
+    - "ParsedLab"
+    - "SetOwnerFuncType"
+  ignoreFields:
+    - "status$"
+    - "TypeMeta$"
+  customMarkers:
+    - name: "hidefromdoc"
+      target: type
+
+render:
+  kubernetesVersion: 1.25
