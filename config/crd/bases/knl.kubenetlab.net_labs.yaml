@@ -110,17 +110,25 @@ spec:
                               additionalProperties:
                                 properties:
                                   mdas:
+                                    description: mdas and xioms are mutully exclusive
                                     items:
-                                      items:
-                                        type: string
-                                      type: array
+                                      type: string
                                     type: array
                                   type:
                                     type: string
                                   xioms:
-                                    items:
-                                      type: string
-                                    type: array
+                                    additionalProperties:
+                                      properties:
+                                        mdas:
+                                          items:
+                                            type: string
+                                          type: array
+                                        type:
+                                          type: string
+                                      type: object
+                                    description: key is XIOM slot id, e.g. x1/x2;
+                                      mdas and xioms are mutully exclusive
+                                    type: object
                                 type: object
                               type: object
                             sfm:

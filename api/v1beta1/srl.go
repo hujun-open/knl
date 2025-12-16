@@ -135,7 +135,7 @@ type SRLinux struct {
 }
 
 func (srl *SRLinux) SetToAppDefVal() {
-	common.AssignPointerVal(&srl.Chassis, "ixr-h5-32d")
+	srl.Chassis = common.ReturnPointerVal("ixr-h5-32d")
 }
 
 func (srl *SRLinux) FillDefaultVal(nodeName string) {
@@ -243,7 +243,7 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 	pod := common.NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *srl.Image)
 	pod.Spec.Containers[0].Command = []string{"/tini", "--", "fixuid", "-q", "/entrypoint.sh", "sudo", "bash", "/opt/srlinux/bin/sr_linux"}
 	pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{}
-	common.AssignPointerVal(&(pod.Spec.Containers[0].SecurityContext.Privileged), true)
+	pod.Spec.Containers[0].SecurityContext.Privileged = common.ReturnPointerVal(true)
 	pod.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
 		{
 			Name:      "topo",

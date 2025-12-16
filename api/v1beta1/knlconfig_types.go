@@ -69,14 +69,15 @@ type KNLConfigSpec struct {
 // this is default knlconfig to use to fill any non-specified field,
 // this is the application default, meaning when user didn't specify the corresponding field in KNLconfig
 func DefKNLConfig() KNLConfigSpec {
-	var r KNLConfigSpec
-	common.AssignPointerVal(&r.SFTPSever, "knl-sftp-service.knl-system.svc.cluster.local:22")
-	common.AssignPointerVal(&r.SFTPUser, "knlftp")
-	common.AssignPointerVal(&r.SFTPPassword, "knlftp")
-	common.AssignPointerVal(&r.VXLANGrpAddr, "ff18::100")
-	common.AssignPointerVal(&r.LinkMtu, 7000)
-	common.AssignPointerVal(&r.PVCStorageClass, "nfs-client")
-	common.AssignPointerVal(&r.SRCPMLoaderImage, "http://knl-http.knl-system.svc.cluster.local/cpmload.img")
+	r := KNLConfigSpec{
+		SFTPSever:        common.ReturnPointerVal("knl-sftp-service.knl-system.svc.cluster.local:22"),
+		SFTPUser:         common.ReturnPointerVal("knlftp"),
+		SFTPPassword:     common.ReturnPointerVal("knlftp"),
+		VXLANGrpAddr:     common.ReturnPointerVal("ff18::100"),
+		LinkMtu:          common.ReturnPointerVal(uint(9000)),
+		PVCStorageClass:  common.ReturnPointerVal("nfs-client"),
+		SRCPMLoaderImage: common.ReturnPointerVal("http://knl-http.knl-system.svc.cluster.local/cpmload.img"),
+	}
 	//create app default for each node type
 	defOne := OneOfSystem{}
 	val := reflect.ValueOf(&defOne)

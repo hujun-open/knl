@@ -164,13 +164,6 @@ func NewStructPointerFields(s any) error {
 	return nil
 }
 
-// AssignPointerVal create a new pointer for inp, and assign val to it
-func AssignPointerVal[T any](inp **T, val T) {
-	*inp = new(T)
-	**inp = val
-
-}
-
 // ReturnPointerVal return a new pointer type *T, points to a value val
 func ReturnPointerVal[T any](val T) *T {
 	r := new(T)

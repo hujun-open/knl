@@ -129,8 +129,7 @@ func (srvm *SRVM) FillDefaultVal(name string) {
 
 }
 func (srvm *SRVM) SetToAppDefVal() {
-	common.AssignPointerVal(&srvm.Image, "R")
-
+	srvm.Image = common.ReturnPointerVal("R")
 }
 
 func (srvm *SRVM) Validate() error {

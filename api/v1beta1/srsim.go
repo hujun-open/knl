@@ -16,18 +16,6 @@ func init() {
 	common.NewSysRegistry[SRSIM] = func() common.System { return new(SRSim) }
 }
 
-type SRSIMCard struct {
-	Type *string    `json:"type,omitempty"`
-	MDAs [][]string `json:"mdas,omitempty"` //first index is XIOM, 2nd is the MDA
-	XIOM []string   `json:"xioms,omitempty"`
-}
-
-type SRChassis struct {
-	Type  *string               `json:"type,omitempty"`
-	Cards map[string]*SRSIMCard `json:"cards,omitempty"` //key is slot id, "A","B" for CPM, number for IOM
-	SFM   *string               `json:"sfm,omitempty"`
-}
-
 // SRSIM creates a Nokia SR-SIM
 
 // note: it is important to set `tx-checksum-ip-generic` off in corresponding bridge interface, otherwise TCP/UDP toward management interface won't work (only ping works)
@@ -46,28 +34,13 @@ type SRSim struct {
 	LicSecret *string `json:"license,omitempty"`
 }
 
-func DefaultChassis() *SRChassis {
-	r := new(SRChassis)
-	common.AssignPointerVal(&r.Type, "SR-7")
-	common.AssignPointerVal(&r.SFM, "m-sfm6-7")
-	r.Cards = make(map[string]*SRSIMCard)
-	r.Cards["A"] = &SRSIMCard{
-		Type: common.ReturnPointerVal("cpm5"),
-	}
-	r.Cards["1"] = &SRSIMCard{
-		Type: common.ReturnPointerVal("iom4-e"),
-		MDAs: [][]string{{"me10-10gb-sfp+", "isa2-tunnel"}},
-	}
-	return r
-}
-
 const (
 	SRSIM  common.NodeType = "srsim"
 	CFSize string          = "64Mi"
 )
 
 func (srsim *SRSim) SetToAppDefVal() {
-	common.AssignPointerVal(&srsim.Chassis, *DefaultChassis())
+	srsim.Chassis = DefaultChassis()
 }
 
 func (srsim *SRSim) FillDefaultVal(nodeName string) {
@@ -84,11 +57,8 @@ func (srsim *SRSim) Validate() error {
 	if srsim.Chassis == nil {
 		return fmt.Errorf("chassis not specified")
 	}
-	if _, ok := srsim.Chassis.Cards["A"]; !ok {
-		return fmt.Errorf("slot A not specified")
-	}
 
-	return nil
+	return srsim.Chassis.Validate()
 }
 
 func (srsim *SRSim) getCFPVC(ns, nodeName, labName, slot string, id int) *corev1.PersistentVolumeClaim {
@@ -157,35 +127,39 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 			},
 		}
 		if srsim.Chassis.SFM != nil {
-			container.Env = append(container.Env, corev1.EnvVar{
-				Name:  "NOKIA_SROS_SFM",
-				Value: *srsim.Chassis.SFM,
-			})
-		}
-		if !common.IsCPM(slotid) {
-			//iom
-			for i, xiom := range card.XIOM {
+			if strings.TrimSpace(*srsim.Chassis.SFM) != "" {
 				container.Env = append(container.Env, corev1.EnvVar{
-					Name:  fmt.Sprintf("NOKIA_SROS_XIOM_%d", i+1),
-					Value: xiom,
+					Name:  "NOKIA_SROS_SFM",
+					Value: *srsim.Chassis.SFM,
 				})
 			}
-			for xiom, mdas := range card.MDAs {
-				for i, mda := range mdas {
-					if len(card.MDAs) > 1 {
-						container.Env = append(container.Env, corev1.EnvVar{
-							Name:  fmt.Sprintf("NOKIA_SROS_MDA_%d_%d", xiom+1, i+1),
-							Value: mda,
-						})
-					} else {
-						container.Env = append(container.Env, corev1.EnvVar{
-							Name:  fmt.Sprintf("NOKIA_SROS_MDA_%d", i+1),
-							Value: mda,
-						})
-					}
+		}
+
+		if len(card.XIOM) > 0 {
+			for xiomslot, xiom := range card.XIOM {
+				container.Env = append(container.Env, corev1.EnvVar{
+					Name:  fmt.Sprintf("NOKIA_SROS_XIOM_%v", xiomslot),
+					Value: *xiom.Type,
+				})
+				for k, mda := range xiom.MDAs {
+					container.Env = append(container.Env, corev1.EnvVar{
+						Name:  fmt.Sprintf("NOKIA_SROS_MDA_%v_%d", xiomslot, k+1),
+						Value: mda,
+					})
 				}
+
 			}
-		} else {
+		}
+		if card.MDAs != nil {
+			for k, mda := range *card.MDAs {
+				container.Env = append(container.Env, corev1.EnvVar{
+					Name:  fmt.Sprintf("NOKIA_SROS_MDA_%d", k+1),
+					Value: mda,
+				})
+			}
+		}
+
+		if !common.IsCPM(slotid) {
 			//cpm
 			//cf cards
 			for i := 1; i <= 3; i++ {

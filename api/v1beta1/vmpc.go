@@ -50,23 +50,22 @@ const (
 )
 
 func (gvm *GeneralVM) SetToAppDefVal() {
-	common.AssignPointerVal(&gvm.ReqCPU, resource.MustParse(DefVPCCPU))
-	common.AssignPointerVal(&gvm.ReqMemory, resource.MustParse(DefVPCMem))
-	common.AssignPointerVal(&gvm.PinCPU, false)
-	common.AssignPointerVal(&gvm.HugePage, false)
-	common.AssignPointerVal(&gvm.Username, "lab")
-	common.AssignPointerVal(&gvm.Password, "lab123")
-	common.AssignPointerVal(&gvm.InitMethod, InitMethod_CLOUDINIT)
-	common.AssignPointerVal(&gvm.Image, "docker://quay.io/kubevirt/cirros-container-disk-demo")
-	common.AssignPointerVal(&gvm.DiskSize, resource.MustParse("64Mi"))
-	common.AssignPointerVal(&gvm.Ports, []kvv1.Port{
+	gvm.ReqCPU = common.ReturnPointerVal(resource.MustParse(DefVPCCPU))
+	gvm.ReqMemory = common.ReturnPointerVal(resource.MustParse(DefVPCMem))
+	gvm.PinCPU = common.ReturnPointerVal(false)
+	gvm.HugePage = common.ReturnPointerVal(false)
+	gvm.Username = common.ReturnPointerVal("lab")
+	gvm.Password = common.ReturnPointerVal("lab123")
+	gvm.InitMethod = common.ReturnPointerVal(string(InitMethod_CLOUDINIT))
+	gvm.Image = common.ReturnPointerVal("docker://quay.io/kubevirt/cirros-container-disk-demo")
+	gvm.DiskSize = common.ReturnPointerVal(resource.MustParse("64Mi"))
+	gvm.Ports = common.ReturnPointerVal([]kvv1.Port{
 		{
 			Name:     "ssh",
 			Protocol: "TCP",
 			Port:     22,
 		},
 	})
-
 }
 
 func (gvm *GeneralVM) FillDefaultVal(nodeName string) {
