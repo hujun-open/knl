@@ -56,7 +56,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  description: only used by srvm
                                   nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
@@ -69,12 +68,10 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  description: only used by srvm
                                   nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 ports:
-                                  description: only used by srvm
                                   items:
                                     description: |-
                                       Port represents a port to expose from the virtual machine.
@@ -144,8 +141,22 @@ spec:
                     properties:
                       cmd:
                         type: string
+                      cpu:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        nullable: true
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
                       image:
                         type: string
+                      memory:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        nullable: true
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
                       privileged:
                         type: boolean
                     type: object
@@ -159,10 +170,24 @@ spec:
                     properties:
                       chassis:
                         type: string
+                      cpu:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        nullable: true
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
                       image:
                         type: string
                       license:
                         type: string
+                      memory:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        nullable: true
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
                     type: object
                   srsim:
                     description: |-
@@ -183,7 +208,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  description: only used by srvm
                                   nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
@@ -196,12 +220,10 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  description: only used by srvm
                                   nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 ports:
-                                  description: only used by srvm
                                   items:
                                     description: |-
                                       Port represents a port to expose from the virtual machine.
@@ -342,7 +364,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  description: only used by srvm
                                   nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
@@ -355,12 +376,10 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  description: only used by srvm
                                   nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 ports:
-                                  description: only used by srvm
                                   items:
                                     description: |-
                                       Port represents a port to expose from the virtual machine.
@@ -438,7 +457,6 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  description: only used by srvm
                                   nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
@@ -451,12 +469,10 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
-                                  description: only used by srvm
                                   nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 ports:
-                                  description: only used by srvm
                                   items:
                                     description: |-
                                       Port represents a port to expose from the virtual machine.

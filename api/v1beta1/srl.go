@@ -21,6 +21,7 @@ func init() {
 
 const (
 	SRL           common.NodeType = "srl"
+	DefaultSRLMem string          = "4Gi"
 	BaseMACPrefix string          = "FA:FA"
 	EtcPVCSize    string          = "100Mi"
 )
@@ -132,10 +133,17 @@ type SRLinux struct {
 	Image     *string `json:"image,omitempty"`
 	Chassis   *string `json:"chassis,omitempty"`
 	LicSecret *string `json:"license,omitempty"`
+	// +optional
+	// +nullable
+	ReqMemory *resource.Quantity `json:"memory,omitempty"`
+	// +optional
+	// +nullable
+	ReqCPU *resource.Quantity `json:"cpu,omitempty"`
 }
 
 func (srl *SRLinux) SetToAppDefVal() {
 	srl.Chassis = common.ReturnPointerVal("ixr-h5-32d")
+	srl.ReqMemory = common.ReturnPointerVal(resource.MustParse(DefaultSRLMem))
 }
 
 func (srl *SRLinux) FillDefaultVal(nodeName string) {
@@ -312,6 +320,14 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 		pod.Annotations = map[string]string{
 			MultusAnnoKey: netStr,
 		}
+	}
+	//add resource request
+	pod.Spec.Containers[0].Resources.Requests = make(corev1.ResourceList)
+	if srl.ReqCPU != nil {
+		pod.Spec.Containers[0].Resources.Requests[corev1.ResourceCPU] = *srl.ReqCPU
+	}
+	if srl.ReqMemory != nil {
+		pod.Spec.Containers[0].Resources.Requests[corev1.ResourceMemory] = *srl.ReqMemory
 	}
 
 	err = createIfNotExistsOrRemove(ctx, clnt, lab, pod, true, false)

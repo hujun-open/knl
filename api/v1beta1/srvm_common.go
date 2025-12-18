@@ -37,12 +37,13 @@ const (
 
 // mem defaults
 const (
-	DefaultVSIMCPMMEM = "4Gi"
-	DefaultVSIMIOMMEM = "4Gi"
-	DefaultVSRIMEM    = "6Gi"
-	DefaultMAGCOAMMEM = "16Gi"
-	DefaultMAGCLBMEM  = "8Gi"
-	DefaultMAGCMGMEM  = "32Gi"
+	DefaultVSIMCPMMEM        = "4Gi"
+	DefaultSRSIMCONTAINERMEM = "4Gi"
+	DefaultVSIMIOMMEM        = "4Gi"
+	DefaultVSRIMEM           = "6Gi"
+	DefaultMAGCOAMMEM        = "16Gi"
+	DefaultMAGCLBMEM         = "8Gi"
+	DefaultMAGCMGMEM         = "32Gi"
 )
 
 // name has prefix: <vmtype>-

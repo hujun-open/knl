@@ -270,9 +270,11 @@ mv $(1) $(1)-$(3) ;\
 ln -sf $$(realpath $(1)-$(3)) $(1)
 endef
 
-
 .PHONY: export
-export: docker-build deploymanifests docker-build-sidecar ## export controller and sidecar image tar.gz and all.yaml
+export: docker-build deploymanifests ## export controller image tar.gz and all.yaml
+
+.PHONY: exportall
+exportall: export docker-build-sidecar ## export controller and sidecar image tar.gz and all.yaml
 
 .PHONY: api-doc
 api-doc: ## generate API docs

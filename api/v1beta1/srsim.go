@@ -185,6 +185,15 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 			}
 
 		}
+		//add resource request
+		container.Resources.Requests = make(corev1.ResourceList)
+		if card.ReqCPU != nil {
+			container.Resources.Requests[corev1.ResourceCPU] = *card.ReqCPU
+		}
+		if card.ReqMemory != nil {
+			container.Resources.Requests[corev1.ResourceMemory] = *card.ReqMemory
+		}
+
 		pod.Spec.Containers = append(pod.Spec.Containers, container)
 	}
 	//volumes

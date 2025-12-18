@@ -17,6 +17,12 @@ type GeneralPod struct {
 	Image      *string `json:"image,omitempty"`
 	Command    *string `json:"cmd,omitempty"`
 	Privileged *bool   `json:"privileged,omitempty"`
+	// +optional
+	// +nullable
+	ReqMemory *resource.Quantity `json:"memory,omitempty"`
+	// +optional
+	// +nullable
+	ReqCPU *resource.Quantity `json:"cpu,omitempty"`
 }
 
 func init() {
@@ -103,7 +109,14 @@ func (gpod *GeneralPod) Ensure(ctx context.Context, nodeName string, clnt client
 			MultusAnnoKey: netStr,
 		}
 	}
-
+	//add resource request
+	pod.Spec.Containers[0].Resources.Requests = make(corev1.ResourceList)
+	if gpod.ReqCPU != nil {
+		pod.Spec.Containers[0].Resources.Requests[corev1.ResourceCPU] = *gpod.ReqCPU
+	}
+	if gpod.ReqMemory != nil {
+		pod.Spec.Containers[0].Resources.Requests[corev1.ResourceMemory] = *gpod.ReqMemory
+	}
 	err = createIfNotExistsOrRemove(ctx, clnt, lab, pod, true, false)
 	if err != nil {
 		return fmt.Errorf("failed to create general pod %v in lab %v, %w", nodeName, lab.Lab.Name, err)

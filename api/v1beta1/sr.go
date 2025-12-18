@@ -21,15 +21,12 @@ type SRCard struct {
 	XIOM map[string]XIOM `json:"xioms,omitempty"`
 	// +optional
 	// +nullable
-	// only used by srvm
 	ReqMemory *resource.Quantity `json:"memory,omitempty"`
 	// +optional
 	// +nullable
-	// only used by srvm
 	ReqCPU *resource.Quantity `json:"cpu,omitempty"`
 	// +optional
 	// +nullable
-	// only used by srvm
 	ListenPorts *[]kvv1.Port `json:"ports,omitempty"` //list of open port for management interface
 }
 
@@ -122,6 +119,9 @@ func DefaultSIMChassis(nt common.NodeType) *SRChassis {
 		r.Cards["A"].ReqMemory = common.ReturnPointerVal(resource.MustParse(DefaultVSIMCPMMEM))
 		r.Cards["A"].ReqCPU = common.ReturnPointerVal(resource.MustParse(DefaultVSIMCPMCPU))
 		r.Cards["A"].ListenPorts = getCPMVMListenPorts()
+	} else {
+		//srsim
+		r.Cards["A"].ReqMemory = common.ReturnPointerVal(resource.MustParse(DefaultSRSIMCONTAINERMEM))
 	}
 	r.Cards["1"] = &SRCard{
 		Type: common.ReturnPointerVal("iom4-e"),
@@ -131,6 +131,9 @@ func DefaultSIMChassis(nt common.NodeType) *SRChassis {
 		r.Cards["1"].ReqMemory = common.ReturnPointerVal(resource.MustParse(DefaultVSIMIOMMEM))
 		r.Cards["1"].ReqCPU = common.ReturnPointerVal(resource.MustParse(DefaultVSIMIOMCPU))
 		r.Cards["1"].ListenPorts = getIOMVMListenPorts()
+	} else {
+		//srsim
+		r.Cards["1"].ReqMemory = common.ReturnPointerVal(resource.MustParse(DefaultSRSIMCONTAINERMEM))
 	}
 	return r
 }
