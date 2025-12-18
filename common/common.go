@@ -2,6 +2,7 @@ package common
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"encoding/binary"
 	"errors"
@@ -14,6 +15,8 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -34,6 +37,7 @@ const (
 	K8SLABELAPPKey       = `app.kubernetes.io/name`
 	K8SLABELSETUPKEY     = `lab.kubenetlab.net/name`
 	K8SLABELNodeKEY      = `node.kubenetlab.net/name`
+	BridgeIndexLabelKey  = "bridge.kubenetlab.net/index"
 	KNLROOTName          = `knlroot`
 	VMDiskSubFolder      = `vmdisks`
 	IMGSubFolder         = `imgs`
@@ -209,7 +213,7 @@ func GetObjMeta(objName, labName, labNS string) metav1.ObjectMeta {
 	}
 }
 
-func NewFBBridgeNetworkDef(nsName, labName, brName string, mtu int) *ncv1.NetworkAttachmentDefinition {
+func NewFBBridgeNetworkDef(nsName, labName, brName string, brIndex, mtu int) *ncv1.NetworkAttachmentDefinition {
 	const specTempalte = `
 	{
 		"cniVersion": "0.3.1",
@@ -220,16 +224,18 @@ func NewFBBridgeNetworkDef(nsName, labName, brName string, mtu int) *ncv1.Networ
 		"ipam": {}
 	}
 	`
-	return &ncv1.NetworkAttachmentDefinition{
+	r := &ncv1.NetworkAttachmentDefinition{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "k8s.cni.cncf.io/v1",
 			Kind:       "NetworkAttachmentDefinition",
 		},
 		ObjectMeta: GetObjMeta(brName, labName, nsName),
 		Spec: ncv1.NetworkAttachmentDefinitionSpec{
-			Config: fmt.Sprintf(specTempalte, brName, mtu, brName),
+			Config: fmt.Sprintf(specTempalte, brName, mtu, fmt.Sprintf("vsrosfb%d", brIndex)),
 		},
 	}
+	r.Labels[BridgeIndexLabelKey] = strconv.Itoa(brIndex)
+	return r
 }
 
 func NewPortMACVTAPNAD(nsName, labName, nadname, resname string, mtu uint16, mac *net.HardwareAddr) *ncv1.NetworkAttachmentDefinition {
@@ -294,25 +300,25 @@ func NewPortMACVTAPNAD(nsName, labName, nadname, resname string, mtu uint16, mac
 }
 
 // GetFTPSROSImgPath returns sros image ftp path for a given vsim, without knlroot prefix
-func GetFTPSROSImgPath(vsimid int) string {
+func GetFTPSROSImgPath(labName, chassisName string) string {
 	// return filepath.Join(gconf.SROSImgRoot, fmt.Sprintf("vsim%d-os", vsimid))
-	return filepath.Join("/"+IMGSubFolder, fmt.Sprintf("vsim%d-os", vsimid))
+	return filepath.Join("/"+IMGSubFolder, fmt.Sprintf("%v-%v-os", labName, chassisName))
 
 }
 
 // GetSFTPSROSImgPath return sros image SFTP path for a given vsim, with knlroot prefix
-func GetSFTPSROSImgPath(vsimid int) string {
-	return filepath.Join("/"+KNLROOTName, GetFTPSROSImgPath(vsimid))
+func GetSFTPSROSImgPath(labName, chassisName string) string {
+	return filepath.Join("/"+KNLROOTName, GetFTPSROSImgPath(labName, chassisName))
 
 }
 
-func ReCreateSymLink(vsimid int, newtarget string) error {
+func ReCreateSymLink(labName, chassisName, newtarget string) error {
 	// gconf := conf.GCONF
 	newTargetPath := filepath.Join("/"+KNLROOTName, IMGSubFolder, newtarget)
 	os.MkdirAll(newTargetPath, 0750)
-	os.Remove(filepath.Join("/"+KNLROOTName, GetFTPSROSImgPath(vsimid)))
+	os.Remove(filepath.Join("/"+KNLROOTName, GetFTPSROSImgPath(labName, chassisName)))
 	return os.Symlink(newTargetPath,
-		filepath.Join("/"+KNLROOTName, GetFTPSROSImgPath(vsimid)))
+		filepath.Join("/"+KNLROOTName, GetFTPSROSImgPath(labName, chassisName)))
 }
 
 func WaitForObjGone(ctx context.Context, clnt client.Client, ns string, obj client.Object) {
@@ -338,15 +344,16 @@ func WaitForObjGone(ctx context.Context, clnt client.Client, ns string, obj clie
 }
 
 func IsCPM(slot string) bool {
-	return slot == "A" || slot == "B"
+	nslot := strings.ToLower(slot)
+	return nslot == "a" || nslot == "b"
 }
 
-func GetVSROSFBName(vmtype NodeType, vmid int) string {
-	return fmt.Sprintf("%v-%v-fb", vmtype, vmid)
+func GetVSROSFBName(lab, chassis string) string {
+	return strings.ToLower(fmt.Sprintf("%v-%v-fb", lab, chassis))
 }
 
-func GetMAGCDFName(vmid int) string {
-	return fmt.Sprintf("magc-%d-fb", vmid)
+func GetMAGCDFName(lab, chassis string) string {
+	return fmt.Sprintf("magc-%v-%v-fb", lab, chassis)
 }
 
 func GetMACVTAPResName(lab, node, link string) string {
@@ -382,8 +389,8 @@ func GetLinkMACVTAPNADName(lab, node, link string) string {
 }
 
 // GetFTPSROSCfgPath return ftp path for config folder for a SR node in a lab
-func GetSRConfigFTPSubFolder(labname string, vsimid int) string {
-	return filepath.Join("/"+KNLROOTName, CfgSubFolder, labname, fmt.Sprintf("vsim-%d", vsimid))
+func GetSRConfigFTPSubFolder(labname string, chassisName string) string {
+	return filepath.Join("/"+KNLROOTName, CfgSubFolder, labname, chassisName)
 
 }
 func NewDV(namespace, labName, dvName, nodeImg string, stroageclass *string, disksize *resource.Quantity) *cdiv1.DataVolume {
@@ -421,8 +428,11 @@ func NewDV(namespace, labName, dvName, nodeImg string, stroageclass *string, dis
 	return r
 }
 
-func GetDVName(lab, node string) string {
-	return fmt.Sprintf("%v-%v", lab, node)
+func GetSRVMDVName(lab, node, slot string) string {
+	return strings.ToLower(fmt.Sprintf("%v-%v-%v", lab, node, slot))
+}
+func GetVMPCDVName(lab, node string) string {
+	return strings.ToLower(fmt.Sprintf("%v-%v", lab, node))
 }
 
 const (
@@ -433,16 +443,22 @@ const (
 )
 
 // chassis is sysinfo string specified in API that only contains chassis,card, mda, sfm
-func GenSysinfo(chassis string, cardid, cfgURL, licURL string) string {
-
-	return fmt.Sprintf("TIMOS: slot=%v %v address=%v@active primary-config=%v license-file=%v static-route=0.0.0.0/0@%v",
-		cardid, chassis, FixedSRVMMgmtAddrPrefixStr, cfgURL, licURL, FixedFTPProxySvr)
+func GenSysinfo(baseSysinfo string, cfgURL, licURL string) string {
+	return fmt.Sprintf("TIMOS: %v address=%v@active primary-config=%v license-file=%v static-route=0.0.0.0/0@%v",
+		baseSysinfo, FixedSRVMMgmtAddrPrefixStr, cfgURL, licURL, FixedFTPProxySvr)
 }
 
-func IsIntegratedChassis(chassis string) bool {
-	switch chassis {
-	case "SR-1", "SR-1s", "VSR-I":
+func IsIntegratedChassis(chassisModel string) bool {
+	switch strings.ToLower(chassisModel) {
+	case "sr-1", "sr-1s", "vsr-i", "sr-1se":
 		return true
+	default:
+		switch {
+		case strings.HasPrefix(strings.ToLower(chassisModel), "sr-1x-"):
+			return true
+		case strings.HasPrefix(strings.ToLower(chassisModel), "sr-1-"):
+			return true
+		}
 	}
 	return false
 }
@@ -530,4 +546,13 @@ func GetPointerVal[T any](v T) *T {
 	*r = v
 	return r
 
+}
+
+func GetSortedKeySlice[K cmp.Ordered, V any](m map[K]V) []K {
+	keys := make([]K, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	slices.Sort(keys)
+	return keys
 }

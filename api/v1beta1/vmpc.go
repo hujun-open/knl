@@ -93,7 +93,7 @@ func (gvm *GeneralVM) Ensure(ctx context.Context, nodeName string, clnt client.C
 	}
 	//create DV
 	dv := common.NewDV(lab.Lab.Namespace, lab.Lab.Name,
-		common.GetDVName(lab.Lab.Name, nodeName),
+		common.GetVMPCDVName(lab.Lab.Name, nodeName),
 		*gvm.Image, gconf.PVCStorageClass, gvm.DiskSize)
 	err := createIfNotExistsOrRemove(ctx, clnt, lab, dv, false, forceRemoval)
 	if err != nil {
@@ -146,7 +146,7 @@ func (gvm *GeneralVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachine
 			Name: "root",
 			VolumeSource: kvv1.VolumeSource{
 				DataVolume: &kvv1.DataVolumeSource{
-					Name: common.GetDVName(lab.Lab.Name, vmname),
+					Name: common.GetVMPCDVName(lab.Lab.Name, vmname),
 				},
 			},
 		},

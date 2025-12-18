@@ -40,7 +40,7 @@ const (
 )
 
 func (srsim *SRSim) SetToAppDefVal() {
-	srsim.Chassis = DefaultChassis()
+	srsim.Chassis = DefaultSIMChassis(SRSIM)
 }
 
 func (srsim *SRSim) FillDefaultVal(nodeName string) {
@@ -115,7 +115,7 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 		container.Env = []corev1.EnvVar{
 			{
 				Name:  "NOKIA_SROS_CHASSIS",
-				Value: *srsim.Chassis.Type,
+				Value: *srsim.Chassis.Model,
 			},
 			{
 				Name:  "NOKIA_SROS_SLOT",

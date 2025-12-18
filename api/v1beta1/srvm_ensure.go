@@ -37,159 +37,101 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 	if lab, ok = val.(*ParsedLab); !ok {
 		return common.MakeErr(fmt.Errorf("context stored value is not a ParsedLabSpec"))
 	}
-	vmt, vmid, cardid, _ := ParseSRVMName(nodeName)
-	_, isCPM, err := ParseCardID(cardid)
-	if err != nil {
-		return common.MakeErr(err)
-	}
+	vmt, _ := ParseSRVMName_New(nodeName)
 	//networking
-	if isCPM && vmt != VSRI { //these are per distributed SR system NAD, only need one per system, so only CPM node creates them
-
+	indexNum := 1
+	if vmt == SRVMMAGC {
+		indexNum = 2
+	}
+	indexList, err := GetAvailableBrIndex(ctx, clnt, indexNum)
+	if err != nil {
+		return common.MakeErr(fmt.Errorf("failed to allocate bridge index, %w", err))
+	}
+	if !common.IsIntegratedChassis(*srvm.Chassis.Model) { //these are per distributed SR system NAD, only need one per system, so only CPM node creates them
 		//check FB NAD
 		fbnad := common.NewFBBridgeNetworkDef(lab.Lab.Namespace, lab.Lab.Name,
-			common.GetVSROSFBName(VSIM, vmid),
-			SRVMFBMTU,
-		)
+			common.GetVSROSFBName(lab.Lab.Name, nodeName),
+			int(indexList[0]), SRVMFBMTU)
 		err := createIfNotExistsOrRemove(ctx, clnt, lab, fbnad, true, forceRemoval)
 		if err != nil {
 			return common.MakeErr(err)
 		}
-		if vmt == MAGC {
+		if vmt == SRVMMAGC {
 			//MAG-c data fabric NAD
 			dfnad := common.NewFBBridgeNetworkDef(lab.Lab.Namespace, lab.Lab.Name,
-				common.GetMAGCDFName(vmid),
-				SRVMFBMTU,
-			)
+				common.GetMAGCDFName(lab.Lab.Name, nodeName),
+				int(indexList[1]), SRVMFBMTU)
 			err := createIfNotExistsOrRemove(ctx, clnt, lab, dfnad, true, forceRemoval)
 			if err != nil {
 				return common.MakeErr(err)
 			}
 		}
-	} else {
-		//IOM VM, check link NAD and macvtapcfg
-		//macvatpcfg
-		// cfgList := []deviceplugin.MacvtapConfig{}
-		// if linkList, ok := lab.ConnectorMap[nodeName]; ok {
-		// 	for _, linkName := range linkList {
-		// 		var gwPrefix *netip.Prefix = nil
-		// 		if lab.Lab.Spec.LinkList[linkName].GWAddr != nil {
-		// 			p := netip.MustParsePrefix(*lab.Lab.Spec.LinkList[linkName].GWAddr)
-		// 			gwPrefix = &p
-		// 		}
-		// 		cfgList = append(cfgList, deviceplugin.MacvtapConfig{
-		// 			Name:        common.GetMACVTAPResName(lab.Lab.Name, nodeName, linkName),
-		// 			LowerDevice: common.GetMACVTAPResName(lab.Lab.Name, nodeName, linkName),
-		// 			Desc:        fmt.Sprintf("%v-%v-%v", lab.Lab.Name, nodeName, linkName),
-		// 			Mode:        "passthru",
-		// 			Capacity:    1,
-		// 			MacVethBR: &deviceplugin.MacVethBRConfig{
-		// 				BridgeAddr:           gwPrefix,
-		// 				Bridge:               common.GetMACVTAPBrName(lab.Lab.Name, linkName),
-		// 				VethBR:               common.GetMACVTAPVethBrName(lab.Lab.Name, nodeName, linkName),
-		// 				VxLANIfName:          common.GetMACVTAPVXLANIfName(lab.Lab.Name, nodeName),
-		// 				VxLANMutilcastPrefix: netip.MustParsePrefix(*gconf.VXLANGrpPrefix),
-		// 				MTU:                  int(*gconf.LinkMtu),
-		// 			},
-		// 		})
-
-		// 		_, c := lab.Lab.getLinkandConnector(nodeName, linkName)
-		// 		var mac *net.HardwareAddr = nil
-		// 		if c != nil {
-		// 			if c.Mac != nil {
-		// 				pmac, err := net.ParseMAC(*c.Mac)
-		// 				if err == nil {
-		// 					mac = &pmac
-		// 				}
-		// 			}
-		// 		}
-		// 		linkNAD := common.NewPortMACVTAPNAD(
-		// 			lab.Lab.Namespace,
-		// 			lab.Lab.Name,
-		// 			common.GetLinkMACVTAPNADName(lab.Lab.Name, nodeName, linkName),
-		// 			common.GetMACVTAPResName(lab.Lab.Name, nodeName, linkName),
-		// 			uint16(*gconf.LinkMtu),
-		// 			mac,
-		// 		)
-		// 		err = createIfNotExistsOrRemove(ctx, clnt, lab, linkNAD, true, forceRemoval)
-		// 		if err != nil {
-		// 			return common.MakeErr(err)
-		// 		}
-
-		// 	}
-		// }
-		// err := UpdateMACVTAPDPCfg(clnt, cfgList, !forceRemoval)
-		// if err != nil {
-		// 	return common.MakeErr(err)
-		// }
-
 	}
 	//per system operation (one time per system)
-	if isCPM {
-		//check sr release
-		expectedTarget := filepath.Join("/"+common.KNLROOTName, common.IMGSubFolder, *srvm.Image)
-		vmlinkname := filepath.Join(common.KNLROOTName, common.GetFTPSROSImgPath(vmid))
-		curLinked, err := os.Readlink(vmlinkname)
-		if err != nil || curLinked != expectedTarget {
-			//create sr release folder
-			err = common.ReCreateSymLink(vmid, *srvm.Image)
-			if err != nil {
-				return common.MakeErr(err)
-			}
-		}
-		//check sr cfg folder
-		ftpPath := common.GetSRConfigFTPSubFolder(lab.Lab.Name, vmid)
-		absPath := filepath.Join("/"+common.KNLROOTName, ftpPath)
-		if _, err := os.Stat(absPath); errors.Is(err, os.ErrNotExist) {
-			//create the folder
-			err = os.MkdirAll(absPath, 0660)
-			if err != nil {
-				return common.MakeErr(err)
-			}
+
+	//check sr release
+	expectedTarget := filepath.Join("/"+common.KNLROOTName, common.IMGSubFolder, *srvm.Image)
+	vmlinkname := filepath.Join(common.KNLROOTName, common.GetFTPSROSImgPath(lab.Lab.Name, nodeName))
+	curLinked, err := os.Readlink(vmlinkname)
+	if err != nil || curLinked != expectedTarget {
+		//create sr release folder
+		err = common.ReCreateSymLink(lab.Lab.Name, nodeName, *srvm.Image)
+		if err != nil {
+			return common.MakeErr(err)
 		}
 	}
-	//SRVM CPM DV
-	if isCPM {
-		// imageURL := fmt.Sprintf("docker://%v", *gconf.SRCPMLoaderImage)
-
-		dv := common.NewDV(lab.Lab.Namespace, lab.Lab.Name,
-			common.GetDVName(lab.Lab.Name, nodeName),
-			*gconf.SRCPMLoaderImage, gconf.PVCStorageClass, &SRCPMVMDiskSize)
-		err = createIfNotExistsOrRemove(ctx, clnt, lab, dv, false, forceRemoval)
+	//check sr cfg folder
+	absPath := common.GetSRConfigFTPSubFolder(lab.Lab.Name, nodeName)
+	if _, err := os.Stat(absPath); errors.Is(err, os.ErrNotExist) {
+		//create the folder
+		err = os.MkdirAll(absPath, 0755)
 		if err != nil {
 			return common.MakeErr(err)
 		}
 	}
 
-	//VMI
-	vmi := srvm.getVMI(lab, nodeName)
-	err = createIfNotExistsOrFailedOrRemove(ctx, clnt, lab, vmi, checkVMIfail, true, forceRemoval)
-	if err != nil {
-		return common.MakeErr(err)
+	for slot := range srvm.Chassis.Cards {
+		if common.IsCPM(slot) {
+			//SRVM CPM DV
+			dv := common.NewDV(lab.Lab.Namespace, lab.Lab.Name,
+				common.GetSRVMDVName(lab.Lab.Name, nodeName, slot),
+				*gconf.SRCPMLoaderImage, gconf.PVCStorageClass, &SRCPMVMDiskSize)
+			err = createIfNotExistsOrRemove(ctx, clnt, lab, dv, false, forceRemoval)
+			if err != nil {
+				return common.MakeErr(err)
+			}
+		}
+		//VMI
+		vmi := srvm.getVMI(lab, nodeName, slot)
+		err = createIfNotExistsOrFailedOrRemove(ctx, clnt, lab, vmi, checkVMIfail, true, forceRemoval)
+		if err != nil {
+			return common.MakeErr(err)
+		}
 	}
 	return nil
 }
 
-func (srvm *SRVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachineInstance {
+func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot string) *kvv1.VirtualMachineInstance {
 	gconf := GCONF.Get()
-	vmt, vmid, cardid, _ := ParseSRVMName(vmname)
-	_, isCPM, _ := ParseCardID(cardid)
+	isCPM := common.IsCPM(cardslot)
 	r := new(kvv1.VirtualMachineInstance)
 	r.ObjectMeta = common.GetObjMeta(
-		vmname,
+		getSRVMCardVMName(lab.Lab.Name, chassisName, cardslot),
 		lab.Lab.Name,
 		lab.Lab.Namespace,
 	)
-	r.ObjectMeta.Labels[vSROSIDLabel] = fmt.Sprintf("%d", vmid)
+	r.ObjectMeta.Labels[vSROSIDLabel] = getFullQualifiedSRVMChassisName(lab.Lab.Name, chassisName)
 	//add sysinfo for SR like node
-	cfgURL := fmt.Sprintf("ftp://ftp:ftp@%v%v", common.FixedFTPProxySvr, common.GetSRConfigFTPSubFolder(lab.Lab.Name, vmid))
+	cfgURL := fmt.Sprintf("ftp://ftp:ftp@%v/cfg/config.cfg", common.FixedFTPProxySvr)
 	r.ObjectMeta.Annotations = map[string]string{
 		dict.SftpSVRAnnontation:          *gconf.SFTPSever,
 		dict.SftpPassAnnontation:         *gconf.SFTPPassword,
 		dict.SftpUserAnnontation:         *gconf.SFTPUser,
 		dict.LabNameAnnotation:           lab.Lab.Name,
+		dict.ChassisNameAnnotation:       chassisName,
+		dict.ChassisTypeAnnotation:       string(*srvm.Chassis.Type),
 		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"image": "%v"}]`, *gconf.SideCarHookImg),
-		dict.VSROSSysinfoAnno: common.GenSysinfo(*srvm.SRSysinfoStr,
-			cardid, cfgURL, *srvm.LicURL),
+		dict.VSROSSysinfoAnno:            common.GenSysinfo(*srvm.Chassis.Cards[cardslot].SysInfo, cfgURL, *srvm.LicURL),
 	}
 
 	//can't set pc here will be rejected by adminssion webhook
@@ -201,8 +143,9 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachineInst
 	//check if need pin CPU
 	// if common.IsResourcePinNeededViaSysinfo(node.SRSysinfoStr) {
 	dedicated := false
+	vmt, _ := ParseSRVMName_New(chassisName)
 	switch vmt {
-	case VSRI, MAGC:
+	case SRVMVSRI, SRVMMAGC:
 		dedicated = true
 	}
 	if dedicated {
@@ -215,11 +158,11 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachineInst
 	*r.Spec.Domain.Devices.AutoattachGraphicsDevice = true
 
 	//cpu & memory
-	r.Spec.Domain.CPU.Cores = uint32(srvm.ReqCPU.AsApproximateFloat64()) //if the cpu is decimal, this round down to the int
+	r.Spec.Domain.CPU.Cores = uint32(srvm.Chassis.Cards[cardslot].ReqCPU.AsApproximateFloat64()) //if the cpu is decimal, this round down to the int
 	//NOTE: kubevirt currently doesn't support memory balloning, to save memory, see https://kubevirt.io/user-guide/operations/node_overcommit/#overcommit-guest-memory
 	//NOTE: user could also set `spec.configuration.developerConfiguration.memoryOvercommit` in kubevirt CR
 	r.Spec.Domain.Memory = &kvv1.Memory{
-		Guest: srvm.ReqMemory,
+		Guest: srvm.Chassis.Cards[cardslot].ReqMemory,
 	}
 	//check if hugepage is needed
 	if dedicated {
@@ -230,7 +173,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachineInst
 
 	//for vsros node, disable auto console, this is needed since default unix socket console doesn't work for vsim
 	switch vmt {
-	case MAGC, VSIM, VSRI:
+	case SRVMMAGC, SRVMVSIM, SRVMVSRI:
 		r.Spec.Domain.Devices.AutoattachSerialConsole = new(bool)
 		*r.Spec.Domain.Devices.AutoattachSerialConsole = false
 
@@ -244,7 +187,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachineInst
 				Name: common.KNLROOTName,
 				VolumeSource: kvv1.VolumeSource{
 					DataVolume: &kvv1.DataVolumeSource{
-						Name: common.GetDVName(lab.Lab.Name, vmname),
+						Name: common.GetSRVMDVName(lab.Lab.Name, chassisName, cardslot),
 					},
 					// //note: vsim only support qcow2, not RAW, so using hostdisk and hook to change it to qcow2
 					// PersistentVolumeClaim: &kvv1.PersistentVolumeClaimVolumeSource{
@@ -295,22 +238,22 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachineInst
 		kvv1.Interface{
 			Name: "pod-net",
 			//the port is needed here to prevent all traffic go into VM
-			Ports: *srvm.Ports,
+			Ports: *srvm.Chassis.Cards[cardslot].ListenPorts,
 			InterfaceBindingMethod: kvv1.InterfaceBindingMethod{
 				Masquerade: &kvv1.InterfaceMasquerade{},
 			},
 		})
 	//fabric
 	switch vmt {
-	case VSIM, MAGC:
-		if !common.IsIntegratedChassisViaSysinfo(*srvm.SRSysinfoStr) {
+	case SRVMVSIM, SRVMMAGC:
+		if !common.IsIntegratedChassisViaSysinfo(*srvm.Chassis.Cards[cardslot].SysInfo) {
 			//add fabric only if it is not integrated chassis
 			r.Spec.Networks = append(r.Spec.Networks,
 				kvv1.Network{
 					Name: "fb-net",
 					NetworkSource: kvv1.NetworkSource{
 						Multus: &kvv1.MultusNetwork{
-							NetworkName: common.GetVSROSFBName(vmt, vmid),
+							NetworkName: common.GetVSROSFBName(lab.Lab.Name, chassisName),
 						},
 					},
 				})
@@ -324,13 +267,13 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachineInst
 			)
 		}
 		//add data fabric for mag-c
-		if vmt == MAGC && !isCPM {
+		if vmt == SRVMMAGC && !isCPM {
 			r.Spec.Networks = append(r.Spec.Networks,
 				kvv1.Network{
 					Name: "df-net",
 					NetworkSource: kvv1.NetworkSource{
 						Multus: &kvv1.MultusNetwork{
-							NetworkName: common.GetMAGCDFName(vmid),
+							NetworkName: common.GetMAGCDFName(lab.Lab.Name, chassisName),
 						},
 					},
 				})
@@ -348,8 +291,11 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachineInst
 	}
 
 	//port links
-	for _, spokes := range lab.SpokeMap[vmname] {
+	for _, spokes := range lab.SpokeMap[chassisName] {
 		for _, spokeName := range spokes {
+			if *lab.SpokeConnectorMap[spokeName].PortId != cardslot {
+				continue
+			}
 			nadName := k8slan.GetNADName(spokeName, false)
 			r.Spec.Networks = append(r.Spec.Networks,
 				kvv1.Network{
@@ -380,7 +326,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachineInst
 							{
 								Key:      vSROSIDLabel,
 								Operator: metav1.LabelSelectorOpIn,
-								Values:   []string{fmt.Sprintf("%d", vmid)},
+								Values:   []string{getFullQualifiedSRVMChassisName(lab.Lab.Name, chassisName)},
 							},
 						},
 					},

@@ -11,10 +11,10 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 
 	"github.com/spf13/pflag"
+	"kubenetlab.net/knl/api/v1beta1"
 	"kubenetlab.net/knl/common"
 	knlv1beta1 "kubenetlab.net/knl/dict"
 	vmSchema "kubevirt.io/api/core/v1"
@@ -28,60 +28,14 @@ const (
 	vmTypeCSR vmType = "csr"
 )
 
-// name format for vsim/magc: vmtype-vmid-cardid
-// name format for vpc/vsri: vmtype-vmid
-// cardid is either a,b or a number
-func ParseSRVMName(name string) (vmtype string, vmid int, cardid string, err error) {
-	s := strings.TrimSpace(name)
-	slist := strings.Split(s, "-")
-	if len(slist) < 2 {
-		err = fmt.Errorf("%v is not a valid name", name)
-		return
-	}
-	vmtype = slist[0]
-	vmid, err = strconv.Atoi(slist[1])
-	switch vmtype {
-	case "vsri":
-		cardid = "a"
-	case "vsim", "magc":
-		if len(slist) < 3 {
-			err = fmt.Errorf("%v is not a valid name", name)
-			return
-		}
-		cardid = slist[2]
-	}
-	return
-}
-
-// a or b is the CPM, a  could also be integrated system like sr-1
-func ParseCardID(cardid string) (cardnum int, isCPM bool, err error) {
-	switch cardid {
-	case "a", "b":
-		switch cardid {
-		case "a":
-			return 199, true, nil
-		default:
-			return 198, true, nil
-		}
-	default:
-		isCPM = false
-		cardnum, err = strconv.Atoi(cardid)
-		return
-	}
-}
-
-func getVMTypeviaVMName(vmname string) (vmType, error) {
-	flist := strings.FieldsFunc(vmname, func(c rune) bool { return c == '-' })
-	switch flist[0] {
-	case "csr":
-		return vmTypeCSR, nil
-	case "vsim", "vsr", "magc":
+func getVMTypeviaNodeType(t string) (vmType, error) {
+	vmt := common.NodeType(strings.ToLower(strings.TrimSpace(t)))
+	switch vmt {
+	case v1beta1.SRVMVSIM, v1beta1.SRVMMAGC, v1beta1.SRVMVSRI:
 		return vmTypeSR, nil
+		//TODO for csr
 	}
-	if strings.HasPrefix(vmname, "csr") {
-		return vmTypeCSR, nil
-	}
-	return "", fmt.Errorf("unknown vm type %v", flist[0])
+	return "", fmt.Errorf("unknown vm type %v", t)
 }
 
 var ignorePortAliasPrefixList = []string{"vxlandev", "macvtapbr"}
@@ -102,20 +56,27 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to unmarsahl using libvirtxml, %w", err)
 	}
-	vmname := vmiSpec.Name
 
-	vmt, _ := getVMTypeviaVMName(vmname)
+	annotations := vmiSpec.GetAnnotations()
+	var found bool
+	var vmts string
+	if vmts, found = annotations[knlv1beta1.ChassisTypeAnnotation]; !found {
+		return "", fmt.Errorf("failed to find %v annotation", knlv1beta1.ChassisTypeAnnotation)
+	}
+	vmt, err := getVMTypeviaNodeType(vmts)
+	if err != nil {
+		return "", fmt.Errorf("failed to get node type from %v, %w", vmts, err)
+	}
 
 	if err := json.Unmarshal(vmiJSON, &vmiSpec); err != nil {
 		return "", err
 	}
-	var sftpSvrAddr, sftpUser, sftpPass string
+	var chassisName, sftpSvrAddr, sftpUser, sftpPass string
 
 	var labName string
 	switch vmt {
 	case vmTypeSR:
-		annotations := vmiSpec.GetAnnotations()
-		var found bool
+
 		if _, found = annotations[knlv1beta1.VSROSSysinfoAnno]; !found {
 			//if not vsros, return unchanged
 			return string(domainXML), nil
@@ -124,28 +85,33 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 			//doesn't found
 			return "", fmt.Errorf("can't find lab name, %v", knlv1beta1.LabNameAnnotation)
 		}
-		if sftpPass, found = annotations[knlv1beta1.SftpPassAnnontation]; !found {
-			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1.SftpPassAnnontation)
+		if sftpSvrAddr, found = annotations[knlv1beta1.SftpSVRAnnontation]; !found {
+			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1.SftpSVRAnnontation)
+		}
+		if chassisName, found = annotations[knlv1beta1.ChassisNameAnnotation]; !found {
+			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1.ChassisNameAnnotation)
 		}
 		if sftpUser, found = annotations[knlv1beta1.SftpUserAnnontation]; !found {
 			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1.SftpUserAnnontation)
+		}
+		if sftpPass, found = annotations[knlv1beta1.SftpPassAnnontation]; !found {
+			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1.SftpPassAnnontation)
 		}
 		//sftpSvrAddr must be addr or hostname + port
 		if sftpSvrAddr, found = annotations[knlv1beta1.SftpSVRAnnontation]; !found {
 			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1.SftpSVRAnnontation)
 		}
 
-		vmt, vmid, _, _ := ParseSRVMName(vmname)
 		//generate ftp server config
 
-		cpmbootrom := fmt.Sprintf("%v/i386-boot.tim", common.GetSFTPSROSImgPath(vmid))
-		iombootrom := fmt.Sprintf("%v/i386-iom.tim", common.GetSFTPSROSImgPath(vmid))
-		bofpath := common.GetSFTPSROSImgPath(vmid)
+		cpmbootrom := fmt.Sprintf("%v/i386-boot.tim", common.GetSFTPSROSImgPath(labName, chassisName))
+		iombootrom := fmt.Sprintf("%v/i386-iom.tim", common.GetSFTPSROSImgPath(labName, chassisName))
+		bofpath := common.GetSFTPSROSImgPath(labName, chassisName)
 		licStr := fmt.Sprintf("%v/vsim.lic", common.KNLROOTName)
-		if vmt != "vsim" {
+		if vmts != string(v1beta1.SRVMVSIM) {
 			licStr = fmt.Sprintf("%v/vsr.lic", common.KNLROOTName)
 		}
-		cfgPath := common.GetSRConfigFTPSubFolder(labName, vmid)
+		cfgPath := common.GetSRConfigFTPSubFolder(labName, chassisName)
 		cfg := fmt.Sprintf(ftpSVRCFGTemplate,
 			cpmbootrom, iombootrom, bofpath,
 			licStr, cfgPath, sftpUser, sftpPass, sftpSvrAddr)
@@ -324,7 +290,7 @@ func main() {
 	rdomainXML, err := onDefineDomain([]byte(vmiJSON), []byte(domainXML))
 	if err != nil {
 		log.Print(err)
-		panic(err)
+		os.Exit(1)
 	}
 	log.Print("result xml", rdomainXML)
 	//start daemon

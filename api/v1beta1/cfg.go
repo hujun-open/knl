@@ -64,10 +64,20 @@ func getWatchNamespace() (string, error) {
 var GCONF *Config
 var MYNAMESPACE string
 
+func isRunningInsideManagerPod() bool {
+	for _, env := range os.Environ() {
+		if strings.HasPrefix(env, "KNL_") {
+			return true
+		}
+	}
+	return false
+}
+
 func init() {
 	GCONF = newConfig()
 	var err error
-	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
+	os.Environ()
+	if isRunningInsideManagerPod() {
 		MYNAMESPACE, err = getWatchNamespace()
 		if err != nil {
 			panic(err)

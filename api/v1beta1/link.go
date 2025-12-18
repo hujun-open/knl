@@ -3,10 +3,14 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/bits-and-blooms/bitset"
 	k8slan "github.com/hujun-open/k8slan/api/v1beta1"
+	ncv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"kubenetlab.net/knl/common"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -22,7 +26,7 @@ type Link struct {
 type Connector struct {
 	//+required
 	NodeName *string `json:"node"`           //node name, in case of distruited system like vsim/mag-c, it is the name of IOM VM
-	PortId   *string `json:"port,omitempty"` //only used by srsim for mda port id
+	PortId   *string `json:"port,omitempty"` //used by srsim for mda port id, and by SRVM for IOM slot id
 	Addr     *string `json:"addr,omitempty"` //a prefix, used for cloud-init on vmLinux, and podlinux
 	Mac      *string `json:"mac,omitempty"`  //used for cloud-init on vmLinux, and podlinux
 }
@@ -35,6 +39,44 @@ func Getk8lanBRName(lab, link string) string {
 }
 func Getk8lanVxName(lab, link string, vni int32) string {
 	return fmt.Sprintf("klanvx%d", vni)
+}
+
+// This function requires controller's MaxConcurrentReconciles == 1, otherwise there is race issue
+func GetAvailableBrIndex(ctx context.Context, clnt client.Client, requiredNum int) ([]uint, error) {
+	const maxBridgeIndex = 16777215
+	bset := bitset.New(maxBridgeIndex)
+	bset = bset.Set(0)
+	nads := new(ncv1.NetworkAttachmentDefinitionList)
+	req, err := labels.NewRequirement(common.BridgeIndexLabelKey, selection.Exists, nil)
+	if err != nil {
+		return nil, err
+	}
+	selector := labels.NewSelector().Add(*req)
+	err = clnt.List(ctx, nads, client.MatchingLabelsSelector{Selector: selector})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list net-attach-def, %w", err)
+	}
+	for _, nad := range nads.Items {
+		if val, ok := nad.Labels[common.BridgeIndexLabelKey]; ok {
+			i, err := strconv.Atoi(val)
+			if err != nil {
+				return nil, fmt.Errorf("invalid %v value found in NAD %v: %v, %w", common.BridgeIndexLabelKey, val, nad.Name, err)
+			}
+			bset.Set(uint(i))
+		}
+	}
+	rlist := []uint{}
+	for i := 0; i < requiredNum; i++ {
+		next, ok := bset.NextClear(0)
+		if !ok {
+			return nil, fmt.Errorf("no available bridge index to allocate")
+		}
+		if next > maxBridgeIndex {
+			return nil, fmt.Errorf("no available bridge index to allocate")
+		}
+		rlist = append(rlist, next)
+	}
+	return rlist, nil
 }
 
 // This function requires controller's MaxConcurrentReconciles == 1, otherwise there is race issue
@@ -77,7 +119,9 @@ func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map
 	gconf := GCONF.Get()
 	rmap := make(map[string]map[string][]string)
 	spokeConnectorMap := make(map[string]*Connector)
-	for linkName, link := range plab.Lab.Spec.LinkList {
+	for _, linkName := range common.GetSortedKeySlice(plab.Lab.Spec.LinkList) {
+		// for linkName, link := range plab.Lab.Spec.LinkList {
+		link := plab.Lab.Spec.LinkList[linkName]
 		lan := new(k8slan.LAN)
 		err := clnt.Get(ctx,
 			types.NamespacedName{Namespace: plab.Lab.Namespace, Name: Getk8lanName(plab.Lab.Name, linkName)},

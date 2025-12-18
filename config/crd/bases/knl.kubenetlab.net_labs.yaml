@@ -69,6 +69,103 @@ spec:
               nodes:
                 additionalProperties:
                   properties:
+                    magc:
+                      nullable: true
+                      properties:
+                        chassis:
+                          description: SRChassis is used by srsim, vsim, vsri and
+                            mag-c
+                          nullable: true
+                          properties:
+                            cards:
+                              additionalProperties:
+                                properties:
+                                  cpu:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    description: only used by srvm
+                                    nullable: true
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                  mdas:
+                                    description: mdas and xioms are mutully exclusive
+                                    items:
+                                      type: string
+                                    type: array
+                                  memory:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    description: only used by srvm
+                                    nullable: true
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                  ports:
+                                    description: only used by srvm
+                                    items:
+                                      description: |-
+                                        Port represents a port to expose from the virtual machine.
+                                        Default protocol TCP.
+                                        The port field is mandatory
+                                      properties:
+                                        name:
+                                          description: |-
+                                            If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
+                                            named port in a pod must have a unique name. Name for the port that can be
+                                            referred to by services.
+                                          type: string
+                                        port:
+                                          description: |-
+                                            Number of port to expose for the virtual machine.
+                                            This must be a valid port number, 0 < x < 65536.
+                                          format: int32
+                                          type: integer
+                                        protocol:
+                                          description: |-
+                                            Protocol for port. Must be UDP or TCP.
+                                            Defaults to "TCP".
+                                          type: string
+                                      required:
+                                      - port
+                                      type: object
+                                    nullable: true
+                                    type: array
+                                  sysinfo:
+                                    description: sysinfo is only used by vsim, mag-c
+                                      and vsri
+                                    type: string
+                                  type:
+                                    type: string
+                                  xioms:
+                                    additionalProperties:
+                                      properties:
+                                        mdas:
+                                          items:
+                                            type: string
+                                          type: array
+                                        type:
+                                          type: string
+                                      type: object
+                                    description: key is XIOM slot id, e.g. x1/x2;
+                                      mdas and xioms are mutully exclusive
+                                    type: object
+                                type: object
+                              type: object
+                            model:
+                              type: string
+                            sfm:
+                              type: string
+                            type:
+                              type: string
+                          type: object
+                        image:
+                          nullable: true
+                          type: string
+                        license:
+                          nullable: true
+                          type: string
+                      type: object
                     pod:
                       description: GeneralPod creates a general pod
                       nullable: true
@@ -104,16 +201,68 @@ spec:
                       nullable: true
                       properties:
                         chassis:
+                          description: SRChassis is used by srsim, vsim, vsri and
+                            mag-c
                           nullable: true
                           properties:
                             cards:
                               additionalProperties:
                                 properties:
+                                  cpu:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    description: only used by srvm
+                                    nullable: true
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
                                   mdas:
                                     description: mdas and xioms are mutully exclusive
                                     items:
                                       type: string
                                     type: array
+                                  memory:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    description: only used by srvm
+                                    nullable: true
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                  ports:
+                                    description: only used by srvm
+                                    items:
+                                      description: |-
+                                        Port represents a port to expose from the virtual machine.
+                                        Default protocol TCP.
+                                        The port field is mandatory
+                                      properties:
+                                        name:
+                                          description: |-
+                                            If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
+                                            named port in a pod must have a unique name. Name for the port that can be
+                                            referred to by services.
+                                          type: string
+                                        port:
+                                          description: |-
+                                            Number of port to expose for the virtual machine.
+                                            This must be a valid port number, 0 < x < 65536.
+                                          format: int32
+                                          type: integer
+                                        protocol:
+                                          description: |-
+                                            Protocol for port. Must be UDP or TCP.
+                                            Defaults to "TCP".
+                                          type: string
+                                      required:
+                                      - port
+                                      type: object
+                                    nullable: true
+                                    type: array
+                                  sysinfo:
+                                    description: sysinfo is only used by vsim, mag-c
+                                      and vsri
+                                    type: string
                                   type:
                                     type: string
                                   xioms:
@@ -131,6 +280,8 @@ spec:
                                     type: object
                                 type: object
                               type: object
+                            model:
+                              type: string
                             sfm:
                               type: string
                             type:
@@ -140,62 +291,6 @@ spec:
                           nullable: true
                           type: string
                         license:
-                          nullable: true
-                          type: string
-                      type: object
-                    srvm:
-                      nullable: true
-                      properties:
-                        cpu:
-                          anyOf:
-                          - type: integer
-                          - type: string
-                          nullable: true
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                          x-kubernetes-int-or-string: true
-                        image:
-                          nullable: true
-                          type: string
-                        license:
-                          nullable: true
-                          type: string
-                        memory:
-                          anyOf:
-                          - type: integer
-                          - type: string
-                          nullable: true
-                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                          x-kubernetes-int-or-string: true
-                        ports:
-                          items:
-                            description: |-
-                              Port represents a port to expose from the virtual machine.
-                              Default protocol TCP.
-                              The port field is mandatory
-                            properties:
-                              name:
-                                description: |-
-                                  If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
-                                  named port in a pod must have a unique name. Name for the port that can be
-                                  referred to by services.
-                                type: string
-                              port:
-                                description: |-
-                                  Number of port to expose for the virtual machine.
-                                  This must be a valid port number, 0 < x < 65536.
-                                format: int32
-                                type: integer
-                              protocol:
-                                description: |-
-                                  Protocol for port. Must be UDP or TCP.
-                                  Defaults to "TCP".
-                                type: string
-                            required:
-                            - port
-                            type: object
-                          nullable: true
-                          type: array
-                        sysinfo:
                           nullable: true
                           type: string
                       type: object
@@ -260,6 +355,200 @@ spec:
                             type: object
                           type: array
                         user:
+                          type: string
+                      type: object
+                    vsim:
+                      nullable: true
+                      properties:
+                        chassis:
+                          description: SRChassis is used by srsim, vsim, vsri and
+                            mag-c
+                          nullable: true
+                          properties:
+                            cards:
+                              additionalProperties:
+                                properties:
+                                  cpu:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    description: only used by srvm
+                                    nullable: true
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                  mdas:
+                                    description: mdas and xioms are mutully exclusive
+                                    items:
+                                      type: string
+                                    type: array
+                                  memory:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    description: only used by srvm
+                                    nullable: true
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                  ports:
+                                    description: only used by srvm
+                                    items:
+                                      description: |-
+                                        Port represents a port to expose from the virtual machine.
+                                        Default protocol TCP.
+                                        The port field is mandatory
+                                      properties:
+                                        name:
+                                          description: |-
+                                            If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
+                                            named port in a pod must have a unique name. Name for the port that can be
+                                            referred to by services.
+                                          type: string
+                                        port:
+                                          description: |-
+                                            Number of port to expose for the virtual machine.
+                                            This must be a valid port number, 0 < x < 65536.
+                                          format: int32
+                                          type: integer
+                                        protocol:
+                                          description: |-
+                                            Protocol for port. Must be UDP or TCP.
+                                            Defaults to "TCP".
+                                          type: string
+                                      required:
+                                      - port
+                                      type: object
+                                    nullable: true
+                                    type: array
+                                  sysinfo:
+                                    description: sysinfo is only used by vsim, mag-c
+                                      and vsri
+                                    type: string
+                                  type:
+                                    type: string
+                                  xioms:
+                                    additionalProperties:
+                                      properties:
+                                        mdas:
+                                          items:
+                                            type: string
+                                          type: array
+                                        type:
+                                          type: string
+                                      type: object
+                                    description: key is XIOM slot id, e.g. x1/x2;
+                                      mdas and xioms are mutully exclusive
+                                    type: object
+                                type: object
+                              type: object
+                            model:
+                              type: string
+                            sfm:
+                              type: string
+                            type:
+                              type: string
+                          type: object
+                        image:
+                          nullable: true
+                          type: string
+                        license:
+                          nullable: true
+                          type: string
+                      type: object
+                    vsri:
+                      nullable: true
+                      properties:
+                        chassis:
+                          description: SRChassis is used by srsim, vsim, vsri and
+                            mag-c
+                          nullable: true
+                          properties:
+                            cards:
+                              additionalProperties:
+                                properties:
+                                  cpu:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    description: only used by srvm
+                                    nullable: true
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                  mdas:
+                                    description: mdas and xioms are mutully exclusive
+                                    items:
+                                      type: string
+                                    type: array
+                                  memory:
+                                    anyOf:
+                                    - type: integer
+                                    - type: string
+                                    description: only used by srvm
+                                    nullable: true
+                                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                                    x-kubernetes-int-or-string: true
+                                  ports:
+                                    description: only used by srvm
+                                    items:
+                                      description: |-
+                                        Port represents a port to expose from the virtual machine.
+                                        Default protocol TCP.
+                                        The port field is mandatory
+                                      properties:
+                                        name:
+                                          description: |-
+                                            If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
+                                            named port in a pod must have a unique name. Name for the port that can be
+                                            referred to by services.
+                                          type: string
+                                        port:
+                                          description: |-
+                                            Number of port to expose for the virtual machine.
+                                            This must be a valid port number, 0 < x < 65536.
+                                          format: int32
+                                          type: integer
+                                        protocol:
+                                          description: |-
+                                            Protocol for port. Must be UDP or TCP.
+                                            Defaults to "TCP".
+                                          type: string
+                                      required:
+                                      - port
+                                      type: object
+                                    nullable: true
+                                    type: array
+                                  sysinfo:
+                                    description: sysinfo is only used by vsim, mag-c
+                                      and vsri
+                                    type: string
+                                  type:
+                                    type: string
+                                  xioms:
+                                    additionalProperties:
+                                      properties:
+                                        mdas:
+                                          items:
+                                            type: string
+                                          type: array
+                                        type:
+                                          type: string
+                                      type: object
+                                    description: key is XIOM slot id, e.g. x1/x2;
+                                      mdas and xioms are mutully exclusive
+                                    type: object
+                                type: object
+                              type: object
+                            model:
+                              type: string
+                            sfm:
+                              type: string
+                            type:
+                              type: string
+                          type: object
+                        image:
+                          nullable: true
+                          type: string
+                        license:
+                          nullable: true
                           type: string
                       type: object
                   type: object

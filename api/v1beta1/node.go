@@ -10,7 +10,13 @@ import (
 type OneOfSystem struct {
 	// +optional
 	// +nullable
-	SRVM *SRVM `json:"srvm,omitempty"`
+	VSIM *VSIM `json:"vsim,omitempty"`
+	// +optional
+	// +nullable
+	VSRI *VSRI `json:"vsri,omitempty"`
+	// +optional
+	// +nullable
+	MAGC *MAGC `json:"magc,omitempty"`
 	// +optional
 	// +nullable
 	VM *GeneralVM `json:"vm,omitempty"`

@@ -9,7 +9,7 @@ import (
 
 // System interface is implemented by each node type
 type System interface {
-	//SetToAppDefVal set calling instance to its app defaults
+	//SetToAppDefVal set calling instance to its app defaults, only used to fill defaults for KNLConfig, not for defaulting lab
 	SetToAppDefVal()
 	//FillDefaultVal fill default values after defaults in KNLConfig are used
 	//This is to have more advance defaulting logic, like defaulting based on nodeName in SRVM case

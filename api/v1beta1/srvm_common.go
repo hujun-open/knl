@@ -21,8 +21,8 @@ const (
 
 // img defaults
 const (
-	DefSRImgFolder   = "R"
-	DefMAGCImgFolder = "R"
+	DefSRImgFolder   = "SR_R"
+	DefMAGCImgFolder = "MAGC_R"
 )
 
 // cpu defaults
@@ -45,6 +45,23 @@ const (
 	DefaultMAGCMGMEM  = "32Gi"
 )
 
+// name has prefix: <vmtype>-
+func ParseSRVMName_New(name string) (vmtype common.NodeType, err error) {
+	s := strings.TrimSpace(name)
+	slist := strings.Split(s, "-")
+	if len(slist) < 2 {
+		err = fmt.Errorf("%v is not a valid name", name)
+		return
+	}
+	vmtype = common.NodeType(slist[0])
+	switch vmtype {
+	case SRVMVSIM, SRVMVSRI, SRVMMAGC:
+	default:
+		return common.Unknown, fmt.Errorf("unknown SR VM type %v", slist[0])
+	}
+	return
+}
+
 // name format for vsim/magc: vmtype-vmid-cardid
 // name format for vpc/vsri: vmtype-vmid
 // cardid is either a,b or a number
@@ -58,9 +75,9 @@ func ParseSRVMName(name string) (vmtype common.NodeType, vmid int, cardid string
 	vmtype = common.NodeType(slist[0])
 	vmid, err = strconv.Atoi(slist[1])
 	switch vmtype {
-	case VSRI:
+	case SRVMVSRI:
 		cardid = "a"
-	case VSIM, MAGC:
+	case SRVMVSIM, SRVMMAGC:
 		if len(slist) < 3 {
 			err = fmt.Errorf("%v is not a valid name", name)
 			return
@@ -85,4 +102,20 @@ func ParseCardID(cardid string) (cardnum int, isCPM bool, err error) {
 		cardnum, err = strconv.Atoi(cardid)
 		return
 	}
+}
+
+func getSRVMCardVMName(lab, chassis, slot string) string {
+	return strings.ToLower(fmt.Sprintf("%v-%v-%v", lab, chassis, slot))
+}
+
+func getFullQualifiedSRVMChassisName(lab, chassis string) string {
+	return strings.ToLower(fmt.Sprintf("%v-%v", lab, chassis))
+}
+
+func IsSRVM(nodeT common.NodeType) bool {
+	switch nodeT {
+	case SRVMMAGC, SRVMVSIM, SRVMVSRI:
+		return true
+	}
+	return false
 }

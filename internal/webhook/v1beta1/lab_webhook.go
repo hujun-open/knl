@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
 
+	"kubenetlab.net/knl/api/v1beta1"
 	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
 	"kubenetlab.net/knl/common"
 )
@@ -81,7 +82,7 @@ func (d *LabCustomDefaulter) Default(_ context.Context, obj runtime.Object) erro
 			}
 			//derive mac
 			derivedMAC := common.DeriveMac(common.BaseMACAddr, macOffset)
-			common.SetDefaultGeneric(lab.Spec.LinkList[linkName].Connectors[i].Mac, derivedMAC.String())
+			lab.Spec.LinkList[linkName].Connectors[i].Mac = common.SetDefaultGeneric(lab.Spec.LinkList[linkName].Connectors[i].Mac, derivedMAC.String())
 		}
 	}
 	//check missing CPM
@@ -89,7 +90,7 @@ func (d *LabCustomDefaulter) Default(_ context.Context, obj runtime.Object) erro
 		vmt, vmid, _, err := knlv1beta1.ParseSRVMName(nodeName)
 		if err == nil {
 			switch vmt {
-			case knlv1beta1.VSIM, knlv1beta1.MAGC:
+			case knlv1beta1.SRVMVSIM, knlv1beta1.SRVMMAGC:
 				cpmName := fmt.Sprintf("%v-%d-a", vmt, vmid)
 				if _, ok := lab.Spec.NodeList[cpmName]; !ok {
 					lab.Spec.NodeList[cpmName] = new(knlv1beta1.OneOfSystem)
@@ -119,11 +120,28 @@ func (d *LabCustomDefaulter) Default(_ context.Context, obj runtime.Object) erro
 		return err
 	}
 	//fill node specific Default
+	SRVMs := make(map[string]common.System)
 	for nodeName := range lab.Spec.NodeList {
 		sys, _ := lab.Spec.NodeList[nodeName].GetSystem()
 		sys.FillDefaultVal(nodeName)
+		if v1beta1.IsSRVM(common.GetNodeTypeViaName(nodeName)) {
+			SRVMs[nodeName] = sys
+		}
 	}
+	//fill port id for SRVM
+	for linkName, link := range lab.Spec.LinkList {
+		for cid, c := range link.Connectors {
+			if sys, ok := SRVMs[*c.NodeName]; ok {
+				if c.PortId != nil {
+					continue
+				}
+				srvm := v1beta1.GetSRVMviaSys(*c.NodeName, sys)
+				c.PortId = common.ReturnPointerVal(srvm.Chassis.GetDefaultMDASlot())
+				lab.Spec.LinkList[linkName].Connectors[cid].PortId = common.SetDefaultGeneric(lab.Spec.LinkList[linkName].Connectors[cid].PortId, srvm.Chassis.GetDefaultMDASlot())
 
+			}
+		}
+	}
 	return nil
 }
 
