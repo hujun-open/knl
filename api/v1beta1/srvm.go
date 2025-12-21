@@ -3,7 +3,11 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
+	"syscall"
 
+	corev1 "k8s.io/api/core/v1"
 	"kubenetlab.net/knl/common"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -41,8 +45,8 @@ type SRVM struct {
 
 }
 
-func (srvm *SRVM) setToAppDefVal() {
-	srvm.LicURL = common.ReturnPointerVal(fmt.Sprintf("ftp://ftp:ftp@%v/lic", common.FixedFTPProxySvr))
+func (gvm *SRVM) setToAppDefVal() {
+	gvm.LicURL = common.ReturnPointerVal(fmt.Sprintf("ftp://ftp:ftp@%v/lic", common.FixedFTPProxySvr))
 }
 
 func (vsim *VSIM) SetToAppDefVal() {
@@ -90,103 +94,13 @@ func (magc *MAGC) FillDefaultVal(name string) {
 	(*SRVM)(magc).FillDefaultVal(name)
 }
 
-func (srvm *SRVM) FillDefaultVal(name string) {
-	for slot := range srvm.Chassis.Cards {
-		srvm.Chassis.Cards[slot].SysInfo = common.SetDefaultGeneric(srvm.Chassis.Cards[slot].SysInfo, srvm.Chassis.GetDefaultSysinfoStr(slot))
+func (gvm *SRVM) FillDefaultVal(name string) {
+	for slot := range gvm.Chassis.Cards {
+		gvm.Chassis.Cards[slot].SysInfo = common.SetDefaultGeneric(gvm.Chassis.Cards[slot].SysInfo, gvm.Chassis.GetDefaultSysinfoStr(slot))
 	}
 }
 
-// func (srvm *SRVM) FillDefaultVal_old(name string) {
-// 	nt, _, cardid, err := ParseSRVMName(name)
-// 	if err != nil {
-// 		return
-// 	}
-// 	_, isCPM, err := ParseCardID(cardid)
-// 	if err != nil {
-// 		return
-// 	}
-// 	//set managment open ports
-// 	defaultPorts := new([]kvv1.Port)
-
-// 	if isCPM {
-
-// 		*defaultPorts = append(*defaultPorts, kvv1.Port{
-// 			Name:     "ssh",
-// 			Protocol: "TCP",
-// 			Port:     22,
-// 		})
-// 		*defaultPorts = append(*defaultPorts, kvv1.Port{
-// 			Name:     "netconf",
-// 			Protocol: "TCP",
-// 			Port:     830,
-// 		})
-// 		*defaultPorts = append(*defaultPorts, kvv1.Port{
-// 			Name:     "gnmi",
-// 			Protocol: "TCP",
-// 			Port:     57400,
-// 		})
-// 		*defaultPorts = append(*defaultPorts, kvv1.Port{
-// 			Name:     "radiuscoa",
-// 			Protocol: "UDP",
-// 			Port:     3799,
-// 		})
-// 	} else {
-// 		*defaultPorts = append(*defaultPorts, kvv1.Port{
-// 			Name:     "dummy",
-// 			Protocol: "TCP",
-// 			Port:     1,
-// 		})
-// 	}
-// 	srvm.Ports = common.SetDefaultGeneric(srvm.Ports, *defaultPorts)
-// 	//set lic
-// 	srvm.LicURL = common.SetDefaultGeneric(srvm.LicURL, fmt.Sprintf("ftp://ftp:ftp@%v/lic", common.FixedFTPProxySvr))
-// 	//set srsysinfo
-// 	switch nt {
-// 	case SRVMVSIM:
-// 		if isCPM {
-// 			srvm.SRSysinfoStr = common.SetDefaultGeneric(srvm.SRSysinfoStr, DefaultVSIMCPMSysinfo)
-// 			srvm.ReqCPU = common.SetDefaultGeneric(srvm.ReqCPU, resource.MustParse(DefaultVSIMCPMCPU))
-// 			srvm.ReqMemory = common.SetDefaultGeneric(srvm.ReqMemory, resource.MustParse(DefaultVSIMCPMMEM))
-// 		} else {
-// 			srvm.SRSysinfoStr = common.SetDefaultGeneric(srvm.SRSysinfoStr, DefaultVSIMIOMSysinfo)
-// 			srvm.ReqCPU = common.SetDefaultGeneric(srvm.ReqCPU, resource.MustParse(DefaultVSIMIOMCPU))
-// 			srvm.ReqMemory = common.SetDefaultGeneric(srvm.ReqMemory, resource.MustParse(DefaultVSIMIOMMEM))
-// 		}
-// 	case SRVMVSRI:
-// 		srvm.SRSysinfoStr = common.SetDefaultGeneric(srvm.SRSysinfoStr, DefaultSRSIMSysinfo)
-// 		srvm.ReqCPU = common.SetDefaultGeneric(srvm.ReqCPU, resource.MustParse(DefaultVSRICPU))
-// 		srvm.ReqMemory = common.SetDefaultGeneric(srvm.ReqMemory, resource.MustParse(DefaultVSRIMEM))
-
-// 	case SRVMMAGC:
-// 		if isCPM {
-// 			srvm.SRSysinfoStr = common.SetDefaultGeneric(srvm.SRSysinfoStr, DefaultMAGCOAMSysinfo)
-// 			srvm.ReqCPU = common.SetDefaultGeneric(srvm.ReqCPU, resource.MustParse(DefaultMAGCOAMCPU))
-// 			srvm.ReqMemory = common.SetDefaultGeneric(srvm.ReqMemory, resource.MustParse(DefaultMAGCOAMMEM))
-
-// 		} else { //this could be either LB or MG, use LB for default
-// 			srvm.SRSysinfoStr = common.SetDefaultGeneric(srvm.SRSysinfoStr, DefaultMAGCLBSysinfo)
-// 			srvm.ReqCPU = common.SetDefaultGeneric(srvm.ReqCPU, resource.MustParse(DefaultMAGCLBCPU))
-// 			srvm.ReqMemory = common.SetDefaultGeneric(srvm.ReqMemory, resource.MustParse(DefaultMAGCLBMEM))
-// 		}
-
-// 	}
-// 	//set image
-// 	//release folder
-// 	switch nt {
-// 	case SRVMVSIM, SRVMVSRI:
-// 		srvm.Image = common.SetDefaultGeneric(srvm.Image, DefSRImgFolder)
-// 	case SRVMMAGC:
-// 		srvm.Image = common.SetDefaultGeneric(srvm.Image, DefMAGCImgFolder)
-
-// 	}
-
-// }
-
-// func (srvm *SRVM) SetToAppDefVal() {
-// 	srvm.Image = common.ReturnPointerVal("R")
-// }
-
-func (srvm *SRVM) Validate() error {
+func (gvm *SRVM) Validate() error {
 	return nil
 }
 
@@ -200,4 +114,40 @@ func GetSRVMviaSys(nodeName string, sys common.System) *SRVM {
 		return (*SRVM)(sys.(*VSRI))
 	}
 	return nil
+}
+
+func (vsim *VSIM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
+	(*SRVM)(vsim).Shell(ctx, clnt, ns, lab, chassis, username)
+}
+
+func (vsri *VSRI) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
+	(*SRVM)(vsri).Shell(ctx, clnt, ns, lab, chassis, username)
+}
+func (magc *MAGC) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
+	(*SRVM)(magc).Shell(ctx, clnt, ns, lab, chassis, username)
+}
+func (gvm *SRVM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
+	defCPMVMName := getSRVMCardVMName(lab, chassis, gvm.Chassis.GetDefaultCPMSlot())
+	podList := &corev1.PodList{}
+	labelSelector := client.MatchingLabels{
+		"vm.kubevirt.io/name": defCPMVMName,
+	}
+	err := clnt.List(ctx, podList, client.InNamespace(ns), labelSelector)
+	if err != nil {
+		log.Fatalf("failed to list pods: %v", err)
+	}
+	if len(podList.Items) == 0 {
+		log.Fatalf("failed to find vm pod %v", defCPMVMName)
+
+	}
+	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
+	if username == "" {
+		username = "admin"
+	}
+	fmt.Println("connecting to", chassis, "at", podList.Items[0].Status.PodIP, "username", username)
+	syscall.Exec("/bin/sh",
+		[]string{"sh", "-c",
+			fmt.Sprintf("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %v@%v", username, podList.Items[0].Status.PodIP)},
+		envList)
+
 }

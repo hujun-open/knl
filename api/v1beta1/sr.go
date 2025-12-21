@@ -92,6 +92,15 @@ type SRChassis struct {
 	SFM   *string            `json:"sfm,omitempty"`
 }
 
+func (chassis *SRChassis) GetDefaultCPMSlot() string {
+	for slot := range chassis.Cards {
+		if common.IsCPM(slot) {
+			return slot
+		}
+	}
+	return "n/a"
+}
+
 func (chassis *SRChassis) Validate() error {
 	for slot, card := range chassis.Cards {
 		if err := card.Validate(); err != nil {

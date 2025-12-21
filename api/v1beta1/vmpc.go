@@ -4,12 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/netip"
 	"net/url"
+	"os"
+	"syscall"
 
 	ignitiontypes "github.com/coreos/ignition/v2/config/v3_5/types"
 	k8slan "github.com/hujun-open/k8slan/api/v1beta1"
 	"github.com/tredoe/osutil/user/crypt/sha512_crypt"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"kubenetlab.net/knl/common"
 	"kubenetlab.net/knl/dict"
@@ -111,7 +115,7 @@ func (gvm *GeneralVM) Ensure(ctx context.Context, nodeName string, clnt client.C
 func (gvm *GeneralVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachineInstance {
 	r := new(kvv1.VirtualMachineInstance)
 	r.ObjectMeta = common.GetObjMeta(
-		vmname,
+		common.GetPodName(lab.Lab.Name, vmname),
 		lab.Lab.Name,
 		lab.Lab.Namespace,
 	)
@@ -382,4 +386,26 @@ func genPasswdHash(passwd string) (string, error) {
 // this encode msg in data URL according to rfc2397, this is what ignition requires: https://coreos.github.io/ignition/examples/#create-files-on-the-root-filesystem
 func encodeDataURL(msg string) string {
 	return fmt.Sprintf("data:,%v", url.PathEscape(msg))
+}
+
+func (gvm *GeneralVM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
+	podList := &corev1.PodList{}
+	labelSelector := client.MatchingLabels{
+		"vm.kubevirt.io/name": common.GetPodName(lab, chassis),
+	}
+	err := clnt.List(ctx, podList, client.InNamespace(ns), labelSelector)
+	if err != nil {
+		log.Fatalf("failed to list pods: %v", err)
+	}
+	if len(podList.Items) == 0 {
+		log.Fatalf("failed to find vm pod %v", common.GetPodName(lab, chassis))
+
+	}
+	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
+	fmt.Println("connecting to", chassis, "at", podList.Items[0].Status.PodIP, "username", gvm.Username)
+	syscall.Exec("/bin/sh",
+		[]string{"sh", "-c",
+			fmt.Sprintf("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %v@%v", gvm.Username, podList.Items[0].Status.PodIP)},
+		envList)
+
 }

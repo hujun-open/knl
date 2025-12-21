@@ -3,11 +3,15 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 	"strings"
+	"syscall"
 
 	k8slan "github.com/hujun-open/k8slan/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
 	"kubenetlab.net/knl/common"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -236,4 +240,23 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 		return fmt.Errorf("failed to create SRL pod %v in lab %v, %w", nodeName, lab.Lab.Name, err)
 	}
 	return nil
+}
+
+func (srsim *SRSim) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
+	pod := &corev1.Pod{}
+	podKey := types.NamespacedName{Namespace: ns, Name: common.GetPodName(lab, chassis)}
+	err := clnt.Get(ctx, podKey, pod)
+	if err != nil {
+		log.Fatalf("failed to list pods: %v", err)
+	}
+	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
+	if username == "" {
+		username = "admin"
+	}
+	fmt.Println("connecting to", chassis, "at", pod.Status.PodIP, "username", username)
+	syscall.Exec("/bin/sh",
+		[]string{"sh", "-c",
+			fmt.Sprintf("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %v@%v", username, pod.Status.PodIP)},
+		envList)
+
 }

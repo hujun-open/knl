@@ -73,6 +73,9 @@ func (onesys *OneOfSystem) GetSystem() (common.System, string) {
 }
 
 func (spec *LabSpec) Validate() error {
+	if len(spec.NodeList) == 0 {
+		return fmt.Errorf("no node is specified")
+	}
 	for nodeName := range spec.NodeList {
 		if err := spec.NodeList[nodeName].validate(); err != nil {
 			return fmt.Errorf("Node %v is invalid, %w", nodeName, err)

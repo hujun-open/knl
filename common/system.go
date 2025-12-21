@@ -18,6 +18,8 @@ type System interface {
 	Validate() error
 	//Ensure is called by controller to reconcile
 	Ensure(ctx context.Context, nodeName string, clnt client.Client, forceRemoval bool) error
+	//Shell is to shell into the system, used by knlclnt
+	Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string)
 }
 
 type NodeType string

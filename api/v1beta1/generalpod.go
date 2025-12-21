@@ -3,7 +3,9 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
+	"syscall"
 
 	k8slan "github.com/hujun-open/k8slan/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -140,4 +142,15 @@ func (gpod *GeneralPod) getRootPVC(ns, nodeName, labName string) *corev1.Persist
 			},
 		},
 	}
+}
+
+func (gpod *GeneralPod) Shell(ctx context.Context, clnt client.Client, ns, lab, node, username string) {
+	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
+	fmt.Println("connecting to %v", common.GetPodName(lab, node))
+	syscall.Exec("/bin/sh",
+		[]string{"sh", "-c",
+			fmt.Sprintf("kubectl -n %v exec -it %v -- bash",
+				ns, common.GetPodName(lab, node))},
+		envList)
+
 }
