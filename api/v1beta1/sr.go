@@ -36,6 +36,12 @@ type XIOM struct {
 }
 
 func (card *SRCard) Validate() error {
+	if card.Type == nil {
+		return fmt.Errorf("card type is not specified")
+	}
+	if card.SysInfo == nil {
+		return fmt.Errorf("card sysinfo is not there")
+	}
 	if len(card.XIOM) > 0 {
 		if card.MDAs != nil {
 			if len(*card.MDAs) > 0 {
@@ -102,6 +108,12 @@ func (chassis *SRChassis) GetDefaultCPMSlot() string {
 }
 
 func (chassis *SRChassis) Validate() error {
+	if chassis.Model == nil {
+		return fmt.Errorf("chassis model not specified")
+	}
+	if chassis.Type == nil {
+		return fmt.Errorf("chassis type not specified")
+	}
 	for slot, card := range chassis.Cards {
 		if err := card.Validate(); err != nil {
 			return fmt.Errorf("invalid card %v spec: %w", slot, err)
@@ -194,7 +206,13 @@ func DefaultMAGCChassis() *SRChassis {
 
 // GetDefaultSysinfoStr return a default vsim/vsr/mag-c sysinfo string for the specified card
 func (chassis *SRChassis) GetDefaultSysinfoStr(cardid string) string {
-	rs := fmt.Sprintf("chassis=%v sfm=%v card=%v slot=%v ", *chassis.Model, *chassis.SFM, *chassis.Cards[cardid].Type, cardid)
+	var rs string
+	if chassis.SFM != nil {
+		rs = fmt.Sprintf("chassis=%v sfm=%v card=%v slot=%v ", *chassis.Model, *chassis.SFM, *chassis.Cards[cardid].Type, cardid)
+	} else {
+		//sfm is optional
+		rs = fmt.Sprintf("chassis=%v card=%v slot=%v ", *chassis.Model, *chassis.Cards[cardid].Type, cardid)
+	}
 	card := chassis.Cards[cardid]
 	if len(card.XIOM) > 0 {
 		for xiomSlot, xiom := range card.XIOM {

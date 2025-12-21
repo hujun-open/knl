@@ -45,8 +45,8 @@ type SRVM struct {
 
 }
 
-func (gvm *SRVM) setToAppDefVal() {
-	gvm.LicURL = common.ReturnPointerVal(fmt.Sprintf("ftp://ftp:ftp@%v/lic", common.FixedFTPProxySvr))
+func (srvm *SRVM) setToAppDefVal() {
+	srvm.LicURL = common.ReturnPointerVal(fmt.Sprintf("ftp://ftp:ftp@%v/lic", common.FixedFTPProxySvr))
 }
 
 func (vsim *VSIM) SetToAppDefVal() {
@@ -94,14 +94,26 @@ func (magc *MAGC) FillDefaultVal(name string) {
 	(*SRVM)(magc).FillDefaultVal(name)
 }
 
-func (gvm *SRVM) FillDefaultVal(name string) {
-	for slot := range gvm.Chassis.Cards {
-		gvm.Chassis.Cards[slot].SysInfo = common.SetDefaultGeneric(gvm.Chassis.Cards[slot].SysInfo, gvm.Chassis.GetDefaultSysinfoStr(slot))
+func (srvm *SRVM) FillDefaultVal(name string) {
+	if srvm.Chassis.Validate() != nil {
+		return
+	}
+	for slot := range srvm.Chassis.Cards {
+		srvm.Chassis.Cards[slot].SysInfo = common.SetDefaultGeneric(srvm.Chassis.Cards[slot].SysInfo, srvm.Chassis.GetDefaultSysinfoStr(slot))
 	}
 }
 
-func (gvm *SRVM) Validate() error {
-	return nil
+func (srvm *SRVM) Validate() error {
+	if srvm.Chassis == nil {
+		return fmt.Errorf("chassis not specified")
+	}
+	if srvm.Image == nil {
+		return fmt.Errorf("image not specified")
+	}
+	if srvm.LicURL == nil {
+		return fmt.Errorf("license not specified")
+	}
+	return srvm.Chassis.Validate()
 }
 
 func GetSRVMviaSys(nodeName string, sys common.System) *SRVM {

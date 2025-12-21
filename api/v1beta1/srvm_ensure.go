@@ -26,7 +26,7 @@ var (
 	SRCPMVMDiskSize = resource.MustParse("64Mi")
 )
 
-func (gvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Client, forceRemoval bool) error {
+func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Client, forceRemoval bool) error {
 	gconf := GCONF.Get()
 	val := ctx.Value(ParsedLabKey)
 	if val == nil {
@@ -47,7 +47,7 @@ func (gvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Client
 	if err != nil {
 		return common.MakeErr(fmt.Errorf("failed to allocate bridge index, %w", err))
 	}
-	if !common.IsIntegratedChassis(*gvm.Chassis.Model) { //these are per distributed SR system NAD, only need one per system, so only CPM node creates them
+	if !common.IsIntegratedChassis(*srvm.Chassis.Model) { //these are per distributed SR system NAD, only need one per system, so only CPM node creates them
 		//check FB NAD
 		fbnad := common.NewFBBridgeNetworkDef(lab.Lab.Namespace, lab.Lab.Name,
 			common.GetVSROSFBName(lab.Lab.Name, nodeName),
@@ -70,12 +70,12 @@ func (gvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Client
 	//per system operation (one time per system)
 
 	//check sr release
-	expectedTarget := filepath.Join("/"+common.KNLROOTName, common.IMGSubFolder, *gvm.Image)
+	expectedTarget := filepath.Join("/"+common.KNLROOTName, common.IMGSubFolder, *srvm.Image)
 	vmlinkname := filepath.Join(common.KNLROOTName, common.GetFTPSROSImgPath(lab.Lab.Name, nodeName))
 	curLinked, err := os.Readlink(vmlinkname)
 	if err != nil || curLinked != expectedTarget {
 		//create sr release folder
-		err = common.ReCreateSymLink(lab.Lab.Name, nodeName, *gvm.Image)
+		err = common.ReCreateSymLink(lab.Lab.Name, nodeName, *srvm.Image)
 		if err != nil {
 			return common.MakeErr(err)
 		}
@@ -90,7 +90,7 @@ func (gvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Client
 		}
 	}
 
-	for slot := range gvm.Chassis.Cards {
+	for slot := range srvm.Chassis.Cards {
 		if common.IsCPM(slot) {
 			//SRVM CPM DV
 			dv := common.NewDV(lab.Lab.Namespace, lab.Lab.Name,
@@ -102,7 +102,7 @@ func (gvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Client
 			}
 		}
 		//VMI
-		vmi := gvm.getVMI(lab, nodeName, slot)
+		vmi := srvm.getVMI(lab, nodeName, slot)
 		err = createIfNotExistsOrFailedOrRemove(ctx, clnt, lab, vmi, checkVMIfail, true, forceRemoval)
 		if err != nil {
 			return common.MakeErr(err)
@@ -111,7 +111,7 @@ func (gvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Client
 	return nil
 }
 
-func (gvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot string) *kvv1.VirtualMachineInstance {
+func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot string) *kvv1.VirtualMachineInstance {
 	gconf := GCONF.Get()
 	isCPM := common.IsCPM(cardslot)
 	r := new(kvv1.VirtualMachineInstance)
@@ -129,9 +129,9 @@ func (gvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot string) *kvv1.Virt
 		dict.SftpUserAnnontation:         *gconf.SFTPUser,
 		dict.LabNameAnnotation:           lab.Lab.Name,
 		dict.ChassisNameAnnotation:       chassisName,
-		dict.ChassisTypeAnnotation:       string(*gvm.Chassis.Type),
+		dict.ChassisTypeAnnotation:       string(*srvm.Chassis.Type),
 		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"image": "%v"}]`, *gconf.SideCarHookImg),
-		dict.VSROSSysinfoAnno:            common.GenSysinfo(*gvm.Chassis.Cards[cardslot].SysInfo, cfgURL, *gvm.LicURL),
+		dict.VSROSSysinfoAnno:            common.GenSysinfo(*srvm.Chassis.Cards[cardslot].SysInfo, cfgURL, *srvm.LicURL),
 	}
 
 	//can't set pc here will be rejected by adminssion webhook
@@ -158,11 +158,11 @@ func (gvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot string) *kvv1.Virt
 	*r.Spec.Domain.Devices.AutoattachGraphicsDevice = true
 
 	//cpu & memory
-	r.Spec.Domain.CPU.Cores = uint32(gvm.Chassis.Cards[cardslot].ReqCPU.AsApproximateFloat64()) //if the cpu is decimal, this round down to the int
+	r.Spec.Domain.CPU.Cores = uint32(srvm.Chassis.Cards[cardslot].ReqCPU.AsApproximateFloat64()) //if the cpu is decimal, this round down to the int
 	//NOTE: kubevirt currently doesn't support memory balloning, to save memory, see https://kubevirt.io/user-guide/operations/node_overcommit/#overcommit-guest-memory
 	//NOTE: user could also set `spec.configuration.developerConfiguration.memoryOvercommit` in kubevirt CR
 	r.Spec.Domain.Memory = &kvv1.Memory{
-		Guest: gvm.Chassis.Cards[cardslot].ReqMemory,
+		Guest: srvm.Chassis.Cards[cardslot].ReqMemory,
 	}
 	//check if hugepage is needed
 	if dedicated {
@@ -238,7 +238,7 @@ func (gvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot string) *kvv1.Virt
 		kvv1.Interface{
 			Name: "pod-net",
 			//the port is needed here to prevent all traffic go into VM
-			Ports: *gvm.Chassis.Cards[cardslot].ListenPorts,
+			Ports: *srvm.Chassis.Cards[cardslot].ListenPorts,
 			InterfaceBindingMethod: kvv1.InterfaceBindingMethod{
 				Masquerade: &kvv1.InterfaceMasquerade{},
 			},
@@ -246,7 +246,7 @@ func (gvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot string) *kvv1.Virt
 	//fabric
 	switch vmt {
 	case SRVMVSIM, SRVMMAGC:
-		if !common.IsIntegratedChassisViaSysinfo(*gvm.Chassis.Cards[cardslot].SysInfo) {
+		if !common.IsIntegratedChassisViaSysinfo(*srvm.Chassis.Cards[cardslot].SysInfo) {
 			//add fabric only if it is not integrated chassis
 			r.Spec.Networks = append(r.Spec.Networks,
 				kvv1.Network{

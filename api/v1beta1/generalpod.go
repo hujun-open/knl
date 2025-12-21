@@ -146,7 +146,7 @@ func (gpod *GeneralPod) getRootPVC(ns, nodeName, labName string) *corev1.Persist
 
 func (gpod *GeneralPod) Shell(ctx context.Context, clnt client.Client, ns, lab, node, username string) {
 	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
-	fmt.Println("connecting to %v", common.GetPodName(lab, node))
+	fmt.Printf("connecting to %v\n", common.GetPodName(lab, node))
 	syscall.Exec("/bin/sh",
 		[]string{"sh", "-c",
 			fmt.Sprintf("kubectl -n %v exec -it %v -- bash",

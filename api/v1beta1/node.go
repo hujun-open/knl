@@ -80,6 +80,10 @@ func (spec *LabSpec) Validate() error {
 		if err := spec.NodeList[nodeName].validate(); err != nil {
 			return fmt.Errorf("Node %v is invalid, %w", nodeName, err)
 		}
+		sys, _ := spec.NodeList[nodeName].GetSystem()
+		if err := sys.Validate(); err != nil {
+			return fmt.Errorf("node %v failed validation, %w", nodeName, err)
+		}
 	}
 	return nil
 }
