@@ -6,6 +6,7 @@ require (
 	github.com/bits-and-blooms/bitset v1.24.4
 	github.com/coreos/ignition/v2 v2.24.0
 	github.com/dchest/siphash v1.2.3
+	github.com/distribution/reference v0.6.0
 	github.com/goccy/go-yaml v1.18.0
 	github.com/hujun-open/completers v0.0.1
 	github.com/hujun-open/k8slan v0.0.1
@@ -66,6 +67,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/openshift/custom-resource-status v1.1.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect

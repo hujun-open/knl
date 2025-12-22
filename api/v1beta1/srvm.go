@@ -4,10 +4,14 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
+	"strings"
 	"syscall"
 
+	"github.com/distribution/reference"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"kubenetlab.net/knl/common"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -27,25 +31,45 @@ const (
 	SRVMMAGC common.NodeType = "magc"
 )
 
+// VSIM specifies a Nokia vSIM router
 type VSIM SRVM
+
+// VSRI specifies a Nokia VSR-I router
 type VSRI SRVM
 
+// MAGC specifies a Nokia MAG-c
 type MAGC SRVM
 
-type SRVM struct {
-	// +optional
-	// +nullable
-	Chassis *SRChassis `json:"chassis,omitempty"` //only contains chassis, sfm, card and mda
-	// +optional
-	// +nullable
-	Image *string `json:"image,omitempty"` //for node type that use ftp, this is the folder name, not full URL
-	// +optional
-	// +nullable
-	LicURL *string `json:"license,omitempty"` //a FTP URL, if not specified, use a fixed URL of SFTP sever in opeartor pod
+const (
+	FTPImagePrefix = "filesvr:"
+)
 
+// undelying type for VSIM, VSRI, and MAGC
+type SRVM struct {
+	//specifies chassis configuration
+	// +optional
+	// +nullable
+	Chassis *SRChassis `json:"chassis,omitempty"`
+	// one of two types of image loading method: 1.a docker image url like "exampleregistry/sros:25.10.1" 2. a sub folder name of the SROS/MAGC image when start with "filesvr:", like "filesvr:25.10.1"
+	// +optional
+	// +nullable
+	Image *string `json:"image,omitempty"`
+	//Disk size for the CPM, only used when image is a docker image, must >= image size
+	// +optional
+	// +nullable
+	DiskSize *resource.Quantity `json:"diskSize,omitempty"`
+	// ftp URL for the license file, a default URL is used if not specified
+	// +optional
+	// +nullable
+	LicURL *string `json:"license,omitempty"`
 }
 
+const (
+	DefaultSRVMDiskSize = "1.5Gi"
+)
+
 func (srvm *SRVM) setToAppDefVal() {
+	srvm.DiskSize = common.ReturnPointerVal(resource.MustParse(DefaultSRVMDiskSize))
 	srvm.LicURL = common.ReturnPointerVal(fmt.Sprintf("ftp://ftp:ftp@%v/lic", common.FixedFTPProxySvr))
 }
 
@@ -110,9 +134,22 @@ func (srvm *SRVM) Validate() error {
 	if srvm.Image == nil {
 		return fmt.Errorf("image not specified")
 	}
+	if !strings.HasPrefix(*srvm.Image, FTPImagePrefix) {
+		if _, err := reference.Parse(*srvm.Image); err != nil {
+			return fmt.Errorf("invalid docker image url %v, %w", *srvm.Image, err)
+		}
+	}
 	if srvm.LicURL == nil {
 		return fmt.Errorf("license not specified")
 	}
+	if url, err := url.Parse(*srvm.LicURL); err != nil {
+		return fmt.Errorf("%v is not valid url", *srvm.LicURL)
+	} else {
+		if strings.ToLower(url.Scheme) != "ftp" {
+			return fmt.Errorf("%v is not a ftp url", *srvm.LicURL)
+		}
+	}
+
 	return srvm.Chassis.Validate()
 }
 

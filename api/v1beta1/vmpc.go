@@ -30,18 +30,28 @@ func init() {
 	common.NewSysRegistry[VM] = func() common.System { return new(GeneralVM) }
 }
 
-// GeneralVM creates a generic kubevirt VM
+// GeneralVM specifies a general kubevirt VM
 type GeneralVM struct {
-	ReqMemory  *resource.Quantity `json:"memory,omitempty"`
-	ReqCPU     *resource.Quantity `json:"cpu,omitempty"`
-	DiskSize   *resource.Quantity `json:"diskSize,omitempty"`
-	PinCPU     *bool              `json:"cpuPin,omitempty"`
-	HugePage   *bool              `json:"hugePage,omitempty"`
-	Image      *string            `json:"image,omitempty"` //support HTTP or registry source
-	InitMethod *string            `json:"init,omitempty"`
-	Ports      *[]kvv1.Port       `json:"ports,omitempty"`
-	Username   *string            `json:"user,omitempty"` //username and password are feed into vm initialization mechinism like cloud-init
-	Password   *string            `json:"passwd,omitempty"`
+	//requested memory for the VM in k8s resource unit
+	ReqMemory *resource.Quantity `json:"memory,omitempty"`
+	//requested cpu for the VM in k8s resource unit
+	ReqCPU *resource.Quantity `json:"cpu,omitempty"`
+	//the VM disk size in k8s resource unit
+	DiskSize *resource.Quantity `json:"diskSize,omitempty"`
+	//pin the CPU if true
+	PinCPU *bool `json:"cpuPin,omitempty"`
+	//request hugepage memory if true
+	HugePage *bool `json:"hugePage,omitempty"`
+	//kubevirt CDI supported URL, either HTTP or registry source
+	Image *string `json:"image,omitempty"`
+	//intilization method, supports cloud-init or ignition
+	InitMethod *string `json:"init,omitempty"`
+	//listening port of the VM
+	Ports *[]kvv1.Port `json:"ports,omitempty"`
+	//username to login into VM, username and password are feed into vm initialization mechinism like cloud-init
+	Username *string `json:"user,omitempty"`
+	//password to login into VM
+	Password *string `json:"passwd,omitempty"`
 }
 
 const (

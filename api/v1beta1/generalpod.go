@@ -14,14 +14,19 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-// GeneralPod creates a general pod
+// GeneralPod specifies a general k8s pod
 type GeneralPod struct {
-	Image      *string `json:"image,omitempty"`
-	Command    *string `json:"cmd,omitempty"`
-	Privileged *bool   `json:"privileged,omitempty"`
+	//pod image
+	Image *string `json:"image,omitempty"`
+	//pod's command
+	Command *string `json:"cmd,omitempty"`
+	//privileged pod if true
+	Privileged *bool `json:"privileged,omitempty"`
+	//requested memory in k8s resource unit
 	// +optional
 	// +nullable
 	ReqMemory *resource.Quantity `json:"memory,omitempty"`
+	//requested cpu in k8s resource unit
 	// +optional
 	// +nullable
 	ReqCPU *resource.Quantity `json:"cpu,omitempty"`

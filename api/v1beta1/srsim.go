@@ -20,19 +20,22 @@ func init() {
 	common.NewSysRegistry[SRSIM] = func() common.System { return new(SRSim) }
 }
 
-// SRSIM creates a Nokia SR-SIM
-
-// note: it is important to set `tx-checksum-ip-generic` off in corresponding bridge interface, otherwise TCP/UDP toward management interface won't work (only ping works)
+// SRSIM creates a Nokia SR-SIM;
+// note: it is important to set `tx-checksum-ip-generic` off in corresponding bridge interface, otherwise IP traffic toward management interface won't work
 // in kind, it is docker bridge;
 // in general k8s, it is cni0 bridge in each worker;
 // "ethtool -K <interface> tx-checksum-ip-generic off"
+// see SR-SIM installation guide for details
 type SRSim struct {
+	//Docker image
 	// +optional
 	// +nullable
 	Image *string `json:"image,omitempty"`
+	// specifies the chassis configuration
 	// +optional
 	// +nullable
 	Chassis *SRChassis `json:"chassis,omitempty"`
+	//name of k8s secret contains license file with "license.txt" as the key
 	// +optional
 	// +nullable
 	LicSecret *string `json:"license,omitempty"`
@@ -127,7 +130,7 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 			},
 			{
 				Name:  "NOKIA_SROS_CARD",
-				Value: *card.Type,
+				Value: *card.Model,
 			},
 		}
 		if srsim.Chassis.SFM != nil {
@@ -143,7 +146,7 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 			for xiomslot, xiom := range card.XIOM {
 				container.Env = append(container.Env, corev1.EnvVar{
 					Name:  fmt.Sprintf("NOKIA_SROS_XIOM_%v", xiomslot),
-					Value: *xiom.Type,
+					Value: *xiom.Model,
 				})
 				for k, mda := range xiom.MDAs {
 					container.Env = append(container.Env, corev1.EnvVar{
@@ -163,7 +166,7 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 			}
 		}
 
-		if !common.IsCPM(slotid) {
+		if common.IsCPM(slotid) {
 			//cpm
 			//cf cards
 			for i := 1; i <= 3; i++ {

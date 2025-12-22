@@ -17,7 +17,7 @@ spec:
   - name: v1beta1
     schema:
       openAPIV3Schema:
-        description: KNLConfig is the Schema for the knlconfigs API
+        description: KNLConfig is the Schema for the configuration of KNL operator
         properties:
           apiVersion:
             description: |-
@@ -43,24 +43,29 @@ spec:
                 description: defaultNode specifies default values for types of node
                 properties:
                   magc:
+                    description: MAGC specifies a Nokia MAG-c
                     nullable: true
                     properties:
                       chassis:
-                        description: SRChassis is used by srsim, vsim, vsri and mag-c
+                        description: specifies chassis configuration
                         nullable: true
                         properties:
                           cards:
                             additionalProperties:
+                              description: SRCard is a CPM or IOM card
                               properties:
                                 cpu:
                                   anyOf:
                                   - type: integer
                                   - type: string
+                                  description: requested CPU in k8s resource unit
                                   nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 mdas:
-                                  description: mdas and xioms are mutully exclusive
+                                  description: list of MDAs that are insert directly
+                                    into card without XIOM; mdas and xioms are mutully
+                                    exclusive
                                   items:
                                     type: string
                                   type: array
@@ -68,10 +73,13 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
+                                  description: requested memory in k8s resouce unit
                                   nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 ports:
+                                  description: list of listening ports for management
+                                    interface
                                   items:
                                     description: |-
                                       Port represents a port to expose from the virtual machine.
@@ -105,114 +113,157 @@ spec:
                                     and vsri
                                   type: string
                                 type:
+                                  description: Card model
                                   type: string
                                 xioms:
                                   additionalProperties:
+                                    description: SR XIOM
                                     properties:
                                       mdas:
+                                        description: list of MDAs insert into the
+                                          XIOM
                                         items:
                                           type: string
                                         type: array
                                       type:
+                                        description: XIOM model
                                         type: string
                                     type: object
-                                  description: key is XIOM slot id, e.g. x1/x2; mdas
-                                    and xioms are mutully exclusive
+                                  description: list of XIOMs; key is XIOM slot id,
+                                    e.g. x1/x2; mdas and xioms are mutully exclusive
                                   type: object
                               type: object
+                            description: |-
+                              a dictionary of CPM and IOM cards,
+                              key is slot id, "A","B" for CPM, number for IOM
                             type: object
                           model:
+                            description: chassis model
                             type: string
                           sfm:
+                            description: SFM model
                             type: string
                           type:
+                            description: type of chassis, srsim, vsim vsris or magc
                             type: string
                         type: object
+                      diskSize:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: Disk size for the CPM, only used when image is
+                          a docker image, must >= image size
+                        nullable: true
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
                       image:
+                        description: 'one of two types of image loading method: 1.a
+                          docker image url like "exampleregistry/sros:25.10.1" 2.
+                          a sub folder name of the SROS/MAGC image when start with
+                          "filesvr:", like "filesvr:25.10.1"'
                         nullable: true
                         type: string
                       license:
+                        description: ftp URL for the license file, a default URL is
+                          used if not specified
                         nullable: true
                         type: string
                     type: object
                   pod:
-                    description: GeneralPod creates a general pod
+                    description: GeneralPod specifies a general k8s pod
                     nullable: true
                     properties:
                       cmd:
+                        description: pod's command
                         type: string
                       cpu:
                         anyOf:
                         - type: integer
                         - type: string
+                        description: requested cpu in k8s resource unit
                         nullable: true
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       image:
+                        description: pod image
                         type: string
                       memory:
                         anyOf:
                         - type: integer
                         - type: string
+                        description: requested memory in k8s resource unit
                         nullable: true
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       privileged:
+                        description: privileged pod if true
                         type: boolean
                     type: object
                   srl:
                     description: |-
-                      SRLinux creates a pod for SRL:
+                      SRLinux specifies a Nokia SRLinux chassis;
                       - the specified Chassis will creates a configmap and mounted as /tmp/topology.yml
                       - the specified LicSecrete reference to a secret, mounted as /opt/srlinux/etc/license.key
                       - create a PVC mount on /etc/opt/srlinux/checkpoint for persistent configuration
                     nullable: true
                     properties:
                       chassis:
+                        description: chassis configuration
                         type: string
                       cpu:
                         anyOf:
                         - type: integer
                         - type: string
+                        description: requested cpu in k8s resource unit
                         nullable: true
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       image:
+                        description: docker image
                         type: string
                       license:
+                        description: a k8s secret contains the license file with "license.key"
+                          as the key
                         type: string
                       memory:
                         anyOf:
                         - type: integer
                         - type: string
+                        description: requested memory in k8s resource unit
                         nullable: true
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                     type: object
                   srsim:
                     description: |-
-                      note: it is important to set `tx-checksum-ip-generic` off in corresponding bridge interface, otherwise TCP/UDP toward management interface won't work (only ping works)
+                      SRSIM creates a Nokia SR-SIM;
+                      note: it is important to set `tx-checksum-ip-generic` off in corresponding bridge interface, otherwise IP traffic toward management interface won't work
                       in kind, it is docker bridge;
                       in general k8s, it is cni0 bridge in each worker;
                       "ethtool -K <interface> tx-checksum-ip-generic off"
+                      see SR-SIM installation guide for details
                     nullable: true
                     properties:
                       chassis:
-                        description: SRChassis is used by srsim, vsim, vsri and mag-c
+                        description: specifies the chassis configuration
                         nullable: true
                         properties:
                           cards:
                             additionalProperties:
+                              description: SRCard is a CPM or IOM card
                               properties:
                                 cpu:
                                   anyOf:
                                   - type: integer
                                   - type: string
+                                  description: requested CPU in k8s resource unit
                                   nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 mdas:
-                                  description: mdas and xioms are mutully exclusive
+                                  description: list of MDAs that are insert directly
+                                    into card without XIOM; mdas and xioms are mutully
+                                    exclusive
                                   items:
                                     type: string
                                   type: array
@@ -220,10 +271,13 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
+                                  description: requested memory in k8s resouce unit
                                   nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 ports:
+                                  description: list of listening ports for management
+                                    interface
                                   items:
                                     description: |-
                                       Port represents a port to expose from the virtual machine.
@@ -257,69 +311,93 @@ spec:
                                     and vsri
                                   type: string
                                 type:
+                                  description: Card model
                                   type: string
                                 xioms:
                                   additionalProperties:
+                                    description: SR XIOM
                                     properties:
                                       mdas:
+                                        description: list of MDAs insert into the
+                                          XIOM
                                         items:
                                           type: string
                                         type: array
                                       type:
+                                        description: XIOM model
                                         type: string
                                     type: object
-                                  description: key is XIOM slot id, e.g. x1/x2; mdas
-                                    and xioms are mutully exclusive
+                                  description: list of XIOMs; key is XIOM slot id,
+                                    e.g. x1/x2; mdas and xioms are mutully exclusive
                                   type: object
                               type: object
+                            description: |-
+                              a dictionary of CPM and IOM cards,
+                              key is slot id, "A","B" for CPM, number for IOM
                             type: object
                           model:
+                            description: chassis model
                             type: string
                           sfm:
+                            description: SFM model
                             type: string
                           type:
+                            description: type of chassis, srsim, vsim vsris or magc
                             type: string
                         type: object
                       image:
+                        description: Docker image
                         nullable: true
                         type: string
                       license:
+                        description: name of k8s secret contains license file with
+                          "license.txt" as the key
                         nullable: true
                         type: string
                     type: object
                   vm:
-                    description: GeneralVM creates a generic kubevirt VM
+                    description: GeneralVM specifies a general kubevirt VM
                     nullable: true
                     properties:
                       cpu:
                         anyOf:
                         - type: integer
                         - type: string
+                        description: requested cpu for the VM in k8s resource unit
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       cpuPin:
+                        description: pin the CPU if true
                         type: boolean
                       diskSize:
                         anyOf:
                         - type: integer
                         - type: string
+                        description: the VM disk size in k8s resource unit
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       hugePage:
+                        description: request hugepage memory if true
                         type: boolean
                       image:
+                        description: kubevirt CDI supported URL, either HTTP or registry
+                          source
                         type: string
                       init:
+                        description: intilization method, supports cloud-init or ignition
                         type: string
                       memory:
                         anyOf:
                         - type: integer
                         - type: string
+                        description: requested memory for the VM in k8s resource unit
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       passwd:
+                        description: password to login into VM
                         type: string
                       ports:
+                        description: listening port of the VM
                         items:
                           description: |-
                             Port represents a port to expose from the virtual machine.
@@ -348,27 +426,34 @@ spec:
                           type: object
                         type: array
                       user:
+                        description: username to login into VM, username and password
+                          are feed into vm initialization mechinism like cloud-init
                         type: string
                     type: object
                   vsim:
+                    description: VSIM specifies a Nokia vSIM router
                     nullable: true
                     properties:
                       chassis:
-                        description: SRChassis is used by srsim, vsim, vsri and mag-c
+                        description: specifies chassis configuration
                         nullable: true
                         properties:
                           cards:
                             additionalProperties:
+                              description: SRCard is a CPM or IOM card
                               properties:
                                 cpu:
                                   anyOf:
                                   - type: integer
                                   - type: string
+                                  description: requested CPU in k8s resource unit
                                   nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 mdas:
-                                  description: mdas and xioms are mutully exclusive
+                                  description: list of MDAs that are insert directly
+                                    into card without XIOM; mdas and xioms are mutully
+                                    exclusive
                                   items:
                                     type: string
                                   type: array
@@ -376,10 +461,13 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
+                                  description: requested memory in k8s resouce unit
                                   nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 ports:
+                                  description: list of listening ports for management
+                                    interface
                                   items:
                                     description: |-
                                       Port represents a port to expose from the virtual machine.
@@ -413,55 +501,86 @@ spec:
                                     and vsri
                                   type: string
                                 type:
+                                  description: Card model
                                   type: string
                                 xioms:
                                   additionalProperties:
+                                    description: SR XIOM
                                     properties:
                                       mdas:
+                                        description: list of MDAs insert into the
+                                          XIOM
                                         items:
                                           type: string
                                         type: array
                                       type:
+                                        description: XIOM model
                                         type: string
                                     type: object
-                                  description: key is XIOM slot id, e.g. x1/x2; mdas
-                                    and xioms are mutully exclusive
+                                  description: list of XIOMs; key is XIOM slot id,
+                                    e.g. x1/x2; mdas and xioms are mutully exclusive
                                   type: object
                               type: object
+                            description: |-
+                              a dictionary of CPM and IOM cards,
+                              key is slot id, "A","B" for CPM, number for IOM
                             type: object
                           model:
+                            description: chassis model
                             type: string
                           sfm:
+                            description: SFM model
                             type: string
                           type:
+                            description: type of chassis, srsim, vsim vsris or magc
                             type: string
                         type: object
+                      diskSize:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: Disk size for the CPM, only used when image is
+                          a docker image, must >= image size
+                        nullable: true
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
                       image:
+                        description: 'one of two types of image loading method: 1.a
+                          docker image url like "exampleregistry/sros:25.10.1" 2.
+                          a sub folder name of the SROS/MAGC image when start with
+                          "filesvr:", like "filesvr:25.10.1"'
                         nullable: true
                         type: string
                       license:
+                        description: ftp URL for the license file, a default URL is
+                          used if not specified
                         nullable: true
                         type: string
                     type: object
                   vsri:
+                    description: VSRI specifies a Nokia VSR-I router
                     nullable: true
                     properties:
                       chassis:
-                        description: SRChassis is used by srsim, vsim, vsri and mag-c
+                        description: specifies chassis configuration
                         nullable: true
                         properties:
                           cards:
                             additionalProperties:
+                              description: SRCard is a CPM or IOM card
                               properties:
                                 cpu:
                                   anyOf:
                                   - type: integer
                                   - type: string
+                                  description: requested CPU in k8s resource unit
                                   nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 mdas:
-                                  description: mdas and xioms are mutully exclusive
+                                  description: list of MDAs that are insert directly
+                                    into card without XIOM; mdas and xioms are mutully
+                                    exclusive
                                   items:
                                     type: string
                                   type: array
@@ -469,10 +588,13 @@ spec:
                                   anyOf:
                                   - type: integer
                                   - type: string
+                                  description: requested memory in k8s resouce unit
                                   nullable: true
                                   pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                                   x-kubernetes-int-or-string: true
                                 ports:
+                                  description: list of listening ports for management
+                                    interface
                                   items:
                                     description: |-
                                       Port represents a port to expose from the virtual machine.
@@ -506,63 +628,96 @@ spec:
                                     and vsri
                                   type: string
                                 type:
+                                  description: Card model
                                   type: string
                                 xioms:
                                   additionalProperties:
+                                    description: SR XIOM
                                     properties:
                                       mdas:
+                                        description: list of MDAs insert into the
+                                          XIOM
                                         items:
                                           type: string
                                         type: array
                                       type:
+                                        description: XIOM model
                                         type: string
                                     type: object
-                                  description: key is XIOM slot id, e.g. x1/x2; mdas
-                                    and xioms are mutully exclusive
+                                  description: list of XIOMs; key is XIOM slot id,
+                                    e.g. x1/x2; mdas and xioms are mutully exclusive
                                   type: object
                               type: object
+                            description: |-
+                              a dictionary of CPM and IOM cards,
+                              key is slot id, "A","B" for CPM, number for IOM
                             type: object
                           model:
+                            description: chassis model
                             type: string
                           sfm:
+                            description: SFM model
                             type: string
                           type:
+                            description: type of chassis, srsim, vsim vsris or magc
                             type: string
                         type: object
+                      diskSize:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: Disk size for the CPM, only used when image is
+                          a docker image, must >= image size
+                        nullable: true
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
                       image:
+                        description: 'one of two types of image loading method: 1.a
+                          docker image url like "exampleregistry/sros:25.10.1" 2.
+                          a sub folder name of the SROS/MAGC image when start with
+                          "filesvr:", like "filesvr:25.10.1"'
                         nullable: true
                         type: string
                       license:
+                        description: ftp URL for the license file, a default URL is
+                          used if not specified
                         nullable: true
                         type: string
                     type: object
                 type: object
               defaultVxlanDev:
+                description: default VxLAN device name, used if not specified in vxlanDevMap
                 type: string
               filePass:
+                description: SFTP file server password
                 type: string
               fileSvr:
-                description: SFTPSever must have format as addr/hostname:port
+                description: SFTPSever address, must have format as addr/hostname:port
                 type: string
               fileUser:
+                description: SFTP file server username
                 type: string
-              linkMTU:
-                type: integer
               sideCarImage:
+                description: Kubevirt sidecar hook image, used by vsim, vsri and magc
                 type: string
               srCPMLoaderImage:
-                description: this url supported by kvirt cdi, either http or docker
-                  url
+                description: CPM loader image, used by vsim, vsri and magc, this url
+                  supported by kvirt cdi, either http or docker url
                 type: string
               srIOMLoaderImage:
+                description: IOM loader container image, used by vsim and magc
                 type: string
               storageClass:
+                description: name of k8s storageclass used to create PVCs
                 type: string
               vxlanDevMap:
                 additionalProperties:
                   type: string
+                description: a map between k8s worker name and its interface name
+                  used as VxLAN device
                 type: object
               vxlanGrp:
+                description: multicast address used by VxLAN tunnel between k8s workers
                 type: string
             type: object
           status:

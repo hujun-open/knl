@@ -29,38 +29,43 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-// KNLConfigSpec defines the desired state of KNLConfig
+// KNLConfigSpec specifies KNL operator's configuration
 type KNLConfigSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 	// The following markers will use OpenAPI v3 schema to validate the value
 	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
 
+	//SFTP file server username
 	// +optional
 	SFTPUser *string `json:"fileUser,omitempty"`
+	//SFTP file server password
 	// +optional
 	SFTPPassword *string `json:"filePass,omitempty"`
+	//SFTPSever address, must have format as addr/hostname:port
 	// +optional
-	//SFTPSever must have format as addr/hostname:port
 	SFTPSever *string `json:"fileSvr,omitempty"`
+	//multicast address used by VxLAN tunnel between k8s workers
 	// +optional
 	VXLANGrpAddr *string `json:"vxlanGrp,omitempty"`
+	//default VxLAN device name, used if not specified in vxlanDevMap
 	// +optional
 	VXLANDefaultDev *string `json:"defaultVxlanDev,omitempty"`
+	//a map between k8s worker name and its interface name used as VxLAN device
 	// +optional
 	VxDevMap map[string]string `json:"vxlanDevMap,omitempty"`
-	// +optional
-	LinkMtu *uint `json:"linkMTU,omitempty"`
+	//name of k8s storageclass used to create PVCs
 	// +optional
 	PVCStorageClass *string `json:"storageClass,omitempty"`
+	//CPM loader image, used by vsim, vsri and magc, this url supported by kvirt cdi, either http or docker url
 	// +optional
-	//this url supported by kvirt cdi, either http or docker url
 	SRCPMLoaderImage *string `json:"srCPMLoaderImage,omitempty"`
+	//IOM loader container image, used by vsim and magc
 	// +optional
 	SRIOMLoaderImage *string `json:"srIOMLoaderImage,omitempty"`
+	//Kubevirt sidecar hook image, used by vsim, vsri and magc
 	// +optional
 	SideCarHookImg *string `json:"sideCarImage,omitempty"`
-
 	// defaultNode specifies default values for types of node
 	// +optional
 	DefaultNode *OneOfSystem `json:"defaultNode,omitempty"`
@@ -74,7 +79,6 @@ func DefKNLConfig() KNLConfigSpec {
 		SFTPUser:         common.ReturnPointerVal("knlftp"),
 		SFTPPassword:     common.ReturnPointerVal("knlftp"),
 		VXLANGrpAddr:     common.ReturnPointerVal("ff18::100"),
-		LinkMtu:          common.ReturnPointerVal(uint(9000)),
 		PVCStorageClass:  common.ReturnPointerVal("nfs-client"),
 		SRCPMLoaderImage: common.ReturnPointerVal("http://knl-http.knl-system.svc.cluster.local/cpmload.img"),
 	}
@@ -111,7 +115,7 @@ type KNLConfigStatus struct {
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 
-// KNLConfig is the Schema for the knlconfigs API
+// KNLConfig is the Schema for the configuration of KNL operator
 type KNLConfig struct {
 	metav1.TypeMeta `json:",inline"`
 
@@ -195,9 +199,6 @@ func (knlcfg *KNLConfig) Validate() error {
 	// 	}
 	// }
 
-	if *knlcfg.Spec.LinkMtu < 100 || *knlcfg.Spec.LinkMtu > 10000 {
-		return fmt.Errorf("invalid linkmtu %d, must be in range of 100..10000", *knlcfg.Spec.LinkMtu)
-	}
 	if isStrNotSpecfied(knlcfg.Spec.PVCStorageClass) {
 		return fmt.Errorf("storage class not specified")
 	}

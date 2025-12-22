@@ -128,18 +128,23 @@ func getSRLChassisViaTypeStr(chassisType string) (*SRLChassis, error) {
 }
 
 /*
-SRLinux creates a pod for SRL:
+SRLinux specifies a Nokia SRLinux chassis;
 - the specified Chassis will creates a configmap and mounted as /tmp/topology.yml
 - the specified LicSecrete reference to a secret, mounted as /opt/srlinux/etc/license.key
 - create a PVC mount on /etc/opt/srlinux/checkpoint for persistent configuration
 */
 type SRLinux struct {
-	Image     *string `json:"image,omitempty"`
-	Chassis   *string `json:"chassis,omitempty"`
+	//docker image
+	Image *string `json:"image,omitempty"`
+	//chassis configuration
+	Chassis *string `json:"chassis,omitempty"`
+	//a k8s secret contains the license file with "license.key" as the key
 	LicSecret *string `json:"license,omitempty"`
+	//requested memory in k8s resource unit
 	// +optional
 	// +nullable
 	ReqMemory *resource.Quantity `json:"memory,omitempty"`
+	//requested cpu in k8s resource unit
 	// +optional
 	// +nullable
 	ReqCPU *resource.Quantity `json:"cpu,omitempty"`

@@ -111,6 +111,17 @@ func FillNilPointers(dst any, src any) error {
 	return nil
 }
 
+// return true if struct t is a type supported by k8s API natively
+func isTheStructK8sType(t reflect.Type) bool {
+	if t == reflect.TypeOf(resource.Quantity{}) {
+		return true
+	}
+	if t == reflect.TypeOf(metav1.Time{}) {
+		return true
+	}
+	return false
+}
+
 // recursive helper: dstStruct and srcStruct are reflect.Values of kind Struct (addressable for dst).
 func fillNilPointersValue(dstStruct, srcStruct reflect.Value) {
 	for i := 0; i < dstStruct.NumField(); i++ {
@@ -123,8 +134,8 @@ func fillNilPointersValue(dstStruct, srcStruct reflect.Value) {
 		}
 		switch dstField.Kind() {
 		case reflect.Pointer:
-			if dstField.Type().Elem().Kind() == reflect.Struct {
-				//if pointer to a struct, go downif src field is not nil
+			if dstField.Type().Elem().Kind() == reflect.Struct && !isTheStructK8sType(dstField.Type().Elem()) {
+				//if pointer to a struct and its is not a k8s type, go downif src field is not nil
 				if !srcField.IsNil() {
 					if dstField.IsNil() {
 						dstField.Set(reflect.New(dstField.Type().Elem()))
@@ -132,7 +143,7 @@ func fillNilPointersValue(dstStruct, srcStruct reflect.Value) {
 					fillNilPointersValue(dstField.Elem(), srcField.Elem())
 				}
 			} else {
-				//if not pointer to a struct
+				//if not pointer to a struct, or a struct that is native k8s type like resource.Quantity
 				if dstField.IsNil() && !srcField.IsNil() {
 					dstField.Set(srcField)
 				}

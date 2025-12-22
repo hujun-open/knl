@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	k8slan "github.com/hujun-open/k8slan/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -68,16 +69,18 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 		}
 	}
 	//per system operation (one time per system)
-
-	//check sr release
-	expectedTarget := filepath.Join("/"+common.KNLROOTName, common.IMGSubFolder, *srvm.Image)
-	vmlinkname := filepath.Join(common.KNLROOTName, common.GetFTPSROSImgPath(lab.Lab.Name, nodeName))
-	curLinked, err := os.Readlink(vmlinkname)
-	if err != nil || curLinked != expectedTarget {
-		//create sr release folder
-		err = common.ReCreateSymLink(lab.Lab.Name, nodeName, *srvm.Image)
-		if err != nil {
-			return common.MakeErr(err)
+	if strings.HasPrefix(*srvm.Image, FTPImagePrefix) {
+		//check sr release
+		imgageSubFolder := strings.TrimPrefix(*srvm.Image, FTPImagePrefix)
+		expectedTarget := filepath.Join("/"+common.KNLROOTName, common.IMGSubFolder, imgageSubFolder)
+		vmlinkname := filepath.Join(common.KNLROOTName, common.GetFTPSROSImgPath(lab.Lab.Name, nodeName))
+		curLinked, err := os.Readlink(vmlinkname)
+		if err != nil || curLinked != expectedTarget {
+			//create sr release folder
+			err = common.ReCreateSymLink(lab.Lab.Name, nodeName, imgageSubFolder)
+			if err != nil {
+				return common.MakeErr(err)
+			}
 		}
 	}
 	//check sr cfg folder
@@ -93,9 +96,16 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 	for slot := range srvm.Chassis.Cards {
 		if common.IsCPM(slot) {
 			//SRVM CPM DV
+			cpmImage := "docker://" + *srvm.Image
+			diskSize := srvm.DiskSize
+			if strings.HasPrefix(*srvm.Image, FTPImagePrefix) {
+				cpmImage = *gconf.SRCPMLoaderImage
+				diskSize = &SRCPMVMDiskSize
+			}
+
 			dv := common.NewDV(lab.Lab.Namespace, lab.Lab.Name,
 				common.GetSRVMDVName(lab.Lab.Name, nodeName, slot),
-				*gconf.SRCPMLoaderImage, gconf.PVCStorageClass, &SRCPMVMDiskSize)
+				cpmImage, gconf.PVCStorageClass, diskSize)
 			err = createIfNotExistsOrRemove(ctx, clnt, lab, dv, false, forceRemoval)
 			if err != nil {
 				return common.MakeErr(err)
@@ -199,12 +209,17 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot string) *kvv1.Vir
 		)
 	} else {
 		//IOM
+		// iomImage := strings.TrimPrefix(*srvm.Image, "docker://")
+		iomImage := *srvm.Image
+		if strings.HasPrefix(*srvm.Image, FTPImagePrefix) {
+			iomImage = *gconf.SRIOMLoaderImage
+		}
 		r.Spec.Volumes = append(r.Spec.Volumes,
 			kvv1.Volume{
 				Name: common.KNLROOTName,
 				VolumeSource: kvv1.VolumeSource{
 					ContainerDisk: &kvv1.ContainerDiskSource{
-						Image: *gconf.SRIOMLoaderImage,
+						Image: iomImage,
 					},
 					// //note: vsim only support qcow2, not RAW, so using hostdisk and hook to change it to qcow2
 					// PersistentVolumeClaim: &kvv1.PersistentVolumeClaimVolumeSource{

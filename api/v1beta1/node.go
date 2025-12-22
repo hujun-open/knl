@@ -7,6 +7,7 @@ import (
 	"kubenetlab.net/knl/common"
 )
 
+// OneOfSystem specifies one KNL node type, only one field should be specified.
 type OneOfSystem struct {
 	// +optional
 	// +nullable

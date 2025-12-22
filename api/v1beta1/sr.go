@@ -11,37 +11,43 @@ import (
 	kvv1 "kubevirt.io/api/core/v1"
 )
 
+// SRCard is a CPM or IOM card
 type SRCard struct {
-	Type *string `json:"type,omitempty"`
+	//Card model
+	Model *string `json:"type,omitempty"`
 	// sysinfo is only used by vsim, mag-c and vsri
 	SysInfo *string `json:"sysinfo,omitempty"`
-	// mdas and xioms are mutully exclusive
+	// list of MDAs that are insert directly into card without XIOM; mdas and xioms are mutully exclusive
 	MDAs *[]string `json:"mdas,omitempty"`
-	// key is XIOM slot id, e.g. x1/x2; mdas and xioms are mutully exclusive
+	// list of XIOMs; key is XIOM slot id, e.g. x1/x2; mdas and xioms are mutully exclusive
 	XIOM map[string]XIOM `json:"xioms,omitempty"`
+	// requested memory in k8s resouce unit
 	// +optional
 	// +nullable
 	ReqMemory *resource.Quantity `json:"memory,omitempty"`
 	// +optional
 	// +nullable
+	// requested CPU in k8s resource unit
 	ReqCPU *resource.Quantity `json:"cpu,omitempty"`
+	//list of listening ports for management interface
 	// +optional
 	// +nullable
-	ListenPorts *[]kvv1.Port `json:"ports,omitempty"` //list of open port for management interface
+	ListenPorts *[]kvv1.Port `json:"ports,omitempty"`
 }
 
+// SR XIOM
 type XIOM struct {
-	Type *string  `json:"type,omitempty"`
+	// XIOM model
+	Model *string `json:"type,omitempty"`
+	// list of MDAs insert into the XIOM
 	MDAs []string `json:"mdas,omitempty"`
 }
 
 func (card *SRCard) Validate() error {
-	if card.Type == nil {
+	if card.Model == nil {
 		return fmt.Errorf("card type is not specified")
 	}
-	if card.SysInfo == nil {
-		return fmt.Errorf("card sysinfo is not there")
-	}
+	//sysinfo is not checked here since srsim doesn't use it
 	if len(card.XIOM) > 0 {
 		if card.MDAs != nil {
 			if len(*card.MDAs) > 0 {
@@ -90,12 +96,17 @@ func getCPMVMListenPorts() *[]kvv1.Port {
 	return &r
 }
 
-// SRChassis is used by srsim, vsim, vsri and mag-c
+// SRChassis is used by srsim, vsim, vsri and magc to specify the chassis configuration.
 type SRChassis struct {
-	Type  *common.NodeType   `json:"type,omitempty"`
-	Model *string            `json:"model,omitempty"`
-	Cards map[string]*SRCard `json:"cards,omitempty"` //key is slot id, "A","B" for CPM, number for IOM
-	SFM   *string            `json:"sfm,omitempty"`
+	//type of chassis, srsim, vsim vsris or magc
+	Type *common.NodeType `json:"type,omitempty"`
+	//chassis model
+	Model *string `json:"model,omitempty"`
+	// a dictionary of CPM and IOM cards,
+	//key is slot id, "A","B" for CPM, number for IOM
+	Cards map[string]*SRCard `json:"cards,omitempty"`
+	//SFM model
+	SFM *string `json:"sfm,omitempty"`
 }
 
 func (chassis *SRChassis) GetDefaultCPMSlot() string {
@@ -134,7 +145,7 @@ func DefaultSIMChassis(nt common.NodeType) *SRChassis {
 	}
 	r.Cards = make(map[string]*SRCard)
 	r.Cards["A"] = &SRCard{
-		Type: common.ReturnPointerVal("cpm5"),
+		Model: common.ReturnPointerVal("cpm5"),
 	}
 	if nt == SRVMVSIM {
 		r.Cards["A"].ReqMemory = common.ReturnPointerVal(resource.MustParse(DefaultVSIMCPMMEM))
@@ -145,8 +156,8 @@ func DefaultSIMChassis(nt common.NodeType) *SRChassis {
 		r.Cards["A"].ReqMemory = common.ReturnPointerVal(resource.MustParse(DefaultSRSIMCONTAINERMEM))
 	}
 	r.Cards["1"] = &SRCard{
-		Type: common.ReturnPointerVal("iom4-e"),
-		MDAs: common.GetPointerVal([]string{"me10-10gb-sfp+", "isa2-tunnel"}),
+		Model: common.ReturnPointerVal("iom4-e"),
+		MDAs:  common.GetPointerVal([]string{"me10-10gb-sfp+", "me-isa2-ms"}),
 	}
 	if nt == SRVMVSIM {
 		r.Cards["1"].ReqMemory = common.ReturnPointerVal(resource.MustParse(DefaultVSIMIOMMEM))
@@ -166,7 +177,7 @@ func DefaultVSRIChassis() *SRChassis {
 	}
 	r.Cards = make(map[string]*SRCard)
 	r.Cards["A"] = &SRCard{
-		Type:        common.ReturnPointerVal("cpm-v"),
+		Model:       common.ReturnPointerVal("cpm-v"),
 		MDAs:        common.GetPointerVal([]string{"m20-v", "isa-tunnel-v"}),
 		ReqMemory:   common.ReturnPointerVal(resource.MustParse(DefaultVSRIMEM)),
 		ReqCPU:      common.ReturnPointerVal(resource.MustParse(DefaultVSRICPU)),
@@ -182,20 +193,20 @@ func DefaultMAGCChassis() *SRChassis {
 	}
 	r.Cards = make(map[string]*SRCard)
 	r.Cards["A"] = &SRCard{
-		Type:        common.ReturnPointerVal("cpm-v"),
+		Model:       common.ReturnPointerVal("cpm-v"),
 		ReqMemory:   common.ReturnPointerVal(resource.MustParse(DefaultMAGCOAMMEM)),
 		ReqCPU:      common.ReturnPointerVal(resource.MustParse(DefaultMAGCOAMCPU)),
 		ListenPorts: getCPMVMListenPorts(),
 	}
 	r.Cards["1"] = &SRCard{
-		Type:        common.ReturnPointerVal("iom-v"),
+		Model:       common.ReturnPointerVal("iom-v"),
 		MDAs:        common.GetPointerVal([]string{"m20-v"}),
 		ReqMemory:   common.ReturnPointerVal(resource.MustParse(DefaultMAGCLBMEM)),
 		ReqCPU:      common.ReturnPointerVal(resource.MustParse(DefaultMAGCLBCPU)),
 		ListenPorts: getIOMVMListenPorts(),
 	}
 	r.Cards["2"] = &SRCard{
-		Type:        common.ReturnPointerVal("iom-v-mg"),
+		Model:       common.ReturnPointerVal("iom-v-mg"),
 		MDAs:        common.GetPointerVal([]string{"isa-ms-v", "isa-ms-v"}),
 		ReqMemory:   common.ReturnPointerVal(resource.MustParse(DefaultMAGCMGMEM)),
 		ReqCPU:      common.ReturnPointerVal(resource.MustParse(DefaultMAGCMGCPU)),
@@ -208,15 +219,15 @@ func DefaultMAGCChassis() *SRChassis {
 func (chassis *SRChassis) GetDefaultSysinfoStr(cardid string) string {
 	var rs string
 	if chassis.SFM != nil {
-		rs = fmt.Sprintf("chassis=%v sfm=%v card=%v slot=%v ", *chassis.Model, *chassis.SFM, *chassis.Cards[cardid].Type, cardid)
+		rs = fmt.Sprintf("chassis=%v sfm=%v card=%v slot=%v ", *chassis.Model, *chassis.SFM, *chassis.Cards[cardid].Model, cardid)
 	} else {
 		//sfm is optional
-		rs = fmt.Sprintf("chassis=%v card=%v slot=%v ", *chassis.Model, *chassis.Cards[cardid].Type, cardid)
+		rs = fmt.Sprintf("chassis=%v card=%v slot=%v ", *chassis.Model, *chassis.Cards[cardid].Model, cardid)
 	}
 	card := chassis.Cards[cardid]
 	if len(card.XIOM) > 0 {
 		for xiomSlot, xiom := range card.XIOM {
-			rs += fmt.Sprintf("xiom/%v=%v ", xiomSlot, xiom.Type)
+			rs += fmt.Sprintf("xiom/%v=%v ", xiomSlot, xiom.Model)
 			for i, mda := range xiom.MDAs {
 				rs += fmt.Sprintf("mda/%v/%d=%v ", xiomSlot, i+1, mda)
 			}
@@ -231,7 +242,7 @@ func (chassis *SRChassis) GetDefaultSysinfoStr(cardid string) string {
 	if *chassis.Type == SRVMMAGC {
 		if !common.IsCPM(cardid) {
 			rs += "ofabric/1=2 "
-			if strings.ToLower(strings.TrimSpace(*chassis.Cards[cardid].Type)) == "iom-v-mg" {
+			if strings.ToLower(strings.TrimSpace(*chassis.Cards[cardid].Model)) == "iom-v-mg" {
 				rs += "control-cpu-cores=4 "
 			} else {
 				rs += "control-cpu-cores=2 "
@@ -259,7 +270,7 @@ func (chassis *SRChassis) GetDefaultMDASlot() string {
 				if *chassis.Type != SRVMMAGC {
 					iomList = append(iomList, slotNum)
 				} else {
-					if strings.ToLower(*chassis.Cards[slot].Type) == "iom-v" {
+					if strings.ToLower(*chassis.Cards[slot].Model) == "iom-v" {
 						iomList = append(iomList, slotNum)
 					}
 				}

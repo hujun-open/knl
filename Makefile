@@ -124,9 +124,9 @@ docker-build: build ## Build docker image with the manager.
 	cp docker/cpm/vsimload.img cpmload.img
 	cp bin/manager .
 	$(CONTAINER_TOOL) build . -t ${IMG}
-	-rm knl2.tar.gz
-	$(CONTAINER_TOOL) save ${IMG} -o knl2.tar
-	gzip knl2.tar
+# 	-rm knl2.tar.gz
+# 	$(CONTAINER_TOOL) save ${IMG} -o knl2.tar
+# 	gzip knl2.tar
 
 
 .PHONY: docker-build-sidecar
@@ -277,7 +277,7 @@ export: docker-build deploymanifests ## export controller image tar.gz and all.y
 exportall: export docker-build-sidecar ## export controller and sidecar image tar.gz and all.yaml
 
 .PHONY: api-doc
-api-doc: ## generate API docs
+api-doc: manifests ## generate API docs
 	- mkdir apidocs
 	crd-ref-docs --max-depth 99 --source-path ./api/v1beta1/ --renderer=markdown --config crd-ref-docs_config.yaml --output-path=./apidocs/
 	
