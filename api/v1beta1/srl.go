@@ -298,7 +298,7 @@ func (gpod *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cl
 		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
 			Name:      "lic",
 			MountPath: "/opt/srlinux/etc/license.key",
-			SubPath:   "license.key",
+			SubPath:   "license",
 		})
 		pod.Spec.Volumes = append(pod.Spec.Volumes, corev1.Volume{
 			Name: "lic",

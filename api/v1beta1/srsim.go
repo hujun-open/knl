@@ -116,7 +116,7 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 		container.VolumeMounts = append(container.VolumeMounts, corev1.VolumeMount{
 			Name:      "lic",
 			MountPath: "/nokia/license/license.txt",
-			SubPath:   "license.txt",
+			SubPath:   "license",
 		})
 		//envs
 		container.Env = []corev1.EnvVar{
