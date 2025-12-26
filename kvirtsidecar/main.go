@@ -71,9 +71,8 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 	if err := json.Unmarshal(vmiJSON, &vmiSpec); err != nil {
 		return "", err
 	}
-	var chassisName, sftpSvrAddr, sftpUser, sftpPass string
-
-	var labName string
+	var sftpSvrAddr, sftpUser, sftpPass string
+	var ftpPathMapJsonStr string
 	switch vmt {
 	case vmTypeSR:
 
@@ -81,15 +80,8 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 			//if not vsros, return unchanged
 			return string(domainXML), nil
 		}
-		if labName, found = annotations[knlv1beta1.LabNameAnnotation]; !found {
-			//doesn't found
-			return "", fmt.Errorf("can't find lab name, %v", knlv1beta1.LabNameAnnotation)
-		}
 		if sftpSvrAddr, found = annotations[knlv1beta1.SftpSVRAnnontation]; !found {
 			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1.SftpSVRAnnontation)
-		}
-		if chassisName, found = annotations[knlv1beta1.ChassisNameAnnotation]; !found {
-			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1.ChassisNameAnnotation)
 		}
 		if sftpUser, found = annotations[knlv1beta1.SftpUserAnnontation]; !found {
 			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1.SftpUserAnnontation)
@@ -101,20 +93,28 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 		if sftpSvrAddr, found = annotations[knlv1beta1.SftpSVRAnnontation]; !found {
 			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1.SftpSVRAnnontation)
 		}
+		if ftpPathMapJsonStr, found = annotations[knlv1beta1.FTPPathMapAnnotation]; !found {
+			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1.FTPPathMapAnnotation)
+		}
+		ftpPathMap := make(map[string]string)
+		err := json.Unmarshal([]byte(ftpPathMapJsonStr), &ftpPathMap)
+		if err != nil {
+			return "", fmt.Errorf("failed to unmarshal annontation %v value, %w", knlv1beta1.FTPPathMapAnnotation, err)
+		}
 
 		//generate ftp server config
 
-		cpmbootrom := fmt.Sprintf("%v/i386-boot.tim", common.GetSFTPSROSImgPath(labName, chassisName))
-		iombootrom := fmt.Sprintf("%v/i386-iom.tim", common.GetSFTPSROSImgPath(labName, chassisName))
-		bofpath := common.GetSFTPSROSImgPath(labName, chassisName)
-		licStr := fmt.Sprintf("/%v/vsim.lic", common.KNLROOTName)
-		if vmts != string(v1beta1.SRVMVSIM) {
-			licStr = fmt.Sprintf("%v/vsr.lic", common.KNLROOTName)
-		}
-		cfgPath := common.GetSRConfigFTPSubFolder(labName, chassisName)
+		// cpmbootrom := fmt.Sprintf("%v/i386-boot.tim", common.GetSFTPSROSImgPath(labName, chassisName))
+		// iombootrom := fmt.Sprintf("%v/i386-iom.tim", common.GetSFTPSROSImgPath(labName, chassisName))
+		// bofpath := common.GetSFTPSROSImgPath(labName, chassisName)
+		// licStr := fmt.Sprintf("/%v/vsim.lic", common.KNLROOTName)
+		// if vmts != string(v1beta1.SRVMVSIM) {
+		// 	licStr = fmt.Sprintf("%v/vsr.lic", common.KNLROOTName)
+		// }
+		// cfgPath := common.GetSRConfigFTPSubFolder(labName, chassisName)
+
 		cfg := fmt.Sprintf(ftpSVRCFGTemplate,
-			cpmbootrom, iombootrom, bofpath,
-			licStr, cfgPath, sftpUser, sftpPass, sftpSvrAddr)
+			ftpPathMapJsonStr, sftpUser, sftpPass, sftpSvrAddr)
 		err = os.WriteFile(ftpSvrCfgFilePath, []byte(cfg), 0644)
 		if err != nil {
 			log.Fatal(err)
@@ -249,7 +249,7 @@ const (
 	ftpSVRCFGTemplate = `{
 "version": 1,
 "listen_address": ":21",
-"path_map": {"/i386-boot.tim": "%v","/i386-iom.tim": "%v", "/sros": "%v","/lic": "%v","/cfg": "%v"},
+"path_map": %v,
 "accesses": [
 {
 	"user": "ftp",

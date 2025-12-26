@@ -2,6 +2,7 @@ package v1beta1
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -122,6 +123,7 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 }
 
 func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot string) *kvv1.VirtualMachineInstance {
+	vmt, _ := ParseSRVMName_New(chassisName)
 	gconf := GCONF.Get()
 	isCPM := common.IsCPM(cardslot)
 	r := new(kvv1.VirtualMachineInstance)
@@ -133,6 +135,23 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot string) *kvv1.Vir
 	r.ObjectMeta.Labels[vSROSIDLabel] = getFullQualifiedSRVMChassisName(lab.Lab.Name, chassisName)
 	//add sysinfo for SR like node
 	cfgURL := fmt.Sprintf("ftp://ftp:ftp@%v/cfg/config.cfg", common.FixedFTPProxySvr)
+	//add ftp Path Map
+	ftpPathMap := map[string]string{
+		"/i386-boot.tim": fmt.Sprintf("%v/i386-boot.tim", common.GetSFTPSROSImgPath(lab.Lab.Name, chassisName)),
+		"/i386-iom.tim":  fmt.Sprintf("%v/i386-iom.tim", common.GetSFTPSROSImgPath(lab.Lab.Name, chassisName)),
+		"/sros":          common.GetSFTPSROSImgPath(lab.Lab.Name, chassisName),
+		"/cfg":           common.GetSRConfigFTPSubFolder(lab.Lab.Name, chassisName),
+	}
+	if vmt == SRVMVSIM {
+		ftpPathMap["/lic"] = fmt.Sprintf("/%v/vsim.lic", common.KNLROOTName)
+	} else {
+		ftpPathMap["/lic"] = fmt.Sprintf("/%v/vsr.lic", common.KNLROOTName)
+	}
+	pathMapBuf, err := json.Marshal(ftpPathMap)
+	if err != nil {
+		panic(err)
+	}
+
 	r.ObjectMeta.Annotations = map[string]string{
 		dict.SftpSVRAnnontation:          *gconf.SFTPSever,
 		dict.SftpPassAnnontation:         *gconf.SFTPPassword,
@@ -140,6 +159,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot string) *kvv1.Vir
 		dict.LabNameAnnotation:           lab.Lab.Name,
 		dict.ChassisNameAnnotation:       chassisName,
 		dict.ChassisTypeAnnotation:       string(*srvm.Chassis.Type),
+		dict.FTPPathMapAnnotation:        string(pathMapBuf),
 		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"image": "%v"}]`, *gconf.SideCarHookImg),
 		dict.VSROSSysinfoAnno:            common.GenSysinfo(*srvm.Chassis.Cards[cardslot].SysInfo, cfgURL, *srvm.LicURL),
 	}
@@ -153,7 +173,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot string) *kvv1.Vir
 	//check if need pin CPU
 	// if common.IsResourcePinNeededViaSysinfo(node.SRSysinfoStr) {
 	dedicated := false
-	vmt, _ := ParseSRVMName_New(chassisName)
+
 	switch vmt {
 	case SRVMVSRI, SRVMMAGC:
 		dedicated = true

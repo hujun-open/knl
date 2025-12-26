@@ -8,4 +8,5 @@ const (
 	LabNameAnnotation     = "lab.kubenetlab.net/name"
 	ChassisNameAnnotation = "chassis.kubenetlab.net/name"
 	ChassisTypeAnnotation = "chassis.kubenetlab.net/type"
+	FTPPathMapAnnotation  = "kubenetlab.net/ftppathmap" //json of map[string]string
 )
