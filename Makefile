@@ -124,9 +124,7 @@ docker-build: build ## Build docker image with the manager.
 	cp docker/cpm/vsimload.img cpmload.img
 	cp bin/manager .
 	$(CONTAINER_TOOL) build . -t ${IMG}
-# 	-rm knl2.tar.gz
-# 	$(CONTAINER_TOOL) save ${IMG} -o knl2.tar
-# 	gzip knl2.tar
+
 
 
 .PHONY: docker-build-sidecar
@@ -272,6 +270,9 @@ endef
 
 .PHONY: export
 export: docker-build deploymanifests ## export controller image tar.gz and all.yaml
+	-rm knl2.tar.gz
+	$(CONTAINER_TOOL) save ${IMG} -o knl2.tar
+	gzip knl2.tar
 
 .PHONY: exportall
 exportall: export docker-build-sidecar ## export controller and sidecar image tar.gz and all.yaml

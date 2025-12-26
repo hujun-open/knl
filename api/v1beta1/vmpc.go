@@ -301,7 +301,8 @@ method=manual
 	//port links
 	for _, spokes := range lab.SpokeMap[vmname] {
 		for _, spokeName := range spokes {
-			nadName := k8slan.GetNADName(spokeName, false)
+			lanName := Getk8lanName(lab.Lab.Name, lab.SpokeLinkMap[spokeName])
+			nadName := k8slan.GetNADName(lanName, spokeName, false)
 			r.Spec.Networks = append(r.Spec.Networks,
 				kvv1.Network{
 					Name: spokeName,

@@ -316,7 +316,8 @@ func (gpod *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cl
 	pod.Spec.Containers[0].Resources.Limits = make(corev1.ResourceList)
 	for _, spokes := range lab.SpokeMap[nodeName] {
 		for _, spokeName := range spokes {
-			nadName := k8slan.GetNADName(spokeName, true)
+			lanName := Getk8lanName(lab.Lab.Name, lab.SpokeLinkMap[spokeName])
+			nadName := k8slan.GetNADName(lanName, spokeName, true)
 			netStr += fmt.Sprintf("%v@e1-%d,", nadName, i)
 			resKey := fmt.Sprintf("%v/%v", K8sLANResKeyPrefix, nadName)
 			pod.Spec.Containers[0].Resources.Limits[corev1.ResourceName(resKey)] = resource.MustParse("1")

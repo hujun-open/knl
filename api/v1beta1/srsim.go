@@ -219,7 +219,8 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 	pod.Spec.Containers[0].Resources.Limits = make(corev1.ResourceList)
 	for _, spokes := range lab.SpokeMap[nodeName] {
 		for _, spokeName := range spokes {
-			nadName := k8slan.GetNADName(spokeName, true)
+			lanName := Getk8lanName(lab.Lab.Name, lab.SpokeLinkMap[spokeName])
+			nadName := k8slan.GetNADName(lanName, spokeName, true)
 			if lab.SpokeConnectorMap[spokeName].PortId != nil {
 				netStr += fmt.Sprintf("%v@%v,", nadName, lab.SpokeConnectorMap[spokeName].PortId)
 			} else {

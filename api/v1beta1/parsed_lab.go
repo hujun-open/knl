@@ -26,6 +26,7 @@ type ParsedLab struct {
 	SetOwnerFunc      SetOwnerFuncType
 	SpokeMap          map[string]map[string][]string //1st key is nodename, 2nd key is LAN name, val is list of spoke name
 	SpokeConnectorMap map[string]*Connector          //key is the spokename, spokename is per connector
+	SpokeLinkMap      map[string]string              //key is the spokename, value is link name
 }
 
 func ParseLab(lab *Lab, sch *runtime.Scheme) *ParsedLab {

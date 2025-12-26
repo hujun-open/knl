@@ -186,10 +186,10 @@ spec:
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         image:
-                          description: 'one of two types of image loading method:
-                            1.a docker image url like "exampleregistry/sros:25.10.1"
-                            2. a sub folder name of the SROS/MAGC image when start
-                            with "filesvr:", like "filesvr:25.10.1"'
+                          description: |-
+                            one of three types of image loading method:
+                            1.docker image url like "exampleregistry/sros:25.10.1";
+                            2.sub folder name of the SROS/MAGC image when start with "filesvr:", like "filesvr:25.10.1"
                           nullable: true
                           type: string
                         license:
@@ -576,10 +576,10 @@ spec:
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         image:
-                          description: 'one of two types of image loading method:
-                            1.a docker image url like "exampleregistry/sros:25.10.1"
-                            2. a sub folder name of the SROS/MAGC image when start
-                            with "filesvr:", like "filesvr:25.10.1"'
+                          description: |-
+                            one of three types of image loading method:
+                            1.docker image url like "exampleregistry/sros:25.10.1";
+                            2.sub folder name of the SROS/MAGC image when start with "filesvr:", like "filesvr:25.10.1"
                           nullable: true
                           type: string
                         license:
@@ -703,10 +703,10 @@ spec:
                           pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                           x-kubernetes-int-or-string: true
                         image:
-                          description: 'one of two types of image loading method:
-                            1.a docker image url like "exampleregistry/sros:25.10.1"
-                            2. a sub folder name of the SROS/MAGC image when start
-                            with "filesvr:", like "filesvr:25.10.1"'
+                          description: |-
+                            one of three types of image loading method:
+                            1.docker image url like "exampleregistry/sros:25.10.1";
+                            2.sub folder name of the SROS/MAGC image when start with "filesvr:", like "filesvr:25.10.1"
                           nullable: true
                           type: string
                         license:

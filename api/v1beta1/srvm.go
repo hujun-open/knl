@@ -50,7 +50,9 @@ type SRVM struct {
 	// +optional
 	// +nullable
 	Chassis *SRChassis `json:"chassis,omitempty"`
-	// one of two types of image loading method: 1.a docker image url like "exampleregistry/sros:25.10.1" 2. a sub folder name of the SROS/MAGC image when start with "filesvr:", like "filesvr:25.10.1"
+	// one of three types of image loading method:
+	// 1.docker image url like "exampleregistry/sros:25.10.1";
+	// 2.sub folder name of the SROS/MAGC image when start with "filesvr:", like "filesvr:25.10.1"
 	// +optional
 	// +nullable
 	Image *string `json:"image,omitempty"`
@@ -136,8 +138,17 @@ func (srvm *SRVM) Validate() error {
 	}
 	if !strings.HasPrefix(*srvm.Image, FTPImagePrefix) {
 		if _, err := reference.Parse(*srvm.Image); err != nil {
-			return fmt.Errorf("invalid docker image url %v, %w", *srvm.Image, err)
+			return fmt.Errorf("%v is not valid image url, %w", *srvm.Image, err)
 		}
+		// if url, err := url.Parse(*srvm.Image); err != nil {
+		// 	return fmt.Errorf("invalid image url %v, %w", *srvm.Image, err)
+		// } else {
+		// 	switch strings.ToLower(url.Scheme) {
+		// 	case "docker":
+		// 	default:
+		// 		return fmt.Errorf("only support http,https or docker url, %w", err)
+		// 	}
+		// }
 	}
 	if srvm.LicURL == nil {
 		return fmt.Errorf("license not specified")

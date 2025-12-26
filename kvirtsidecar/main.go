@@ -107,7 +107,7 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 		cpmbootrom := fmt.Sprintf("%v/i386-boot.tim", common.GetSFTPSROSImgPath(labName, chassisName))
 		iombootrom := fmt.Sprintf("%v/i386-iom.tim", common.GetSFTPSROSImgPath(labName, chassisName))
 		bofpath := common.GetSFTPSROSImgPath(labName, chassisName)
-		licStr := fmt.Sprintf("%v/vsim.lic", common.KNLROOTName)
+		licStr := fmt.Sprintf("/%v/vsim.lic", common.KNLROOTName)
 		if vmts != string(v1beta1.SRVMVSIM) {
 			licStr = fmt.Sprintf("%v/vsr.lic", common.KNLROOTName)
 		}

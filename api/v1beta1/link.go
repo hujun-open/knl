@@ -115,10 +115,11 @@ func getSpokeName(vni int32, connectorIndex int) string {
 // this creates k8slan CR for all links
 // return two maps, first map: 1st key is nodename, 2nd key is LAN name, val is list of spoke name
 // 2nd map: key is spokename, value is corrsponding connector
-func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map[string]map[string][]string, map[string]*Connector, error) {
+func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map[string]map[string][]string, map[string]*Connector, map[string]string, error) {
 	gconf := GCONF.Get()
 	rmap := make(map[string]map[string][]string)
 	spokeConnectorMap := make(map[string]*Connector)
+	spokeLinkMap := make(map[string]string)
 	for _, linkName := range common.GetSortedKeySlice(plab.Lab.Spec.LinkList) {
 		// for linkName, link := range plab.Lab.Spec.LinkList {
 		link := plab.Lab.Spec.LinkList[linkName]
@@ -129,12 +130,12 @@ func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map
 		)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
-				return nil, nil, fmt.Errorf("unexpected error getting existing LAN %v, %w", Getk8lanName(plab.Lab.Name, linkName), err)
+				return nil, nil, nil, fmt.Errorf("unexpected error getting existing LAN %v, %w", Getk8lanName(plab.Lab.Name, linkName), err)
 			}
 			//not found, create new one
 			vni, err := GetAvailableVNI(ctx, clnt, len(plab.Lab.Spec.LinkList))
 			if err != nil {
-				return nil, nil, fmt.Errorf("failed to get %d vni, %w", len(plab.Lab.Spec.LinkList), err)
+				return nil, nil, nil, fmt.Errorf("failed to get %d vni, %w", len(plab.Lab.Spec.LinkList), err)
 			}
 			lan = &k8slan.LAN{
 				ObjectMeta: common.GetObjMeta(Getk8lanName(plab.Lab.Name, linkName), plab.Lab.Name, plab.Lab.Namespace),
@@ -163,13 +164,14 @@ func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map
 			}
 			rmap[*c.NodeName][linkName] = append(rmap[*c.NodeName][linkName], spokeName)
 			spokeConnectorMap[spokeName] = &c
+			spokeLinkMap[spokeName] = linkName
 		}
 
 		err = createIfNotExistsOrRemove(ctx, clnt, plab, lan, true, false)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to create LAN CR for lab %v link %v, %w", plab.Lab.Name, linkName, err)
+			return nil, nil, nil, fmt.Errorf("failed to create LAN CR for lab %v link %v, %w", plab.Lab.Name, linkName, err)
 		}
 
 	}
-	return rmap, spokeConnectorMap, nil
+	return rmap, spokeConnectorMap, spokeLinkMap, nil
 }

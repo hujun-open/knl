@@ -311,7 +311,8 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot string) *kvv1.Vir
 			if *lab.SpokeConnectorMap[spokeName].PortId != cardslot {
 				continue
 			}
-			nadName := k8slan.GetNADName(spokeName, false)
+			lanName := Getk8lanName(lab.Lab.Name, lab.SpokeLinkMap[spokeName])
+			nadName := k8slan.GetNADName(lanName, spokeName, false)
 			r.Spec.Networks = append(r.Spec.Networks,
 				kvv1.Network{
 					Name: spokeName,
