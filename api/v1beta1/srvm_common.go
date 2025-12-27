@@ -109,6 +109,10 @@ func getSRVMCardVMName(lab, chassis, slot string) string {
 	return strings.ToLower(fmt.Sprintf("%v-%v-%v", lab, chassis, slot))
 }
 
+func getSRVMLicFileName(lab, chassis string) string {
+	return strings.ToLower(fmt.Sprintf("%v-%v", lab, chassis))
+}
+
 func getFullQualifiedSRVMChassisName(lab, chassis string) string {
 	return strings.ToLower(fmt.Sprintf("%v-%v", lab, chassis))
 }

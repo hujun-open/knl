@@ -138,7 +138,7 @@ type SRLinux struct {
 	Image *string `json:"image,omitempty"`
 	//chassis configuration
 	Chassis *string `json:"chassis,omitempty"`
-	//a k8s secret contains the license file with "license.key" as the key
+	//a k8s secret contains the license file with "license" as the key
 	LicSecret *string `json:"license,omitempty"`
 	//requested memory in k8s resource unit
 	// +optional

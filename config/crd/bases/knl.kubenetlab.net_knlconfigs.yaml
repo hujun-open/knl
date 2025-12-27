@@ -164,8 +164,7 @@ spec:
                         nullable: true
                         type: string
                       license:
-                        description: ftp URL for the license file, a default URL is
-                          used if not specified
+                        description: a k8s secret name contains license with key "license"
                         nullable: true
                         type: string
                     type: object
@@ -222,7 +221,7 @@ spec:
                         description: docker image
                         type: string
                       license:
-                        description: a k8s secret contains the license file with "license.key"
+                        description: a k8s secret contains the license file with "license"
                           as the key
                         type: string
                       memory:
@@ -351,7 +350,7 @@ spec:
                         type: string
                       license:
                         description: name of k8s secret contains license file with
-                          "license.txt" as the key
+                          "license" as the key
                         nullable: true
                         type: string
                     type: object
@@ -552,8 +551,7 @@ spec:
                         nullable: true
                         type: string
                       license:
-                        description: ftp URL for the license file, a default URL is
-                          used if not specified
+                        description: a k8s secret name contains license with key "license"
                         nullable: true
                         type: string
                     type: object
@@ -679,8 +677,7 @@ spec:
                         nullable: true
                         type: string
                       license:
-                        description: ftp URL for the license file, a default URL is
-                          used if not specified
+                        description: a k8s secret name contains license with key "license"
                         nullable: true
                         type: string
                     type: object

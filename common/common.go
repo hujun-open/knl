@@ -41,9 +41,11 @@ const (
 	KNLROOTName          = `knlroot`
 	VMDiskSubFolder      = `vmdisks`
 	IMGSubFolder         = `imgs`
+	LicSubFolder         = `lic`
 	CfgSubFolder         = `cfgs`
 	KVirtPodPVCMountRoot = `/var/run/kubevirt-private/vmi-disks/`
 	PVCName              = `knl-pvc` //this must be inline with config/default/pvc
+
 )
 
 const (

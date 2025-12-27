@@ -35,7 +35,7 @@ type SRSim struct {
 	// +optional
 	// +nullable
 	Chassis *SRChassis `json:"chassis,omitempty"`
-	//name of k8s secret contains license file with "license.txt" as the key
+	//name of k8s secret contains license file with "license" as the key
 	// +optional
 	// +nullable
 	LicSecret *string `json:"license,omitempty"`

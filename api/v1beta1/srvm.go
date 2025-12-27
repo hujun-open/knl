@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
 	"strings"
 	"syscall"
@@ -60,24 +59,27 @@ type SRVM struct {
 	// +optional
 	// +nullable
 	DiskSize *resource.Quantity `json:"diskSize,omitempty"`
-	// ftp URL for the license file, a default URL is used if not specified
+	// a k8s secret name contains license with key "license"
 	// +optional
 	// +nullable
-	LicURL *string `json:"license,omitempty"`
+	License *string `json:"license,omitempty"`
 }
 
 const (
-	DefaultSRVMDiskSize = "1.5Gi"
+	DefaultSRVMDiskSize   = "1.5Gi"
+	DefaultVSIMLicSecName = "vsimlic"
+	DefaultVSRLicSecName  = "vsrlic"
+	DefaultMAGCLicSecName = "magclic"
 )
 
 func (srvm *SRVM) setToAppDefVal() {
 	srvm.DiskSize = common.ReturnPointerVal(resource.MustParse(DefaultSRVMDiskSize))
-	srvm.LicURL = common.ReturnPointerVal(fmt.Sprintf("ftp://ftp:ftp@%v/lic", common.FixedFTPProxySvr))
 }
 
 func (vsim *VSIM) SetToAppDefVal() {
 	(*SRVM)(vsim).setToAppDefVal()
 	vsim.Chassis = DefaultSIMChassis(SRVMVSIM)
+	vsim.License = common.ReturnPointerVal(string(DefaultVSIMLicSecName))
 }
 func (vsim *VSIM) Validate() error {
 	return (*SRVM)(vsim).Validate()
@@ -92,6 +94,7 @@ func (vsim *VSIM) FillDefaultVal(name string) {
 
 func (vsri *VSRI) SetToAppDefVal() {
 	vsri.Chassis = DefaultVSRIChassis()
+	vsri.License = common.ReturnPointerVal(string(DefaultVSRLicSecName))
 }
 
 func (vsri *VSRI) Validate() error {
@@ -107,6 +110,7 @@ func (vsri *VSRI) FillDefaultVal(name string) {
 
 func (magc *MAGC) SetToAppDefVal() {
 	magc.Chassis = DefaultMAGCChassis()
+	magc.License = common.ReturnPointerVal(string(DefaultMAGCLicSecName))
 }
 
 func (magc *MAGC) Validate() error {
@@ -150,15 +154,8 @@ func (srvm *SRVM) Validate() error {
 		// 	}
 		// }
 	}
-	if srvm.LicURL == nil {
+	if srvm.License == nil {
 		return fmt.Errorf("license not specified")
-	}
-	if url, err := url.Parse(*srvm.LicURL); err != nil {
-		return fmt.Errorf("%v is not valid url", *srvm.LicURL)
-	} else {
-		if strings.ToLower(url.Scheme) != "ftp" {
-			return fmt.Errorf("%v is not a ftp url", *srvm.LicURL)
-		}
 	}
 
 	return srvm.Chassis.Validate()

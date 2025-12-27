@@ -13,6 +13,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"kubenetlab.net/knl/common"
 	"kubenetlab.net/knl/dict"
 	kvv1 "kubevirt.io/api/core/v1"
@@ -20,8 +21,9 @@ import (
 )
 
 const (
-	SRVMFBMTU    = 9000
-	vSROSIDLabel = `kubnetlab.net/vSROSSystemID`
+	SRVMFBMTU            = 9000
+	vSROSIDLabel         = `kubnetlab.net/vSROSSystemID`
+	SRVMLicSecretKeyName = `license`
 )
 
 var (
@@ -93,9 +95,27 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 			return common.MakeErr(err)
 		}
 	}
-
+	var licFullPath string
 	for slot := range srvm.Chassis.Cards {
 		if common.IsCPM(slot) {
+			//get the lic
+			licKey := types.NamespacedName{Namespace: MYNAMESPACE, Name: *srvm.License}
+			licSec := new(corev1.Secret)
+			err = clnt.Get(ctx, licKey, licSec)
+			if err != nil {
+				return fmt.Errorf("failed to read license secret %v, %w", *srvm.License, err)
+			}
+			licFolder := filepath.Join("/", common.KNLROOTName, common.LicSubFolder)
+			err = os.MkdirAll(licFolder, 0755)
+			if err != nil {
+				return common.MakeErr(fmt.Errorf("failed to create lic sub folder, %w", err))
+			}
+			licFullPath = filepath.Join(licFolder, getSRVMLicFileName(lab.Lab.Name, nodeName))
+			err = os.WriteFile(licFullPath, licSec.Data[SRVMLicSecretKeyName], 0644)
+			if err != nil {
+				return common.MakeErr(fmt.Errorf("failed to write license file, %w", err))
+			}
+
 			//SRVM CPM DV
 			cpmImage := "docker://" + *srvm.Image
 			diskSize := srvm.DiskSize
@@ -113,7 +133,7 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 			}
 		}
 		//VMI
-		vmi := srvm.getVMI(lab, nodeName, slot)
+		vmi := srvm.getVMI(lab, nodeName, slot, licFullPath)
 		err = createIfNotExistsOrFailedOrRemove(ctx, clnt, lab, vmi, checkVMIfail, true, forceRemoval)
 		if err != nil {
 			return common.MakeErr(err)
@@ -122,7 +142,7 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 	return nil
 }
 
-func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot string) *kvv1.VirtualMachineInstance {
+func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath string) *kvv1.VirtualMachineInstance {
 	vmt, _ := ParseSRVMName_New(chassisName)
 	gconf := GCONF.Get()
 	isCPM := common.IsCPM(cardslot)
@@ -141,16 +161,13 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot string) *kvv1.Vir
 		"/i386-iom.tim":  fmt.Sprintf("%v/i386-iom.tim", common.GetSFTPSROSImgPath(lab.Lab.Name, chassisName)),
 		"/sros":          common.GetSFTPSROSImgPath(lab.Lab.Name, chassisName),
 		"/cfg":           common.GetSRConfigFTPSubFolder(lab.Lab.Name, chassisName),
-	}
-	if vmt == SRVMVSIM {
-		ftpPathMap["/lic"] = fmt.Sprintf("/%v/vsim.lic", common.KNLROOTName)
-	} else {
-		ftpPathMap["/lic"] = fmt.Sprintf("/%v/vsr.lic", common.KNLROOTName)
+		"/lic":           licPath,
 	}
 	pathMapBuf, err := json.Marshal(ftpPathMap)
 	if err != nil {
 		panic(err)
 	}
+	fixedLicLocalFTPURL := fmt.Sprintf("ftp://ftp:ftp@%v/lic", common.FixedFTPProxySvr)
 
 	r.ObjectMeta.Annotations = map[string]string{
 		dict.SftpSVRAnnontation:          *gconf.SFTPSever,
@@ -161,7 +178,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot string) *kvv1.Vir
 		dict.ChassisTypeAnnotation:       string(*srvm.Chassis.Type),
 		dict.FTPPathMapAnnotation:        string(pathMapBuf),
 		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"image": "%v"}]`, *gconf.SideCarHookImg),
-		dict.VSROSSysinfoAnno:            common.GenSysinfo(*srvm.Chassis.Cards[cardslot].SysInfo, cfgURL, *srvm.LicURL),
+		dict.VSROSSysinfoAnno:            common.GenSysinfo(*srvm.Chassis.Cards[cardslot].SysInfo, cfgURL, fixedLicLocalFTPURL),
 	}
 
 	//can't set pc here will be rejected by adminssion webhook

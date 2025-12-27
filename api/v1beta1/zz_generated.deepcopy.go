@@ -500,8 +500,8 @@ func (in *MAGC) DeepCopyInto(out *MAGC) {
 		x := (*in).DeepCopy()
 		*out = &x
 	}
-	if in.LicURL != nil {
-		in, out := &in.LicURL, &out.LicURL
+	if in.License != nil {
+		in, out := &in.License, &out.License
 		*out = new(string)
 		**out = **in
 	}
@@ -784,8 +784,8 @@ func (in *SRVM) DeepCopyInto(out *SRVM) {
 		x := (*in).DeepCopy()
 		*out = &x
 	}
-	if in.LicURL != nil {
-		in, out := &in.LicURL, &out.LicURL
+	if in.License != nil {
+		in, out := &in.License, &out.License
 		*out = new(string)
 		**out = **in
 	}
@@ -819,8 +819,8 @@ func (in *VSIM) DeepCopyInto(out *VSIM) {
 		x := (*in).DeepCopy()
 		*out = &x
 	}
-	if in.LicURL != nil {
-		in, out := &in.LicURL, &out.LicURL
+	if in.License != nil {
+		in, out := &in.License, &out.License
 		*out = new(string)
 		**out = **in
 	}
@@ -854,8 +854,8 @@ func (in *VSRI) DeepCopyInto(out *VSRI) {
 		x := (*in).DeepCopy()
 		*out = &x
 	}
-	if in.LicURL != nil {
-		in, out := &in.LicURL, &out.LicURL
+	if in.License != nil {
+		in, out := &in.License, &out.License
 		*out = new(string)
 		**out = **in
 	}

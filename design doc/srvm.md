@@ -1,17 +1,16 @@
 ## VM naming
-- name format for vsim/magc: vmtype-vmid-cardid
-- name format for vpc/vsri: vmtype-vmid
-- cardid is either a,b or a number
-
+srsim/srl/vsim/magc/vsri uses single SRChassis struct to decreibe the whole chassis, there is no seperate LAB node for CPM and IOM (VM are still seperate though).
+the name format just need to have this prefix: "<vmtype>-"
 
 ## KNL PVC
 it contains following files:
-- TIMOS images
+- TIMOS images (only needed for ftp option)
 - SROS configurations 
+- license file
 
 this PVC need to be mounted on sftp server container mentioned below
 
-## managment interface, VM image and TIMOS Image
+## managment interface, VM image and TIMOS Image (FTP)
 1. set mgmt interface to pod network interface for both cpm and iom vm
 2. by default, kubevirt assign 10.0.2.2/24 to the first interface in the VM, which connects to a bridge interface `k6t-eth0` interface in the virt-launcher pod, which has ip `10.0.2.1/24`
 3. the idea is to run a ftp server inside kubevirt hook container, that ftp server proxy the ftp request from SRVM to real backend, e.g. using `https://github.com/fclairamb/ftpserver/`, which supports using sftp server as backend
@@ -84,6 +83,14 @@ ADD --chown=107:107 iomloader.qcow2 /disk/
       <address type='pci' domain='0x0000' bus='0x00' slot='0x05' function='0x0'/>
     </disk>
 ```
+### VM/TIMOS Image (docker)
+another supported option is to use kubevirt container disk as the image, for CPM, use kubevirt CDI to import container disk image into PVC, for IOM VM, use the image directly.
+the container disk image is essentially Nokia release qcow2 file in a container image as described [here](https://kubevirt.io/user-guide/storage/disks_and_volumes/#containerdisk)
+
+there is also a [cdtool](https://github.com/hujun-open/cdtool) used to facilitate import qcow2 into container disk image
+
+### License file
+user provision the license file in a k8s secret, then operator copy license from secret to a local file on the sftp server, and having license url in sysinfo of VM point to a fixed ftp URL, the ftp proxy translate the fixed ftp url to the sftp license file url
 
 ### summary 
 - for CPM VM, it is kubevirt DV per VM
