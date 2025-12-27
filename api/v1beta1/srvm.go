@@ -63,6 +63,10 @@ type SRVM struct {
 	// +optional
 	// +nullable
 	License *string `json:"license,omitempty"`
+	// VM's firmware UUID
+	// +optional
+	// +nullable
+	UUID *string `json:"uuid,omitempty"`
 }
 
 const (

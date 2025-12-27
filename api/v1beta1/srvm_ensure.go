@@ -152,6 +152,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath string) 
 		lab.Lab.Name,
 		lab.Lab.Namespace,
 	)
+
 	r.ObjectMeta.Labels[vSROSIDLabel] = getFullQualifiedSRVMChassisName(lab.Lab.Name, chassisName)
 	//add sysinfo for SR like node
 	cfgURL := fmt.Sprintf("ftp://ftp:ftp@%v/cfg/config.cfg", common.FixedFTPProxySvr)
@@ -185,6 +186,12 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath string) 
 
 	r.Spec.Domain.CPU = &kvv1.CPU{
 		Model: "host-passthrough",
+	}
+	//add UUID if specified
+	if srvm.UUID != nil {
+		r.Spec.Domain.Firmware = &kvv1.Firmware{
+			UUID: types.UID(*srvm.UUID),
+		}
 	}
 
 	//check if need pin CPU

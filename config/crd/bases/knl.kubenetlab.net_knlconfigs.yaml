@@ -167,6 +167,10 @@ spec:
                         description: a k8s secret name contains license with key "license"
                         nullable: true
                         type: string
+                      uuid:
+                        description: VM's firmware UUID
+                        nullable: true
+                        type: string
                     type: object
                   pod:
                     description: GeneralPod specifies a general k8s pod
@@ -554,6 +558,10 @@ spec:
                         description: a k8s secret name contains license with key "license"
                         nullable: true
                         type: string
+                      uuid:
+                        description: VM's firmware UUID
+                        nullable: true
+                        type: string
                     type: object
                   vsri:
                     description: VSRI specifies a Nokia VSR-I router
@@ -678,6 +686,10 @@ spec:
                         type: string
                       license:
                         description: a k8s secret name contains license with key "license"
+                        nullable: true
+                        type: string
+                      uuid:
+                        description: VM's firmware UUID
                         nullable: true
                         type: string
                     type: object
