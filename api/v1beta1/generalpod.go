@@ -160,3 +160,7 @@ func (gpod *GeneralPod) Shell(ctx context.Context, clnt client.Client, ns, lab, 
 		envList)
 
 }
+
+func (gpod *GeneralPod) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {
+	gpod.Shell(ctx, clnt, ns, lab, chassis, "")
+}

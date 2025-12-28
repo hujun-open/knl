@@ -171,15 +171,15 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath string) 
 	fixedLicLocalFTPURL := fmt.Sprintf("ftp://ftp:ftp@%v/lic", common.FixedFTPProxySvr)
 
 	r.ObjectMeta.Annotations = map[string]string{
-		dict.SftpSVRAnnontation:          *gconf.SFTPSever,
-		dict.SftpPassAnnontation:         *gconf.SFTPPassword,
-		dict.SftpUserAnnontation:         *gconf.SFTPUser,
-		dict.LabNameAnnotation:           lab.Lab.Name,
-		dict.ChassisNameAnnotation:       chassisName,
-		dict.ChassisTypeAnnotation:       string(*srvm.Chassis.Type),
-		dict.FTPPathMapAnnotation:        string(pathMapBuf),
-		"hooks.kubevirt.io/hookSidecars": fmt.Sprintf(`[{"image": "%v"}]`, *gconf.SideCarHookImg),
-		dict.VSROSSysinfoAnno:            common.GenSysinfo(*srvm.Chassis.Cards[cardslot].SysInfo, cfgURL, fixedLicLocalFTPURL),
+		dict.SftpSVRAnnontation:      *gconf.SFTPSever,
+		dict.SftpPassAnnontation:     *gconf.SFTPPassword,
+		dict.SftpUserAnnontation:     *gconf.SFTPUser,
+		dict.LabNameAnnotation:       lab.Lab.Name,
+		dict.ChassisNameAnnotation:   chassisName,
+		dict.ChassisTypeAnnotation:   string(*srvm.Chassis.Type),
+		dict.FTPPathMapAnnotation:    string(pathMapBuf),
+		dict.KvirtSideCarAnnontation: fmt.Sprintf(`[{"image": "%v"}]`, *gconf.SideCarHookImg),
+		dict.VSROSSysinfoAnno:        common.GenSysinfo(*srvm.Chassis.Cards[cardslot].SysInfo, cfgURL, fixedLicLocalFTPURL),
 	}
 
 	//can't set pc here will be rejected by adminssion webhook

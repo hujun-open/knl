@@ -16,7 +16,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"kubenetlab.net/knl/api/v1beta1"
@@ -37,8 +36,12 @@ type CLI struct {
 	} `action:"ListLabs" usage:"list labs"`
 	Shell struct {
 		Lab  string `noun:"1" usage:"knl lab name" complete:"K8sLabComp"`
-		Node string `noun:"2" usage:"node name" complete:"KNLNodeComp"`
+		Node string `noun:"2" usage:"node name" complete:"ShellKNLNodeComp"`
 	} `action:"ShellNode" usage:"connect to the specified node in the specified lab"`
+	Console struct {
+		Lab  string `noun:"1" usage:"knl lab name" complete:"K8sLabComp"`
+		Node string `noun:"2" usage:"node name" complete:"ConsoleKNLNodeComp"`
+	} `action:"ConsoleNode" usage:"connect to the console of specified node in the specified lab"`
 
 	Namespace string `alias:"ns" short:"n" usage:"k8s namespace" complete:"K8sNSComp"`
 }
@@ -65,23 +68,22 @@ func (cli *CLI) K8sLabComp(cmd *cobra.Command, args []string, toComplete string)
 	return opts, cobra.ShellCompDirectiveNoFileComp
 }
 
-func (cli *CLI) KNLNodeComp(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
+func (cli *CLI) ShellKNLNodeComp(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
 	clnt, err := cli.getClnt()
 	if err != nil {
 		log.Fatal(err)
 	}
-	lab := &v1beta1.Lab{}
-	labKey := types.NamespacedName{Namespace: cli.Namespace, Name: cli.Shell.Lab}
-	err = clnt.Get(context.Background(), labKey, lab)
-	if err != nil {
-		return nil, cobra.ShellCompDirectiveError
-	}
-	opts := []string{}
-	for nodeName := range lab.Spec.NodeList {
-		opts = append(opts, nodeName)
-	}
-	return opts, cobra.ShellCompDirectiveNoFileComp
+	return knlNodeComp(clnt, cli.Namespace, cli.Shell.Lab)
 }
+
+func (cli *CLI) ConsoleKNLNodeComp(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
+	clnt, err := cli.getClnt()
+	if err != nil {
+		log.Fatal(err)
+	}
+	return knlNodeComp(clnt, cli.Namespace, cli.Console.Lab)
+}
+
 func (cli *CLI) K8sVMIComp(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
 	opts, err := completers.GetResourceNames("kubevirt.io", "v1", "virtualmachineinstances", cli.Namespace, "", cli.KubeCfgPath)
 	if err != nil {
@@ -182,8 +184,9 @@ func DefCLI() *CLI {
 	return r
 }
 func main() {
+	log.SetFlags(log.Ltime | log.Lshortfile)
 	cli := DefCLI()
-	filler := myflags.NewFiller("knlclnt", "KNL client", myflags.WithShellCompletionCMD())
+	filler := myflags.NewFiller("knlcli", "KNL CLI tool", myflags.WithShellCompletionCMD())
 	err := filler.Fill(cli)
 	if err != nil {
 		panic(err)

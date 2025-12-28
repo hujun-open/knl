@@ -64,6 +64,9 @@ func (srsim *SRSim) Validate() error {
 	if srsim.Chassis == nil {
 		return fmt.Errorf("chassis not specified")
 	}
+	if srsim.LicSecret == nil {
+		return fmt.Errorf("license secret not specified")
+	}
 
 	return srsim.Chassis.Validate()
 }
@@ -263,4 +266,14 @@ func (srsim *SRSim) Shell(ctx context.Context, clnt client.Client, ns, lab, chas
 			fmt.Sprintf("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %v@%v", username, pod.Status.PodIP)},
 		envList)
 
+}
+
+func (srsim *SRSim) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {
+	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
+	fmt.Printf("connecting to %v\n", common.GetPodName(lab, chassis))
+	syscall.Exec("/bin/sh",
+		[]string{"sh", "-c",
+			fmt.Sprintf("kubectl -n %v exec -it %v -- bash",
+				ns, common.GetPodName(lab, chassis))},
+		envList)
 }

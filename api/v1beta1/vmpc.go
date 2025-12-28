@@ -71,8 +71,6 @@ func (gvm *GeneralVM) SetToAppDefVal() {
 	gvm.Username = common.ReturnPointerVal("lab")
 	gvm.Password = common.ReturnPointerVal("lab123")
 	gvm.InitMethod = common.ReturnPointerVal(string(InitMethod_CLOUDINIT))
-	gvm.Image = common.ReturnPointerVal("docker://quay.io/kubevirt/cirros-container-disk-demo")
-	gvm.DiskSize = common.ReturnPointerVal(resource.MustParse("64Mi"))
 	gvm.Ports = common.ReturnPointerVal([]kvv1.Port{
 		{
 			Name:     "ssh",
@@ -92,6 +90,19 @@ func (gvm *GeneralVM) GetNodeType(name string) common.NodeType {
 }
 
 func (gvm *GeneralVM) Validate() error {
+	if gvm.Image == nil {
+		return fmt.Errorf("image not specified")
+	}
+	if gvm.DiskSize == nil {
+		return fmt.Errorf("diskSize not specified")
+	}
+	if gvm.ReqCPU == nil {
+		return fmt.Errorf("cpu not specified")
+	}
+	if gvm.ReqMemory == nil {
+		return fmt.Errorf("memory not specified")
+	}
+
 	return nil
 }
 func (gvm *GeneralVM) Ensure(ctx context.Context, nodeName string, clnt client.Client, forceRemoval bool) error {
@@ -123,6 +134,7 @@ func (gvm *GeneralVM) Ensure(ctx context.Context, nodeName string, clnt client.C
 }
 
 func (gvm *GeneralVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachineInstance {
+	gconf := GCONF.Get()
 	r := new(kvv1.VirtualMachineInstance)
 	r.ObjectMeta = common.GetObjMeta(
 		common.GetPodName(lab.Lab.Name, vmname),
@@ -130,7 +142,9 @@ func (gvm *GeneralVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachine
 		lab.Lab.Namespace,
 	)
 	r.ObjectMeta.Annotations = map[string]string{
-		dict.LabNameAnnotation: lab.Lab.Name,
+		dict.LabNameAnnotation:       lab.Lab.Name,
+		dict.ChassisTypeAnnotation:   string(VM),
+		dict.KvirtSideCarAnnontation: fmt.Sprintf(`[{"image": "%v"}]`, *gconf.SideCarHookImg),
 	}
 	r.Spec.Domain.CPU = &kvv1.CPU{
 		Model: "host-passthrough",
@@ -413,10 +427,31 @@ func (gvm *GeneralVM) Shell(ctx context.Context, clnt client.Client, ns, lab, ch
 
 	}
 	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
-	fmt.Println("connecting to", chassis, "at", podList.Items[0].Status.PodIP, "username", gvm.Username)
+	fmt.Println("connecting to", chassis, "at", podList.Items[0].Status.PodIP, "username", *gvm.Username)
 	syscall.Exec("/bin/sh",
 		[]string{"sh", "-c",
-			fmt.Sprintf("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %v@%v", gvm.Username, podList.Items[0].Status.PodIP)},
+			fmt.Sprintf("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %v@%v", *gvm.Username, podList.Items[0].Status.PodIP)},
 		envList)
+}
 
+func (gvm *GeneralVM) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {
+
+	podList := &corev1.PodList{}
+	labelSelector := client.MatchingLabels{
+		"vm.kubevirt.io/name": common.GetPodName(lab, chassis),
+	}
+	err := clnt.List(ctx, podList, client.InNamespace(ns), labelSelector)
+	if err != nil {
+		log.Fatalf("failed to list pods: %v", err)
+	}
+	if len(podList.Items) == 0 {
+		log.Fatalf("failed to find vm pod %v", common.GetPodName(lab, chassis))
+
+	}
+	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
+	fmt.Println("connecting to console of", chassis, "at", podList.Items[0].Status.PodIP)
+	syscall.Exec("/bin/sh",
+		[]string{"sh", "-c",
+			fmt.Sprintf("telnet %v %d", podList.Items[0].Status.PodIP, SRVMConsoleTCPPort)},
+		envList)
 }

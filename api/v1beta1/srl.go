@@ -150,29 +150,29 @@ type SRLinux struct {
 	ReqCPU *resource.Quantity `json:"cpu,omitempty"`
 }
 
-func (gpod *SRLinux) SetToAppDefVal() {
-	gpod.Chassis = common.ReturnPointerVal("ixr-h5-32d")
-	gpod.ReqMemory = common.ReturnPointerVal(resource.MustParse(DefaultSRLMem))
+func (srl *SRLinux) SetToAppDefVal() {
+	srl.Chassis = common.ReturnPointerVal("ixr-h5-32d")
+	srl.ReqMemory = common.ReturnPointerVal(resource.MustParse(DefaultSRLMem))
 }
 
-func (gpod *SRLinux) FillDefaultVal(nodeName string) {
+func (srl *SRLinux) FillDefaultVal(nodeName string) {
 
 }
 
-func (gpod *SRLinux) GetNodeType(name string) common.NodeType {
+func (srl *SRLinux) GetNodeType(name string) common.NodeType {
 	return SRL
 }
 
-func (gpod *SRLinux) Validate() error {
-	if gpod.Image == nil {
+func (srl *SRLinux) Validate() error {
+	if srl.Image == nil {
 		return fmt.Errorf("image not specified")
 	}
-	if gpod.Chassis == nil {
+	if srl.Chassis == nil {
 		return fmt.Errorf("chassis not specified")
 	}
 
 	//check chassis config
-	_, err := getSRLChassisViaTypeStr(*gpod.Chassis)
+	_, err := getSRLChassisViaTypeStr(*srl.Chassis)
 
 	return err
 }
@@ -194,7 +194,7 @@ type SRLChassis struct {
 	SlotConfig           map[int]slotConfig   `yaml:"slot_configuration"`
 }
 
-func (gpod *SRLinux) getEtcPVC(ns, nodeName, labName string) *corev1.PersistentVolumeClaim {
+func (srl *SRLinux) getEtcPVC(ns, nodeName, labName string) *corev1.PersistentVolumeClaim {
 	gconf := GCONF.Get()
 	name := fmt.Sprintf("%v-%v-etc", labName, nodeName)
 	return &corev1.PersistentVolumeClaim{
@@ -211,10 +211,10 @@ func (gpod *SRLinux) getEtcPVC(ns, nodeName, labName string) *corev1.PersistentV
 	}
 }
 
-func (gpod *SRLinux) getConfigMapFromSRLChassis(ns, nodeName, labName string, nodeIndex int) *corev1.ConfigMap {
+func (srl *SRLinux) getConfigMapFromSRLChassis(ns, nodeName, labName string, nodeIndex int) *corev1.ConfigMap {
 	name := fmt.Sprintf("%v-%v-topo", labName, nodeName)
 
-	chassis, err := getSRLChassisViaTypeStr(*gpod.Chassis)
+	chassis, err := getSRLChassisViaTypeStr(*srl.Chassis)
 	if err != nil {
 		//given srl.Chassis has been validated, err happened is unexpected, so use panic
 		panic(err)
@@ -232,7 +232,7 @@ func (gpod *SRLinux) getConfigMapFromSRLChassis(ns, nodeName, labName string, no
 	}
 }
 
-func (gpod *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Client, forceRemoval bool) error {
+func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Client, forceRemoval bool) error {
 	// gconf := GCONF.Get()
 	val := ctx.Value(ParsedLabKey)
 	if val == nil {
@@ -244,20 +244,20 @@ func (gpod *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cl
 		return common.MakeErr(fmt.Errorf("context stored value is not a ParsedLabSpec"))
 	}
 	//create configmap
-	topoCM := gpod.getConfigMapFromSRLChassis(lab.Lab.Namespace, nodeName, lab.Lab.Name, lab.Lab.Spec.GetNodeSortIndex(nodeName))
+	topoCM := srl.getConfigMapFromSRLChassis(lab.Lab.Namespace, nodeName, lab.Lab.Name, lab.Lab.Spec.GetNodeSortIndex(nodeName))
 	err := createIfNotExistsOrRemove(ctx, clnt, lab, topoCM, true, false)
 	if err != nil {
 		return fmt.Errorf("failed to create topology configmap for SRL %v in lab %v, %w", nodeName, lab.Lab.Name, err)
 	}
 	//create PVC for etc
-	etcPVC := gpod.getEtcPVC(lab.Lab.Namespace, nodeName, lab.Lab.Name)
+	etcPVC := srl.getEtcPVC(lab.Lab.Namespace, nodeName, lab.Lab.Name)
 	err = createIfNotExistsOrRemove(ctx, clnt, lab, etcPVC, false, false)
 	if err != nil {
 		return fmt.Errorf("failed to create etc pvc for SRL %v in lab %v, %w", nodeName, lab.Lab.Name, err)
 	}
 
 	//create pod
-	pod := common.NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *gpod.Image)
+	pod := common.NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *srl.Image)
 	pod.Spec.Containers[0].Command = []string{"/tini", "--", "fixuid", "-q", "/entrypoint.sh", "sudo", "bash", "/opt/srlinux/bin/sr_linux"}
 	pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{}
 	pod.Spec.Containers[0].SecurityContext.Privileged = common.ReturnPointerVal(true)
@@ -294,7 +294,7 @@ func (gpod *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cl
 		},
 	}
 	//add lic if specified
-	if gpod.LicSecret != nil {
+	if srl.LicSecret != nil {
 		pod.Spec.Containers[0].VolumeMounts = append(pod.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
 			Name:      "lic",
 			MountPath: "/opt/srlinux/etc/license.key",
@@ -304,7 +304,7 @@ func (gpod *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cl
 			Name: "lic",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: *gpod.LicSecret,
+					SecretName: *srl.LicSecret,
 				},
 			},
 		})
@@ -333,11 +333,11 @@ func (gpod *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cl
 	}
 	//add resource request
 	pod.Spec.Containers[0].Resources.Requests = make(corev1.ResourceList)
-	if gpod.ReqCPU != nil {
-		pod.Spec.Containers[0].Resources.Requests[corev1.ResourceCPU] = *gpod.ReqCPU
+	if srl.ReqCPU != nil {
+		pod.Spec.Containers[0].Resources.Requests[corev1.ResourceCPU] = *srl.ReqCPU
 	}
-	if gpod.ReqMemory != nil {
-		pod.Spec.Containers[0].Resources.Requests[corev1.ResourceMemory] = *gpod.ReqMemory
+	if srl.ReqMemory != nil {
+		pod.Spec.Containers[0].Resources.Requests[corev1.ResourceMemory] = *srl.ReqMemory
 	}
 
 	err = createIfNotExistsOrRemove(ctx, clnt, lab, pod, true, false)
@@ -348,7 +348,7 @@ func (gpod *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cl
 
 }
 
-func (srsim *SRLinux) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
+func (srl *SRLinux) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
 	pod := &corev1.Pod{}
 	podKey := types.NamespacedName{Namespace: ns, Name: common.GetPodName(lab, chassis)}
 	err := clnt.Get(ctx, podKey, pod)
@@ -365,4 +365,14 @@ func (srsim *SRLinux) Shell(ctx context.Context, clnt client.Client, ns, lab, ch
 			fmt.Sprintf("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %v@%v", username, pod.Status.PodIP)},
 		envList)
 
+}
+
+func (srl *SRLinux) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {
+	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
+	fmt.Printf("connecting to %v\n", common.GetPodName(lab, chassis))
+	syscall.Exec("/bin/sh",
+		[]string{"sh", "-c",
+			fmt.Sprintf("kubectl -n %v exec -it %v -- bash",
+				ns, common.GetPodName(lab, chassis))},
+		envList)
 }

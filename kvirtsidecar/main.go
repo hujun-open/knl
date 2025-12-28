@@ -11,34 +11,43 @@ import (
 	"log"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/pflag"
 	"kubenetlab.net/knl/api/v1beta1"
 	"kubenetlab.net/knl/common"
-	knlv1beta1 "kubenetlab.net/knl/dict"
+	knlv1beta1dict "kubenetlab.net/knl/dict"
 	vmSchema "kubevirt.io/api/core/v1"
 	"libvirt.org/go/libvirtxml"
 )
 
-type vmType string
-
-const (
-	vmTypeSR  vmType = "sr"
-	vmTypeCSR vmType = "csr"
-)
-
-func getVMTypeviaNodeType(t string) (vmType, error) {
-	vmt := common.NodeType(strings.ToLower(strings.TrimSpace(t)))
-	switch vmt {
-	case v1beta1.SRVMVSIM, v1beta1.SRVMMAGC, v1beta1.SRVMVSRI:
-		return vmTypeSR, nil
-		//TODO for csr
-	}
-	return "", fmt.Errorf("unknown vm type %v", t)
-}
-
 var ignorePortAliasPrefixList = []string{"vxlandev", "macvtapbr"}
+
+func getTelnetConsole() []libvirtxml.DomainConsole {
+	return []libvirtxml.DomainConsole{
+		{
+			Alias: &libvirtxml.DomainAlias{
+				Name: "console0",
+			},
+			Protocol: &libvirtxml.DomainChardevProtocol{
+				Type: "telnet",
+			},
+			Source: &libvirtxml.DomainChardevSource{
+				TCP: &libvirtxml.DomainChardevSourceTCP{
+					Mode:    "bind",
+					Host:    "0.0.0.0",
+					Service: strconv.Itoa(v1beta1.SRVMConsoleTCPPort),
+					TLS:     "no",
+				},
+			},
+			Target: &libvirtxml.DomainConsoleTarget{
+				Type: "virtio",
+				Port: new(uint),
+			},
+		},
+	}
+}
 
 func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 	// f, err := os.CreateTemp("", "origdomainxml*")
@@ -60,13 +69,10 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 	annotations := vmiSpec.GetAnnotations()
 	var found bool
 	var vmts string
-	if vmts, found = annotations[knlv1beta1.ChassisTypeAnnotation]; !found {
-		return "", fmt.Errorf("failed to find %v annotation", knlv1beta1.ChassisTypeAnnotation)
+	if vmts, found = annotations[knlv1beta1dict.ChassisTypeAnnotation]; !found {
+		return "", fmt.Errorf("failed to find %v annotation", knlv1beta1dict.ChassisTypeAnnotation)
 	}
-	vmt, err := getVMTypeviaNodeType(vmts)
-	if err != nil {
-		return "", fmt.Errorf("failed to get node type from %v, %w", vmts, err)
-	}
+	vmt := common.NodeType(strings.ToLower(strings.TrimSpace(vmts)))
 
 	if err := json.Unmarshal(vmiJSON, &vmiSpec); err != nil {
 		return "", err
@@ -74,32 +80,32 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 	var sftpSvrAddr, sftpUser, sftpPass string
 	var ftpPathMapJsonStr string
 	switch vmt {
-	case vmTypeSR:
+	case v1beta1.SRVMVSIM, v1beta1.SRVMVSRI, v1beta1.SRVMMAGC:
 
-		if _, found = annotations[knlv1beta1.VSROSSysinfoAnno]; !found {
+		if _, found = annotations[knlv1beta1dict.VSROSSysinfoAnno]; !found {
 			//if not vsros, return unchanged
 			return string(domainXML), nil
 		}
-		if sftpSvrAddr, found = annotations[knlv1beta1.SftpSVRAnnontation]; !found {
-			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1.SftpSVRAnnontation)
+		if sftpSvrAddr, found = annotations[knlv1beta1dict.SftpSVRAnnontation]; !found {
+			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1dict.SftpSVRAnnontation)
 		}
-		if sftpUser, found = annotations[knlv1beta1.SftpUserAnnontation]; !found {
-			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1.SftpUserAnnontation)
+		if sftpUser, found = annotations[knlv1beta1dict.SftpUserAnnontation]; !found {
+			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1dict.SftpUserAnnontation)
 		}
-		if sftpPass, found = annotations[knlv1beta1.SftpPassAnnontation]; !found {
-			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1.SftpPassAnnontation)
+		if sftpPass, found = annotations[knlv1beta1dict.SftpPassAnnontation]; !found {
+			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1dict.SftpPassAnnontation)
 		}
 		//sftpSvrAddr must be addr or hostname + port
-		if sftpSvrAddr, found = annotations[knlv1beta1.SftpSVRAnnontation]; !found {
-			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1.SftpSVRAnnontation)
+		if sftpSvrAddr, found = annotations[knlv1beta1dict.SftpSVRAnnontation]; !found {
+			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1dict.SftpSVRAnnontation)
 		}
-		if ftpPathMapJsonStr, found = annotations[knlv1beta1.FTPPathMapAnnotation]; !found {
-			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1.FTPPathMapAnnotation)
+		if ftpPathMapJsonStr, found = annotations[knlv1beta1dict.FTPPathMapAnnotation]; !found {
+			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1dict.FTPPathMapAnnotation)
 		}
 		ftpPathMap := make(map[string]string)
 		err := json.Unmarshal([]byte(ftpPathMapJsonStr), &ftpPathMap)
 		if err != nil {
-			return "", fmt.Errorf("failed to unmarshal annontation %v value, %w", knlv1beta1.FTPPathMapAnnotation, err)
+			return "", fmt.Errorf("failed to unmarshal annontation %v value, %w", knlv1beta1dict.FTPPathMapAnnotation, err)
 		}
 
 		//generate ftp server config
@@ -133,7 +139,7 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 		newSpec.Devices.Disks[0].Target.Dev = "hda"
 
 		//add sysinfo
-		sysinfo := annotations[knlv1beta1.VSROSSysinfoAnno]
+		sysinfo := annotations[knlv1beta1dict.VSROSSysinfoAnno]
 		//NOTE: can't remove or change UUID in orignal smbios uuid entry, otherwise, kubevirt won't be able to report VMI status as running
 		for i := range newSpec.SysInfo[0].SMBIOS.System.Entry {
 			if newSpec.SysInfo[0].SMBIOS.System.Entry[i].Name == "product" {
@@ -187,28 +193,7 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 		//clear channel
 		// newSpec.Devices.Channels = []libvirtxml.DomainChannel{}
 		//add telnet console
-		newSpec.Devices.Consoles = []libvirtxml.DomainConsole{
-			{
-				Alias: &libvirtxml.DomainAlias{
-					Name: "console0",
-				},
-				Protocol: &libvirtxml.DomainChardevProtocol{
-					Type: "telnet",
-				},
-				Source: &libvirtxml.DomainChardevSource{
-					TCP: &libvirtxml.DomainChardevSourceTCP{
-						Mode:    "bind",
-						Host:    "0.0.0.0",
-						Service: "2222",
-						TLS:     "no",
-					},
-				},
-				Target: &libvirtxml.DomainConsoleTarget{
-					Type: "virtio",
-					Port: new(uint),
-				},
-			},
-		}
+		newSpec.Devices.Consoles = getTelnetConsole()
 
 		//clean up disk setting
 		diskFile := newSpec.Devices.Disks[0].Source.File.File
@@ -231,9 +216,12 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 			break //just do the 1st one
 		}
 
-	case vmTypeCSR:
-		newSpec.Devices.Graphics = []libvirtxml.DomainGraphic{}
-		newSpec.Devices.Videos = []libvirtxml.DomainVideo{}
+	// case vmTypeCSR:
+	// 	newSpec.Devices.Graphics = []libvirtxml.DomainGraphic{}
+	// 	newSpec.Devices.Videos = []libvirtxml.DomainVideo{}
+	case v1beta1.VM:
+		//add telnet console
+		newSpec.Devices.Consoles = getTelnetConsole()
 
 	}
 	newrr, err := newSpec.Marshal()

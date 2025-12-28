@@ -112,6 +112,10 @@ build: manifests generate fmt vet ## Build manager binary.
 build-sidecar: manifests generate fmt vet ## Build manager binary.
 	CGO_ENABLED=0 go build -o kvirtsidecar/docker/onDefineDomain kvirtsidecar/main.go
 
+.PHONY: build-knlcli
+build-knlcli: manifests generate ## Build manager binary.
+	cd knlcli;go vet;CGO_ENABLED=0 go build -o knlcli
+
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./cmd/main.go
@@ -275,7 +279,8 @@ export: docker-build deploymanifests ## export controller image tar.gz and all.y
 	gzip knl2.tar
 
 .PHONY: exportall
-exportall: export docker-build-sidecar ## export controller and sidecar image tar.gz and all.yaml
+exportall: export docker-build-sidecar build-knlcli ## export controller , sidecar image tar.gz, knlcli.gz and all.yaml
+	gzip -c ./knlcli/knlcli > knlcli.gz
 
 .PHONY: api-doc
 api-doc: manifests ## generate API docs

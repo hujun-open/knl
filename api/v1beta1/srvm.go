@@ -74,6 +74,7 @@ const (
 	DefaultVSIMLicSecName = "vsimlic"
 	DefaultVSRLicSecName  = "vsrlic"
 	DefaultMAGCLicSecName = "magclic"
+	SRVMConsoleTCPPort    = 2222
 )
 
 func (srvm *SRVM) setToAppDefVal() {
@@ -187,6 +188,7 @@ func (vsri *VSRI) Shell(ctx context.Context, clnt client.Client, ns, lab, chassi
 func (magc *MAGC) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
 	(*SRVM)(magc).Shell(ctx, clnt, ns, lab, chassis, username)
 }
+
 func (gvm *SRVM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
 	defCPMVMName := getSRVMCardVMName(lab, chassis, gvm.Chassis.GetDefaultCPMSlot())
 	podList := &corev1.PodList{}
@@ -211,4 +213,37 @@ func (gvm *SRVM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis
 			fmt.Sprintf("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %v@%v", username, podList.Items[0].Status.PodIP)},
 		envList)
 
+}
+
+func (vsim *VSIM) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {
+	(*SRVM)(vsim).Console(ctx, clnt, ns, lab, chassis)
+}
+
+func (vsri *VSRI) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {
+	(*SRVM)(vsri).Console(ctx, clnt, ns, lab, chassis)
+}
+func (magc *MAGC) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {
+	(*SRVM)(magc).Console(ctx, clnt, ns, lab, chassis)
+}
+
+func (gvm *SRVM) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {
+	defCPMVMName := getSRVMCardVMName(lab, chassis, gvm.Chassis.GetDefaultCPMSlot())
+	podList := &corev1.PodList{}
+	labelSelector := client.MatchingLabels{
+		"vm.kubevirt.io/name": defCPMVMName,
+	}
+	err := clnt.List(ctx, podList, client.InNamespace(ns), labelSelector)
+	if err != nil {
+		log.Fatalf("failed to list pods: %v", err)
+	}
+	if len(podList.Items) == 0 {
+		log.Fatalf("failed to find vm pod %v", defCPMVMName)
+
+	}
+	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
+	fmt.Println("connecting to console of", chassis, "at", podList.Items[0].Status.PodIP)
+	syscall.Exec("/bin/sh",
+		[]string{"sh", "-c",
+			fmt.Sprintf("telnet %v %d", podList.Items[0].Status.PodIP, SRVMConsoleTCPPort)},
+		envList)
 }
