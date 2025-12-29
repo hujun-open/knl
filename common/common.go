@@ -28,6 +28,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"kubenetlab.net/knl/dict"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -215,8 +216,10 @@ func MakeErrviaStr(errs string) error {
 	return errors.New(buf.String())
 }
 
-func GetObjMeta(objName, labName, labNS string) metav1.ObjectMeta {
-	return metav1.ObjectMeta{
+// This function is used for all objects created by operator,
+// if the object is not node specific, then nodeName and nodeType is empty
+func GetObjMeta(objName, labName, labNS, nodeName string, nodeType NodeType) metav1.ObjectMeta {
+	r := metav1.ObjectMeta{
 		Name:      objName,
 		Namespace: labNS,
 		Labels: map[string]string{
@@ -224,9 +227,14 @@ func GetObjMeta(objName, labName, labNS string) metav1.ObjectMeta {
 			K8SLABELSETUPKEY: labName,
 		},
 	}
+	if nodeName != "" {
+		r.Labels[dict.ChassisNameAnnotation] = nodeName
+		r.Labels[dict.ChassisTypeAnnotation] = string(nodeType)
+	}
+	return r
 }
 
-func NewFBBridgeNetworkDef(nsName, labName, brName string, brIndex, mtu int) *ncv1.NetworkAttachmentDefinition {
+func NewFBBridgeNetworkDef(nsName, labName, brName, nodeName string, nodeType NodeType, brIndex, mtu int) *ncv1.NetworkAttachmentDefinition {
 	const specTempalte = `
 	{
 		"cniVersion": "0.3.1",
@@ -242,7 +250,7 @@ func NewFBBridgeNetworkDef(nsName, labName, brName string, brIndex, mtu int) *nc
 			APIVersion: "k8s.cni.cncf.io/v1",
 			Kind:       "NetworkAttachmentDefinition",
 		},
-		ObjectMeta: GetObjMeta(brName, labName, nsName),
+		ObjectMeta: GetObjMeta(brName, labName, nsName, nodeName, nodeType),
 		Spec: ncv1.NetworkAttachmentDefinitionSpec{
 			Config: fmt.Sprintf(specTempalte, brName, mtu, fmt.Sprintf("vsrosfb%d", brIndex)),
 		},
@@ -535,13 +543,15 @@ func IsHostPort(inputs string) bool {
 func GetPodName(lab, node string) string {
 	return lab + "-" + node
 }
-func NewBasePod(labName, nodeName, nameSpace, image string) *corev1.Pod {
+func NewBasePod(labName, nodeName, nameSpace, image string, nodeType NodeType) *corev1.Pod {
 	// gconf := conf.GCONF
 	r := new(corev1.Pod)
 	r.ObjectMeta = GetObjMeta(
 		GetPodName(labName, nodeName),
 		labName,
 		nameSpace,
+		nodeName,
+		nodeType,
 	)
 	r.ObjectMeta.Labels[K8SLABELNodeKEY] = nodeName
 	r.Spec.Containers = []corev1.Container{

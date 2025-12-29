@@ -138,7 +138,7 @@ func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map
 				return nil, nil, nil, fmt.Errorf("failed to get %d vni, %w", len(plab.Lab.Spec.LinkList), err)
 			}
 			lan = &k8slan.LAN{
-				ObjectMeta: common.GetObjMeta(Getk8lanName(plab.Lab.Name, linkName), plab.Lab.Name, plab.Lab.Namespace),
+				ObjectMeta: common.GetObjMeta(Getk8lanName(plab.Lab.Name, linkName), plab.Lab.Name, plab.Lab.Namespace, "", ""),
 				Spec: k8slan.LANSpec{
 					NS:           common.GetPointerVal(Getk8lanName(plab.Lab.Name, linkName)),
 					BridgeName:   common.GetPointerVal(Getk8lanBRName(plab.Lab.Name, linkName)),

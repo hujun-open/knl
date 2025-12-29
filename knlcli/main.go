@@ -32,8 +32,9 @@ type CLI struct {
 		Lab string `noun:"1" usage:"knl lab name" complete:"K8sLabComp"`
 		All bool   `usage:"remove all labs in the specified namespace"`
 	} `action:"DelLab" alias:"rm" usage:"remove a lab"`
-	List struct {
-	} `action:"ListLabs" usage:"list labs"`
+	Show struct {
+		Lab string `noun:"1" usage:"knl lab name" complete:"K8sLabComp"`
+	} `action:"ShowLabs" usage:"show existing Lab info"`
 	Shell struct {
 		Lab  string `noun:"1" usage:"knl lab name" complete:"K8sLabComp"`
 		Node string `noun:"2" usage:"node name" complete:"ShellKNLNodeComp"`
@@ -59,29 +60,12 @@ func (cli *CLI) getClnt() (client.Client, error) {
 	return client.New(cfg, client.Options{Scheme: scheme})
 }
 
-func (cli *CLI) K8sLabComp(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
-	opts, err := completers.GetResourceNames(cli.KubeCfgPath, v1beta1.GroupVersion.Group, v1beta1.GroupVersion.Version, "labs", cli.Namespace, "")
-	if err != nil {
-		log.Fatal(err)
-
-	}
-	return opts, cobra.ShellCompDirectiveNoFileComp
-}
-
 func (cli *CLI) ShellKNLNodeComp(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
-	clnt, err := cli.getClnt()
-	if err != nil {
-		log.Fatal(err)
-	}
-	return knlNodeComp(clnt, cli.Namespace, cli.Shell.Lab)
+	return cli.knlNodeComp(cli.Shell.Lab)
 }
 
 func (cli *CLI) ConsoleKNLNodeComp(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
-	clnt, err := cli.getClnt()
-	if err != nil {
-		log.Fatal(err)
-	}
-	return knlNodeComp(clnt, cli.Namespace, cli.Console.Lab)
+	return cli.knlNodeComp(cli.Console.Lab)
 }
 
 func (cli *CLI) K8sVMIComp(cmd *cobra.Command, args []string, toComplete string) ([]cobra.Completion, cobra.ShellCompDirective) {
@@ -126,23 +110,6 @@ func (cli *CLI) DelLab(cmd *cobra.Command, args []string) {
 		fmt.Printf("all labs in namespace %v are removed\n", cli.Namespace)
 	}
 
-}
-
-func (cli *CLI) ListLabs(cmd *cobra.Command, args []string) {
-	clnt, err := cli.getClnt()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	//list all labs
-	labs := &v1beta1.LabList{}
-	err = clnt.List(context.Background(), labs)
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, lab := range labs.Items {
-		fmt.Println(lab.Name)
-	}
 }
 
 func (cli *CLI) CreateLab(cmd *cobra.Command, args []string) {

@@ -54,7 +54,7 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 	if !common.IsIntegratedChassis(*srvm.Chassis.Model) { //these are per distributed SR system NAD, only need one per system, so only CPM node creates them
 		//check FB NAD
 		fbnad := common.NewFBBridgeNetworkDef(lab.Lab.Namespace, lab.Lab.Name,
-			common.GetVSROSFBName(lab.Lab.Name, nodeName),
+			common.GetVSROSFBName(lab.Lab.Name, nodeName), nodeName, *srvm.Chassis.Type,
 			int(indexList[0]), SRVMFBMTU)
 		err := createIfNotExistsOrRemove(ctx, clnt, lab, fbnad, true, forceRemoval)
 		if err != nil {
@@ -63,7 +63,7 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 		if vmt == SRVMMAGC {
 			//MAG-c data fabric NAD
 			dfnad := common.NewFBBridgeNetworkDef(lab.Lab.Namespace, lab.Lab.Name,
-				common.GetMAGCDFName(lab.Lab.Name, nodeName),
+				common.GetMAGCDFName(lab.Lab.Name, nodeName), nodeName, *srvm.Chassis.Type,
 				int(indexList[1]), SRVMFBMTU)
 			err := createIfNotExistsOrRemove(ctx, clnt, lab, dfnad, true, forceRemoval)
 			if err != nil {
@@ -151,6 +151,8 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath string) 
 		getSRVMCardVMName(lab.Lab.Name, chassisName, cardslot),
 		lab.Lab.Name,
 		lab.Lab.Namespace,
+		chassisName,
+		*srvm.Chassis.Type,
 	)
 
 	r.ObjectMeta.Labels[vSROSIDLabel] = getFullQualifiedSRVMChassisName(lab.Lab.Name, chassisName)
@@ -171,12 +173,12 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath string) 
 	fixedLicLocalFTPURL := fmt.Sprintf("ftp://ftp:ftp@%v/lic", common.FixedFTPProxySvr)
 
 	r.ObjectMeta.Annotations = map[string]string{
-		dict.SftpSVRAnnontation:      *gconf.SFTPSever,
-		dict.SftpPassAnnontation:     *gconf.SFTPPassword,
-		dict.SftpUserAnnontation:     *gconf.SFTPUser,
-		dict.LabNameAnnotation:       lab.Lab.Name,
-		dict.ChassisNameAnnotation:   chassisName,
-		dict.ChassisTypeAnnotation:   string(*srvm.Chassis.Type),
+		dict.SftpSVRAnnontation:  *gconf.SFTPSever,
+		dict.SftpPassAnnontation: *gconf.SFTPPassword,
+		dict.SftpUserAnnontation: *gconf.SFTPUser,
+		// dict.LabNameAnnotation:       lab.Lab.Name,
+		// dict.ChassisNameAnnotation:   chassisName,
+		// dict.ChassisTypeAnnotation:   string(*srvm.Chassis.Type),
 		dict.FTPPathMapAnnotation:    string(pathMapBuf),
 		dict.KvirtSideCarAnnontation: fmt.Sprintf(`[{"image": "%v"}]`, *gconf.SideCarHookImg),
 		dict.VSROSSysinfoAnno:        common.GenSysinfo(*srvm.Chassis.Cards[cardslot].SysInfo, cfgURL, fixedLicLocalFTPURL),

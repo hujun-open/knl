@@ -67,10 +67,11 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 	}
 
 	annotations := vmiSpec.GetAnnotations()
+	labels := vmiSpec.GetLabels()
 	var found bool
 	var vmts string
-	if vmts, found = annotations[knlv1beta1dict.ChassisTypeAnnotation]; !found {
-		return "", fmt.Errorf("failed to find %v annotation", knlv1beta1dict.ChassisTypeAnnotation)
+	if vmts, found = labels[knlv1beta1dict.ChassisTypeAnnotation]; !found {
+		return "", fmt.Errorf("failed to find %v label", knlv1beta1dict.ChassisTypeAnnotation)
 	}
 	vmt := common.NodeType(strings.ToLower(strings.TrimSpace(vmts)))
 

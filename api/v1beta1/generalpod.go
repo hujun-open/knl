@@ -76,7 +76,7 @@ func (gpod *GeneralPod) Ensure(ctx context.Context, nodeName string, clnt client
 		return fmt.Errorf("failed to create etc pvc for pod %v in lab %v, %w", nodeName, lab.Lab.Name, err)
 	}
 	//create pod
-	pod := common.NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *gpod.Image)
+	pod := common.NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *gpod.Image, Pod)
 	if gpod.Command != nil {
 		pod.Spec.Containers[0].Command = strings.Fields(*gpod.Command)
 	}
@@ -137,7 +137,7 @@ func (gpod *GeneralPod) getRootPVC(ns, nodeName, labName string) *corev1.Persist
 	gconf := GCONF.Get()
 	name := fmt.Sprintf("%v-%v-root", labName, nodeName)
 	return &corev1.PersistentVolumeClaim{
-		ObjectMeta: common.GetObjMeta(name, labName, ns),
+		ObjectMeta: common.GetObjMeta(name, labName, ns, nodeName, Pod),
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
 			StorageClassName: common.GetPointerVal(*gconf.PVCStorageClass),

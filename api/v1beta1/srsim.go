@@ -75,7 +75,7 @@ func (srsim *SRSim) getCFPVC(ns, nodeName, labName, slot string, id int) *corev1
 	gconf := GCONF.Get()
 
 	return &corev1.PersistentVolumeClaim{
-		ObjectMeta: common.GetObjMeta(srsim.getCFPVCName(nodeName, labName, slot, id), labName, ns),
+		ObjectMeta: common.GetObjMeta(srsim.getCFPVCName(nodeName, labName, slot, id), labName, ns, nodeName, SRSIM),
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
 			StorageClassName: common.GetPointerVal(*gconf.PVCStorageClass),
@@ -105,7 +105,7 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 	}
 
 	//create pod
-	pod := common.NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *srsim.Image)
+	pod := common.NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *srsim.Image, SRSIM)
 	pod.Spec.Containers = []corev1.Container{}
 	for slotid, card := range srsim.Chassis.Cards {
 		container := corev1.Container{

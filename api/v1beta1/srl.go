@@ -198,7 +198,7 @@ func (srl *SRLinux) getEtcPVC(ns, nodeName, labName string) *corev1.PersistentVo
 	gconf := GCONF.Get()
 	name := fmt.Sprintf("%v-%v-etc", labName, nodeName)
 	return &corev1.PersistentVolumeClaim{
-		ObjectMeta: common.GetObjMeta(name, labName, ns),
+		ObjectMeta: common.GetObjMeta(name, labName, ns, nodeName, SRL),
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
 			StorageClassName: common.GetPointerVal(*gconf.PVCStorageClass),
@@ -225,7 +225,7 @@ func (srl *SRLinux) getConfigMapFromSRLChassis(ns, nodeName, labName string, nod
 		panic(err)
 	}
 	return &corev1.ConfigMap{
-		ObjectMeta: common.GetObjMeta(name, labName, ns),
+		ObjectMeta: common.GetObjMeta(name, labName, ns, nodeName, SRL),
 		Data: map[string]string{
 			"topology.yml": string(buf),
 		},
@@ -257,7 +257,7 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 	}
 
 	//create pod
-	pod := common.NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *srl.Image)
+	pod := common.NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *srl.Image, SRL)
 	pod.Spec.Containers[0].Command = []string{"/tini", "--", "fixuid", "-q", "/entrypoint.sh", "sudo", "bash", "/opt/srlinux/bin/sr_linux"}
 	pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{}
 	pod.Spec.Containers[0].SecurityContext.Privileged = common.ReturnPointerVal(true)

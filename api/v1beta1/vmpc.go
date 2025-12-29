@@ -140,10 +140,12 @@ func (gvm *GeneralVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachine
 		common.GetPodName(lab.Lab.Name, vmname),
 		lab.Lab.Name,
 		lab.Lab.Namespace,
+		vmname,
+		VM,
 	)
 	r.ObjectMeta.Annotations = map[string]string{
-		dict.LabNameAnnotation:       lab.Lab.Name,
-		dict.ChassisTypeAnnotation:   string(VM),
+		// dict.LabNameAnnotation:       lab.Lab.Name,
+		// dict.ChassisTypeAnnotation:   string(VM),
 		dict.KvirtSideCarAnnontation: fmt.Sprintf(`[{"image": "%v"}]`, *gconf.SideCarHookImg),
 	}
 	r.Spec.Domain.CPU = &kvv1.CPU{
