@@ -21,9 +21,10 @@ import (
 )
 
 const (
-	SRVMFBMTU            = 9000
-	vSROSIDLabel         = `kubnetlab.net/vSROSSystemID`
-	SRVMLicSecretKeyName = `license`
+	SRVMFBMTU               = 9000
+	vSROSIDLabel            = `kubnetlab.net/vSROSSystemID`
+	SRVMLicSecretKeyName    = `license`
+	KNLSftpCredentialSecret = `knl-sftp`
 )
 
 var (
@@ -132,8 +133,22 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 				return common.MakeErr(err)
 			}
 		}
+		//get sftp credentials
+		sftpUser := ""
+		sftpPass := ""
+		if strings.HasPrefix(*srvm.Image, FTPImagePrefix) {
+			secKey := types.NamespacedName{Namespace: MYNAMESPACE, Name: KNLSftpCredentialSecret}
+			sftpSec := new(corev1.Secret)
+			err = clnt.Get(ctx, secKey, sftpSec)
+			if err != nil {
+				return common.MakeErr(err)
+			}
+			sftpUser = string(sftpSec.Data["username"])
+			sftpPass = string(sftpSec.Data["password"])
+
+		}
 		//VMI
-		vmi := srvm.getVMI(lab, nodeName, slot, licFullPath)
+		vmi := srvm.getVMI(lab, nodeName, slot, licFullPath, sftpUser, sftpPass)
 		err = createIfNotExistsOrFailedOrRemove(ctx, clnt, lab, vmi, checkVMIfail, true, forceRemoval)
 		if err != nil {
 			return common.MakeErr(err)
@@ -142,7 +157,7 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 	return nil
 }
 
-func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath string) *kvv1.VirtualMachineInstance {
+func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuser, sftppass string) *kvv1.VirtualMachineInstance {
 	vmt, _ := ParseSRVMName_New(chassisName)
 	gconf := GCONF.Get()
 	isCPM := common.IsCPM(cardslot)
@@ -174,8 +189,8 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath string) 
 
 	r.ObjectMeta.Annotations = map[string]string{
 		dict.SftpSVRAnnontation:  *gconf.SFTPSever,
-		dict.SftpPassAnnontation: *gconf.SFTPPassword,
-		dict.SftpUserAnnontation: *gconf.SFTPUser,
+		dict.SftpPassAnnontation: sftppass,
+		dict.SftpUserAnnontation: sftpuser,
 		// dict.LabNameAnnotation:       lab.Lab.Name,
 		// dict.ChassisNameAnnotation:   chassisName,
 		// dict.ChassisTypeAnnotation:   string(*srvm.Chassis.Type),

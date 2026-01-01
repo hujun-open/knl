@@ -256,15 +256,11 @@ func (srsim *SRSim) Shell(ctx context.Context, clnt client.Client, ns, lab, chas
 	if err != nil {
 		log.Fatalf("failed to list pods: %v", err)
 	}
-	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
 	if username == "" {
 		username = "admin"
 	}
 	fmt.Println("connecting to", chassis, "at", pod.Status.PodIP, "username", username)
-	syscall.Exec("/bin/sh",
-		[]string{"sh", "-c",
-			fmt.Sprintf("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %v@%v", username, pod.Status.PodIP)},
-		envList)
+	common.SysCallSSH(username, pod.Status.PodIP)
 
 }
 

@@ -203,16 +203,11 @@ func (gvm *SRVM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis
 		log.Fatalf("failed to find vm pod %v", defCPMVMName)
 
 	}
-	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
 	if username == "" {
 		username = "admin"
 	}
 	fmt.Println("connecting to", chassis, "at", podList.Items[0].Status.PodIP, "username", username)
-	syscall.Exec("/bin/sh",
-		[]string{"sh", "-c",
-			fmt.Sprintf("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %v@%v", username, podList.Items[0].Status.PodIP)},
-		envList)
-
+	common.SysCallSSH(username, podList.Items[0].Status.PodIP)
 }
 
 func (vsim *VSIM) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {

@@ -105,8 +105,9 @@ lint-config: golangci-lint ## Verify golangci-lint linter configuration
 ##@ Build
 
 .PHONY: build
-build: manifests generate fmt vet ## Build manager binary.
+build: manifests generate fmt vet api-doc ## Build manager binary.
 	CGO_ENABLED=0 go build -o bin/manager cmd/main.go
+
 
 .PHONY: build-sidecar
 build-sidecar: manifests generate fmt vet ## Build manager binary.
@@ -285,5 +286,5 @@ exportall: export docker-build-sidecar build-knlcli ## export controller , sidec
 .PHONY: api-doc
 api-doc: manifests ## generate API docs
 	- mkdir apidocs
-	crd-ref-docs --max-depth 99 --source-path ./api/v1beta1/ --renderer=markdown --config crd-ref-docs_config.yaml --output-path=./apidocs/
-	
+# 	crd-ref-docs --max-depth 99 --source-path ./api/v1beta1/ --renderer=markdown --config crd-ref-docs_config.yaml --output-path=./apidocs/
+	crd-ref-docs --max-depth 99 --source-path ./api/v1beta1/ --renderer=markdown --config crd-ref-docs_config.yaml --output-path=../../../webwork/knldoc/content/docs/api.md

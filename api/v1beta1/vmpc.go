@@ -428,12 +428,8 @@ func (gvm *GeneralVM) Shell(ctx context.Context, clnt client.Client, ns, lab, ch
 		log.Fatalf("failed to find vm pod %v", common.GetPodName(lab, chassis))
 
 	}
-	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
 	fmt.Println("connecting to", chassis, "at", podList.Items[0].Status.PodIP, "username", *gvm.Username)
-	syscall.Exec("/bin/sh",
-		[]string{"sh", "-c",
-			fmt.Sprintf("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %v@%v", *gvm.Username, podList.Items[0].Status.PodIP)},
-		envList)
+	common.SysCallSSH(*gvm.Username, podList.Items[0].Status.PodIP)
 }
 
 func (gvm *GeneralVM) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {

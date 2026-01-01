@@ -78,65 +78,45 @@ func getBaseMAC(i int) string {
 	return fmt.Sprintf("%v:%X:00:00:00", BaseMACPrefix, i)
 }
 
+// getSRLChassisViaTypeStrDict retrun chassis configuration via offical product name defined in chassisDict
+func getSRLChassisViaTypeStrDict(chassisType string) *SRLChassis {
+	chassisType = strings.ToLower(chassisType)
+	if nums, ok := chassisDict[chassisType]; ok {
+		return &SRLChassis{
+			ChassisConfiguration: chassisConfiguration{
+				ChassisType: nums[0],
+				CPM:         nums[1],
+			},
+			SlotConfig: map[int]slotConfig{
+				1: {
+					CardType: nums[2],
+					MDAType:  nums[3],
+				},
+			},
+		}
+	}
+	return nil
+}
+
 // getSRLChassisViaTypeStr expect two types of chassisType:
 // 1. offical product model name like ixr-6
 // 2. a string include all hardware ID: chassis_type-base_mac-cpm-slot-iom-mda
 func getSRLChassisViaTypeStr(chassisType string) (*SRLChassis, error) {
-	switch strings.ToLower(chassisType) {
-	case "ixr-h5-32d":
-		return &SRLChassis{
-			ChassisConfiguration: chassisConfiguration{
-				ChassisType: 47,
-				CPM:         180,
-			},
-			SlotConfig: map[int]slotConfig{
-				1: {
-					CardType: 180,
-					MDAType:  106,
-				},
-			},
-		}, nil
-	case "ixr-6":
-		return &SRLChassis{
-			ChassisConfiguration: chassisConfiguration{
-				ChassisType: 42,
-				CPM:         69,
-			},
-			SlotConfig: map[int]slotConfig{
-				1: {
-					CardType: 127,
-					MDAType:  36,
-				},
-			},
-		}, nil
-	case "ixr-6e":
-		return &SRLChassis{
-			ChassisConfiguration: chassisConfiguration{
-				ChassisType: 68,
-				CPM:         184,
-			},
-			SlotConfig: map[int]slotConfig{
-				1: {
-					CardType: 182,
-					MDAType:  199,
-				},
-			},
-		}, nil
-	default:
-		return parseChassisStr(chassisType)
+	if chassis := getSRLChassisViaTypeStrDict(chassisType); chassis != nil {
+		return chassis, nil
 	}
+	//not a predefined chassis type, use hardware number instead
+	return parseChassisStr(chassisType)
+
 }
 
 /*
 SRLinux specifies a Nokia SRLinux chassis;
-- the specified Chassis will creates a configmap and mounted as /tmp/topology.yml
-- the specified LicSecrete reference to a secret, mounted as /opt/srlinux/etc/license.key
-- create a PVC mount on /etc/opt/srlinux/checkpoint for persistent configuration
 */
 type SRLinux struct {
-	//docker image
+	//SRLinux container image
 	Image *string `json:"image,omitempty"`
-	//chassis configuration
+	//chassis model
 	Chassis *string `json:"chassis,omitempty"`
 	//a k8s secret contains the license file with "license" as the key
 	LicSecret *string `json:"license,omitempty"`
@@ -151,7 +131,7 @@ type SRLinux struct {
 }
 
 func (srl *SRLinux) SetToAppDefVal() {
-	srl.Chassis = common.ReturnPointerVal("ixr-h5-32d")
+	srl.Chassis = common.ReturnPointerVal("ixr-d3l")
 	srl.ReqMemory = common.ReturnPointerVal(resource.MustParse(DefaultSRLMem))
 }
 
@@ -258,18 +238,54 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 
 	//create pod
 	pod := common.NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *srl.Image, SRL)
+	//create init-container to sync file from pvc to emptydir
+
+	initContainer := corev1.Container{
+		Name:    "sync-srl-etc",
+		Image:   *srl.Image,
+		Command: []string{"sh", "-c", "rm -rf /etc/opt/srlinux/*; rsync -rptgoD /persis-etc/ /etc/opt/srlinux/"},
+		SecurityContext: &corev1.SecurityContext{
+			Privileged: common.ReturnPointerVal(true),
+			RunAsUser:  common.ReturnPointerVal(int64(0)),
+			RunAsGroup: common.ReturnPointerVal(int64(0)),
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      "persis-etc",
+				MountPath: "/persis-etc/",
+			},
+			{
+				Name:      "etc",
+				MountPath: "/etc/opt/srlinux/",
+			},
+		},
+	}
+	pod.Spec.InitContainers = append(pod.Spec.InitContainers, initContainer)
 	pod.Spec.Containers[0].Command = []string{"/tini", "--", "fixuid", "-q", "/entrypoint.sh", "sudo", "bash", "/opt/srlinux/bin/sr_linux"}
-	pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{}
-	pod.Spec.Containers[0].SecurityContext.Privileged = common.ReturnPointerVal(true)
+	pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
+		Privileged: common.ReturnPointerVal(true),
+	}
 	pod.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
 		{
 			Name:      "topo",
 			MountPath: "/tmp/topology.yml",
 			SubPath:   "topology.yml",
 		},
-		{ //this is to persistent configuration, can't mount to /etc/opt/srlinux/ directly due to filesystem ACL requirement, will cause linux_mgr to crash
+		{ //this is emptyDir volume
 			Name:      "etc",
-			MountPath: "/etc/opt/srlinux/checkpoint",
+			MountPath: "/etc/opt/srlinux/",
+		},
+		{ //this is a pvc, use to store persitent file to/from emptyDir volume
+			Name:      "persis-etc",
+			MountPath: "/persis-etc/",
+		},
+	}
+	//add pre-stop hook to sync files back to pvc
+	pod.Spec.Containers[0].Lifecycle = &corev1.Lifecycle{
+		PreStop: &corev1.LifecycleHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{"sh", "-c", "rm -rf /persis-etc/*;rsync -rptgoD /etc/opt/srlinux/ /persis-etc/"},
+			},
 		},
 	}
 	pod.Spec.Volumes = []corev1.Volume{
@@ -285,6 +301,14 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 		},
 		{
 			Name: "etc",
+			VolumeSource: corev1.VolumeSource{
+				EmptyDir: &corev1.EmptyDirVolumeSource{
+					SizeLimit: common.ReturnPointerVal(resource.MustParse(EtcPVCSize)),
+				},
+			},
+		},
+		{
+			Name: "persis-etc",
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 					ClaimName: etcPVC.Name,
@@ -355,16 +379,11 @@ func (srl *SRLinux) Shell(ctx context.Context, clnt client.Client, ns, lab, chas
 	if err != nil {
 		log.Fatalf("failed to list pods: %v", err)
 	}
-	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
 	if username == "" {
 		username = "admin"
 	}
 	fmt.Println("connecting to", chassis, "at", pod.Status.PodIP, "username", username)
-	syscall.Exec("/bin/sh",
-		[]string{"sh", "-c",
-			fmt.Sprintf("ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %v@%v", username, pod.Status.PodIP)},
-		envList)
-
+	common.SysCallSSH(username, pod.Status.PodIP)
 }
 
 func (srl *SRLinux) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {

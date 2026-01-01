@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -18,6 +19,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/dchest/siphash"
@@ -578,4 +580,16 @@ func GetSortedKeySlice[K cmp.Ordered, V any](m map[K]V) []K {
 	}
 	slices.Sort(keys)
 	return keys
+}
+
+func SysCallSSH(username, ipaddr string) {
+	sshPath, err := exec.LookPath("ssh")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ssh not found in PATH: %v\n", err)
+		os.Exit(1)
+	}
+	argv := append([]string{"ssh"}, strings.Fields(fmt.Sprintf("-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %v@%v", username, ipaddr))...)
+	syscall.Exec(sshPath,
+		argv,
+		os.Environ())
 }

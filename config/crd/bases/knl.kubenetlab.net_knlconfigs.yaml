@@ -203,15 +203,11 @@ spec:
                         type: boolean
                     type: object
                   srl:
-                    description: |-
-                      SRLinux specifies a Nokia SRLinux chassis;
-                      - the specified Chassis will creates a configmap and mounted as /tmp/topology.yml
-                      - the specified LicSecrete reference to a secret, mounted as /opt/srlinux/etc/license.key
-                      - create a PVC mount on /etc/opt/srlinux/checkpoint for persistent configuration
+                    description: SRLinux specifies a Nokia SRLinux chassis;
                     nullable: true
                     properties:
                       chassis:
-                        description: chassis configuration
+                        description: chassis model
                         type: string
                       cpu:
                         anyOf:
@@ -222,7 +218,7 @@ spec:
                         pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                         x-kubernetes-int-or-string: true
                       image:
-                        description: docker image
+                        description: SRLinux container image
                         type: string
                       license:
                         description: a k8s secret contains the license file with "license"
@@ -697,14 +693,8 @@ spec:
               defaultVxlanDev:
                 description: default VxLAN device name, used if not specified in vxlanDevMap
                 type: string
-              filePass:
-                description: SFTP file server password
-                type: string
               fileSvr:
                 description: SFTPSever address, must have format as addr/hostname:port
-                type: string
-              fileUser:
-                description: SFTP file server username
                 type: string
               sideCarImage:
                 description: Kubevirt sidecar hook image, used by vsim, vsri and magc

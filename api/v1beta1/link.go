@@ -20,7 +20,6 @@ type Link struct {
 	//+required
 	Connectors []Connector `json:"nodes"`
 	GWAddr     *string     `json:"gwAddr,omitempty"` //a prefix
-	MTU        *uint16     `json:"mtu,omitempty"`
 }
 
 type Connector struct {

@@ -36,12 +36,6 @@ type KNLConfigSpec struct {
 	// The following markers will use OpenAPI v3 schema to validate the value
 	// More info: https://book.kubebuilder.io/reference/markers/crd-validation.html
 
-	//SFTP file server username
-	// +optional
-	SFTPUser *string `json:"fileUser,omitempty"`
-	//SFTP file server password
-	// +optional
-	SFTPPassword *string `json:"filePass,omitempty"`
 	//SFTPSever address, must have format as addr/hostname:port
 	// +optional
 	SFTPSever *string `json:"fileSvr,omitempty"`
@@ -76,11 +70,10 @@ type KNLConfigSpec struct {
 func DefKNLConfig() KNLConfigSpec {
 	r := KNLConfigSpec{
 		SFTPSever:        common.ReturnPointerVal("knl-sftp-service.knl-system.svc.cluster.local:22"),
-		SFTPUser:         common.ReturnPointerVal("knlftp"),
-		SFTPPassword:     common.ReturnPointerVal("knlftp"),
 		VXLANGrpAddr:     common.ReturnPointerVal("ff18::100"),
 		PVCStorageClass:  common.ReturnPointerVal("nfs-client"),
 		SRCPMLoaderImage: common.ReturnPointerVal("http://knl-http.knl-system.svc.cluster.local/cpmload.img"),
+		VXLANDefaultDev:  common.ReturnPointerVal("eth0"),
 	}
 	//create app default for each node type
 	defOne := OneOfSystem{}
@@ -217,12 +210,6 @@ func (knlcfg *KNLConfig) Validate() error {
 		}
 	} else {
 		return fmt.Errorf("file server address not specified")
-	}
-	if isStrNotSpecfied(knlcfg.Spec.SFTPUser) {
-		return fmt.Errorf("file server username not specified")
-	}
-	if isStrNotSpecfied(knlcfg.Spec.SFTPPassword) {
-		return fmt.Errorf("file server password not specified")
 	}
 	return nil
 }
