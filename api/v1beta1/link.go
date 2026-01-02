@@ -65,8 +65,10 @@ func GetAvailableBrIndex(ctx context.Context, clnt client.Client, requiredNum in
 		}
 	}
 	rlist := []uint{}
+	var next uint = 0
+	var ok bool
 	for i := 0; i < requiredNum; i++ {
-		next, ok := bset.NextClear(0)
+		next, ok = bset.NextClear(next)
 		if !ok {
 			return nil, fmt.Errorf("no available bridge index to allocate")
 		}
@@ -74,32 +76,39 @@ func GetAvailableBrIndex(ctx context.Context, clnt client.Client, requiredNum in
 			return nil, fmt.Errorf("no available bridge index to allocate")
 		}
 		rlist = append(rlist, next)
+		next += 1
 	}
 	return rlist, nil
 }
 
 // This function requires controller's MaxConcurrentReconciles == 1, otherwise there is race issue
-func GetAvailableVNI(ctx context.Context, clnt client.Client, requiredNum int) (int32, error) {
+func GetAvailableVNIs(ctx context.Context, clnt client.Client, requiredNum int) ([]int32, error) {
 	const maxVNI = 16777215
 	bset := bitset.New(maxVNI)
 	bset = bset.Set(0)
 	lans := new(k8slan.LANList)
 	err := clnt.List(ctx, lans)
 	if err != nil {
-		return -1, fmt.Errorf("failed to list lans, %w", err)
+		return nil, fmt.Errorf("failed to list lans, %w", err)
 	}
+	rlist := make([]int32, requiredNum)
 	for _, lan := range lans.Items {
-		bset.Set(uint(*lan.Spec.VNI))
+		bset = bset.Set(uint(*lan.Spec.VNI))
 	}
-
-	next, ok := bset.NextClear(0)
-	if !ok {
-		return -1, fmt.Errorf("no available vni to allocate")
+	var next uint = 0
+	var ok bool
+	for i := 0; i < requiredNum; i++ {
+		next, ok = bset.NextClear(next)
+		if !ok {
+			return nil, fmt.Errorf("no available vni to allocate")
+		}
+		if next > maxVNI {
+			return nil, fmt.Errorf("no available vni to allocate")
+		}
+		rlist[i] = int32(next)
+		next += 1
 	}
-	if next > maxVNI {
-		return -1, fmt.Errorf("no available vni to allocate")
-	}
-	return int32(next), nil
+	return rlist, nil
 }
 
 const (
@@ -119,7 +128,11 @@ func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map
 	rmap := make(map[string]map[string][]string)
 	spokeConnectorMap := make(map[string]*Connector)
 	spokeLinkMap := make(map[string]string)
-	for _, linkName := range common.GetSortedKeySlice(plab.Lab.Spec.LinkList) {
+	vniList, err := GetAvailableVNIs(ctx, clnt, len(plab.Lab.Spec.LinkList))
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to get %d vni, %w", len(plab.Lab.Spec.LinkList), err)
+	}
+	for i, linkName := range common.GetSortedKeySlice(plab.Lab.Spec.LinkList) {
 		// for linkName, link := range plab.Lab.Spec.LinkList {
 		link := plab.Lab.Spec.LinkList[linkName]
 		lan := new(k8slan.LAN)
@@ -132,10 +145,7 @@ func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map
 				return nil, nil, nil, fmt.Errorf("unexpected error getting existing LAN %v, %w", Getk8lanName(plab.Lab.Name, linkName), err)
 			}
 			//not found, create new one
-			vni, err := GetAvailableVNI(ctx, clnt, len(plab.Lab.Spec.LinkList))
-			if err != nil {
-				return nil, nil, nil, fmt.Errorf("failed to get %d vni, %w", len(plab.Lab.Spec.LinkList), err)
-			}
+			vni := vniList[i]
 			lan = &k8slan.LAN{
 				ObjectMeta: common.GetObjMeta(Getk8lanName(plab.Lab.Name, linkName), plab.Lab.Name, plab.Lab.Namespace, "", ""),
 				Spec: k8slan.LANSpec{

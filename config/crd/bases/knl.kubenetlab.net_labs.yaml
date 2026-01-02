@@ -137,7 +137,7 @@ spec:
                                     type: array
                                   sysinfo:
                                     description: sysinfo is only used by vsim, mag-c
-                                      and vsri
+                                      and vsri, not need to specify in most cases;
                                     type: string
                                   type:
                                     description: Card model
@@ -335,7 +335,7 @@ spec:
                                     type: array
                                   sysinfo:
                                     description: sysinfo is only used by vsim, mag-c
-                                      and vsri
+                                      and vsri, not need to specify in most cases;
                                     type: string
                                   type:
                                     description: Card model
@@ -527,7 +527,7 @@ spec:
                                     type: array
                                   sysinfo:
                                     description: sysinfo is only used by vsim, mag-c
-                                      and vsri
+                                      and vsri, not need to specify in most cases;
                                     type: string
                                   type:
                                     description: Card model
@@ -658,7 +658,7 @@ spec:
                                     type: array
                                   sysinfo:
                                     description: sysinfo is only used by vsim, mag-c
-                                      and vsri
+                                      and vsri, not need to specify in most cases;
                                     type: string
                                   type:
                                     description: Card model

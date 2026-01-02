@@ -15,7 +15,7 @@ import (
 type SRCard struct {
 	//Card model
 	Model *string `json:"type,omitempty"`
-	// sysinfo is only used by vsim, mag-c and vsri
+	// sysinfo is only used by vsim, mag-c and vsri, not need to specify in most cases;
 	SysInfo *string `json:"sysinfo,omitempty"`
 	// list of MDAs that are insert directly into card without XIOM; mdas and xioms are mutully exclusive
 	MDAs *[]string `json:"mdas,omitempty"`
@@ -61,7 +61,8 @@ func (card *SRCard) Validate() error {
 
 func getIOMVMListenPorts() *[]kvv1.Port {
 	r := []kvv1.Port{
-		{
+		{ //this is required, otherwise all traffic will be forwared to VM: https://kubevirt.io/user-guide/network/interfaces_and_networks/#masquerade
+			// and telnet console port access won't work
 			Name:     "dummy",
 			Protocol: "TCP",
 			Port:     1,
