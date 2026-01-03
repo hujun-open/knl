@@ -11,9 +11,13 @@ processor:
   ignoreFields:
     - "status$"
     - "TypeMeta$"
+    - "NoUserInput$"
   customMarkers:
+    - name: "nodoc"
+      target: field
     - name: "hidefromdoc"
       target: type
+
 
 render:
   kubernetesVersion: 1.25

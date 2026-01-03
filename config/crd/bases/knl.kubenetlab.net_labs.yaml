@@ -171,7 +171,8 @@ spec:
                               description: SFM model
                               type: string
                             type:
-                              description: type of chassis, srsim, vsim vsris or magc
+                              description: type of chassis, srsim, vsim vsris or magc,
+                                this field is derived only, no accepting user input
                               type: string
                           type: object
                         diskSize:
@@ -369,7 +370,8 @@ spec:
                               description: SFM model
                               type: string
                             type:
-                              description: type of chassis, srsim, vsim vsris or magc
+                              description: type of chassis, srsim, vsim vsris or magc,
+                                this field is derived only, no accepting user input
                               type: string
                           type: object
                         image:
@@ -561,7 +563,8 @@ spec:
                               description: SFM model
                               type: string
                             type:
-                              description: type of chassis, srsim, vsim vsris or magc
+                              description: type of chassis, srsim, vsim vsris or magc,
+                                this field is derived only, no accepting user input
                               type: string
                           type: object
                         diskSize:
@@ -692,7 +695,8 @@ spec:
                               description: SFM model
                               type: string
                             type:
-                              description: type of chassis, srsim, vsim vsris or magc
+                              description: type of chassis, srsim, vsim vsris or magc,
+                                this field is derived only, no accepting user input
                               type: string
                           type: object
                         diskSize:

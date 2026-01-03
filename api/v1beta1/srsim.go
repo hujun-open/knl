@@ -51,6 +51,7 @@ func (srsim *SRSim) SetToAppDefVal() {
 }
 
 func (srsim *SRSim) FillDefaultVal(nodeName string) {
+	srsim.Chassis.Type = common.ReturnPointerVal(SRSIM)
 }
 
 func (srsim *SRSim) GetNodeType(name string) common.NodeType {

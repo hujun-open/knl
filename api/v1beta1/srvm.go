@@ -94,7 +94,9 @@ func (vsim *VSIM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 }
 
 func (vsim *VSIM) FillDefaultVal(name string) {
+	vsim.Chassis.Type = common.ReturnPointerVal(SRVMVSIM)
 	(*SRVM)(vsim).FillDefaultVal(name)
+
 }
 
 func (vsri *VSRI) SetToAppDefVal() {
@@ -110,7 +112,9 @@ func (vsri *VSRI) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 }
 
 func (vsri *VSRI) FillDefaultVal(name string) {
+	vsri.Chassis.Type = common.ReturnPointerVal(SRVMVSRI)
 	(*SRVM)(vsri).FillDefaultVal(name)
+
 }
 
 func (magc *MAGC) SetToAppDefVal() {
@@ -126,7 +130,9 @@ func (magc *MAGC) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 }
 
 func (magc *MAGC) FillDefaultVal(name string) {
+	magc.Chassis.Type = common.ReturnPointerVal(SRVMMAGC)
 	(*SRVM)(magc).FillDefaultVal(name)
+
 }
 
 func (srvm *SRVM) FillDefaultVal(name string) {
@@ -135,6 +141,7 @@ func (srvm *SRVM) FillDefaultVal(name string) {
 	}
 	for slot := range srvm.Chassis.Cards {
 		srvm.Chassis.Cards[slot].SysInfo = common.SetDefaultGeneric(srvm.Chassis.Cards[slot].SysInfo, srvm.Chassis.GetDefaultSysinfoStr(slot))
+		srvm.Chassis.Cards[slot].FillDefaultVal(*srvm.Chassis.Type, slot)
 	}
 }
 

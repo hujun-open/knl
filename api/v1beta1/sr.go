@@ -99,7 +99,8 @@ func getCPMVMListenPorts() *[]kvv1.Port {
 
 // SRChassis is used by srsim, vsim, vsri and magc to specify the chassis configuration.
 type SRChassis struct {
-	//type of chassis, srsim, vsim vsris or magc
+	//type of chassis, srsim, vsim vsris or magc, this field is derived only, no accepting user input
+	// +nodoc
 	Type *common.NodeType `json:"type,omitempty"`
 	//chassis model
 	Model *string `json:"model,omitempty"`
@@ -283,4 +284,47 @@ func (chassis *SRChassis) GetDefaultMDASlot() string {
 		return strconv.Itoa(iomList[0])
 	}
 	return "n/a"
+}
+
+func (card *SRCard) FillDefaultVal(nt common.NodeType, cardid string) {
+	//cpu & memory
+	switch nt {
+	case SRSIM:
+		card.ReqMemory = common.SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultSRSIMCONTAINERMEM))
+	case SRVMVSIM:
+		if common.IsCPM(cardid) {
+			card.ReqMemory = common.SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultVSIMCPMMEM))
+			card.ReqCPU = common.SetDefaultGeneric(card.ReqCPU, resource.MustParse(DefaultVSIMCPMCPU))
+		} else {
+			card.ReqMemory = common.SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultVSIMIOMMEM))
+			card.ReqCPU = common.SetDefaultGeneric(card.ReqCPU, resource.MustParse(DefaultVSIMIOMCPU))
+		}
+	case SRVMVSRI:
+		card.ReqMemory = common.SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultVSRIMEM))
+		card.ReqCPU = common.SetDefaultGeneric(card.ReqCPU, resource.MustParse(DefaultVSRICPU))
+	case SRVMMAGC:
+		if common.IsCPM(cardid) {
+			card.ReqMemory = common.SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultMAGCOAMMEM))
+			card.ReqCPU = common.SetDefaultGeneric(card.ReqCPU, resource.MustParse(DefaultMAGCOAMCPU))
+		} else {
+			if len(*card.MDAs) > 0 {
+				if (*card.MDAs)[0] == "iom-v-mg" {
+					card.ReqMemory = common.SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultMAGCMGMEM))
+					card.ReqCPU = common.SetDefaultGeneric(card.ReqCPU, resource.MustParse(DefaultMAGCMGCPU))
+				} else {
+					card.ReqMemory = common.SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultMAGCLBMEM))
+					card.ReqCPU = common.SetDefaultGeneric(card.ReqCPU, resource.MustParse(DefaultMAGCLBCPU))
+
+				}
+			}
+		}
+	}
+	//listening ports
+	if nt != SRSIM {
+		if common.IsCPM(cardid) {
+			card.ListenPorts = common.SetDefaultGeneric(card.ListenPorts, *getCPMVMListenPorts())
+		} else {
+			card.ListenPorts = common.SetDefaultGeneric(card.ListenPorts, *getIOMVMListenPorts())
+		}
+	}
 }

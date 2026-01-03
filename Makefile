@@ -286,5 +286,5 @@ exportall: export docker-build-sidecar build-knlcli ## export controller , sidec
 .PHONY: api-doc
 api-doc: manifests ## generate API docs
 	- mkdir apidocs
-# 	crd-ref-docs --max-depth 99 --source-path ./api/v1beta1/ --renderer=markdown --config crd-ref-docs_config.yaml --output-path=./apidocs/
-	crd-ref-docs --max-depth 99 --source-path ./api/v1beta1/ --renderer=markdown --config crd-ref-docs_config.yaml --output-path=../../../webwork/knldoc/content/docs/api.md
+# 	crd-ref-docs --templates-dir=./crd-ref-doc-templates --max-depth 99 --source-path ./api/v1beta1/ --renderer=markdown --config crd-ref-docs_config.yaml --output-path=./apidocs/
+	crd-ref-docs --templates-dir=./crd-ref-doc-templates --max-depth 99 --source-path ./api/v1beta1/ --renderer=markdown --config crd-ref-docs_config.yaml --output-path=../../../webwork/knldoc/content/docs/api.md
