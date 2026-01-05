@@ -82,6 +82,8 @@ func init() {
 		if err != nil {
 			panic(err)
 		}
+	} else {
+		MYNAMESPACE = "knl-system"
 	}
 
 }

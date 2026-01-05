@@ -315,7 +315,9 @@ method=manual
 			},
 		})
 	//port links
-	for _, spokes := range lab.SpokeMap[vmname] {
+	for _, linkName := range common.GetSortedKeySlice(lab.SpokeMap[vmname]) {
+		spokes := lab.SpokeMap[vmname][linkName]
+		// for _, spokes := range lab.SpokeMap[vmname] {
 		for _, spokeName := range spokes {
 			lanName := Getk8lanName(lab.Lab.Name, lab.SpokeLinkMap[spokeName])
 			nadName := k8slan.GetNADName(lanName, spokeName, false)

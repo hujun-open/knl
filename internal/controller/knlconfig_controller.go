@@ -55,7 +55,7 @@ func (r *KNLConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	log := logf.FromContext(ctx)
 	var knlcfg v1beta1.KNLConfig
 	if req.NamespacedName.Name != TARGET_KNLCONFIG_NAME || req.NamespacedName.Namespace != knlv1beta1.MYNAMESPACE {
-		log.Info(fmt.Sprintf("%v is not target KNLConfig, ignored", req.NamespacedName.String()))
+		log.Info(fmt.Sprintf("%v is not target KNLConfig, ignored, my namespace is %v", req.NamespacedName.String(), knlv1beta1.MYNAMESPACE))
 		return ctrl.Result{}, nil
 	}
 	if err := r.Get(ctx, req.NamespacedName, &knlcfg); err != nil {

@@ -25,14 +25,31 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	lanv1beta1 "github.com/hujun-open/k8slan/api/v1beta1"
+	ncv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
+	"kubenetlab.net/knl/common"
+	webhookv1beta1 "kubenetlab.net/knl/internal/webhook/v1beta1"
+	kvv1 "kubevirt.io/api/core/v1"
+	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
+	ctrl "sigs.k8s.io/controller-runtime"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -53,6 +70,10 @@ func TestControllers(t *testing.T) {
 	RunSpecs(t, "Controller Suite")
 }
 
+const (
+	testControllerNS = "knl-system"
+)
+
 var _ = BeforeSuite(func() {
 	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
 
@@ -65,9 +86,19 @@ var _ = BeforeSuite(func() {
 	// +kubebuilder:scaffold:scheme
 
 	By("bootstrapping test environment")
+	// testEnv = &envtest.Environment{
+	// 	CRDDirectoryPaths: []string{
+	// 		filepath.Join("..", "..", "config", "crd", "bases"),
+	// 		"../../testdata/3rdpartyCR/",
+	// 	},
+	// 	ErrorIfCRDPathMissing: true,
+	// 	//enable webhook
+	// 	WebhookInstallOptions: envtest.WebhookInstallOptions{
+	// 		Paths: []string{filepath.Join("..", "..", "config", "webhook")},
+	// 	},
+	// }
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
-		ErrorIfCRDPathMissing: true,
+		UseExistingCluster: common.ReturnPointerVal(true),
 	}
 
 	// Retrieve the first found binary directory to allow running tests from IDEs
@@ -79,10 +110,83 @@ var _ = BeforeSuite(func() {
 	cfg, err = testEnv.Start()
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
-
-	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
+	scheme := runtime.NewScheme()
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(kvv1.AddToScheme(scheme))
+	utilruntime.Must(ncv1.AddToScheme(scheme))
+	utilruntime.Must(knlv1beta1.AddToScheme(scheme))
+	utilruntime.Must(lanv1beta1.AddToScheme(scheme))
+	utilruntime.Must(cdiv1.AddToScheme(scheme))
+	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+	//create controller
+
+	//create some env, so that manager code believe it lives in ns knl-system
+	os.Setenv("WATCH_NAMESPACE", testControllerNS)
+	os.Setenv("KNL_HTTP_PORT", "80")
+	testNS := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testControllerNS,
+			Namespace: testControllerNS,
+		},
+	}
+	By("Creating the Namespace to perform the tests")
+	err = k8sClient.Get(ctx, types.NamespacedName{Name: testControllerNS}, &v1.Namespace{})
+	if err != nil && errors.IsNotFound(err) {
+		err = k8sClient.Create(ctx, testNS)
+		Expect(err).NotTo(HaveOccurred())
+	}
+
+	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+		Scheme: scheme,
+		// Metrics:                metricsServerOptions,
+		WebhookServer: webhook.NewServer(webhook.Options{
+			Host:    testEnv.WebhookInstallOptions.LocalServingHost,
+			Port:    testEnv.WebhookInstallOptions.LocalServingPort,
+			CertDir: testEnv.WebhookInstallOptions.LocalServingCertDir,
+		}),
+		// HealthProbeBindAddress: probeAddr,
+		// LeaderElection:         enableLeaderElection,
+		// LeaderElectionID:       "edd8af43.kubenetlab.net",
+		Cache: cache.Options{
+			DefaultNamespaces: map[string]cache.Config{
+				testControllerNS: {},
+			},
+			// This tells the manager: "For Secrets, only watch this specific namespace"
+			// All other resources (like your CRDs) will remain cluster-scoped.
+			ByObject: map[client.Object]cache.ByObject{
+				&corev1.Secret{}: {
+					Namespaces: map[string]cache.Config{
+						knlv1beta1.MYNAMESPACE: {},
+					},
+				},
+			},
+		},
+	})
+	if err := (&LabReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		Expect(err).NotTo(HaveOccurred())
+	}
+	if err := (&KNLConfigReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		Expect(err).NotTo(HaveOccurred())
+	}
+	if err := webhookv1beta1.SetupLabWebhookWithManager(mgr); err != nil {
+		Expect(err).NotTo(HaveOccurred())
+	}
+	if err := webhookv1beta1.SetupKNLConfigWebhookWithManager(mgr); err != nil {
+		Expect(err).NotTo(HaveOccurred())
+	}
+	go func() {
+		defer GinkgoRecover()
+		err = mgr.Start(ctx)
+		Expect(err).ToNot(HaveOccurred(), "failed to run manager")
+	}()
 })
 
 var _ = AfterSuite(func() {

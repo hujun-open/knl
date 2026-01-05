@@ -105,7 +105,7 @@ func ParseCardID(cardid string) (cardnum int, isCPM bool, err error) {
 	}
 }
 
-func getSRVMCardVMName(lab, chassis, slot string) string {
+func GetSRVMCardVMName(lab, chassis, slot string) string {
 	return strings.ToLower(fmt.Sprintf("%v-%v-%v", lab, chassis, slot))
 }
 

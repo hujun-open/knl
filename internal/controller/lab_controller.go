@@ -75,7 +75,6 @@ func (r *LabReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	plab := knlv1beta1.ParseLab(lab, r.Scheme)
-	ensureCTX := context.WithValue(ctx, v1beta1.ParsedLabKey, plab)
 
 	// name of our custom finalizer
 
@@ -113,11 +112,13 @@ func (r *LabReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	//reconcile logic here
 	//create k8sLAN CRs
 	var err error
-	plab.SpokeMap, plab.SpokeConnectorMap, plab.SpokeLinkMap, err = plab.EnsureLinks(ensureCTX, r.Client)
+	err = plab.EnsureLinks(ctx, r.Client)
 	if err != nil {
 		logger.Error(err, "failed to create links")
 		return ctrl.Result{}, nil
 	}
+	logger.Info("links ensured", "SpokeMap", fmt.Sprintf("%+v", plab.SpokeMap))
+	ensureCTX := context.WithValue(ctx, v1beta1.ParsedLabKey, plab)
 	//create nodes
 	for nodeName, node := range plab.Lab.Spec.NodeList {
 		sys, _ := node.GetSystem()

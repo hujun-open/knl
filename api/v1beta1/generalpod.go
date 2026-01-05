@@ -102,7 +102,9 @@ func (gpod *GeneralPod) Ensure(ctx context.Context, nodeName string, clnt client
 	//refer to NADs
 	netStr := ""
 	pod.Spec.Containers[0].Resources.Limits = make(corev1.ResourceList)
-	for _, spokes := range lab.SpokeMap[nodeName] {
+	for _, linkName := range common.GetSortedKeySlice(lab.SpokeMap[nodeName]) {
+		spokes := lab.SpokeMap[nodeName][linkName]
+		// for _, spokes := range lab.SpokeMap[nodeName] {
 		for _, spokeName := range spokes {
 			lanName := Getk8lanName(lab.Lab.Name, lab.SpokeLinkMap[spokeName])
 			nadName := k8slan.GetNADName(lanName, spokeName, true)

@@ -28,32 +28,44 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
+	"kubenetlab.net/knl/common"
 )
 
 var _ = Describe("KNLConfig Controller", func() {
+
 	Context("When reconciling a resource", func() {
-		const resourceName = "test-resource"
+		const resourceName = "test-knlconfig"
 
 		ctx := context.Background()
 
 		typeNamespacedName := types.NamespacedName{
 			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+			Namespace: testControllerNS, // TODO(user):Modify as needed
 		}
 		knlconfig := &knlv1beta1.KNLConfig{}
 
 		BeforeEach(func() {
+
 			By("creating the custom resource for the Kind KNLConfig")
 			err := k8sClient.Get(ctx, typeNamespacedName, knlconfig)
 			if err != nil && errors.IsNotFound(err) {
 				resource := &knlv1beta1.KNLConfig{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      resourceName,
-						Namespace: "default",
+						Namespace: testControllerNS,
 					},
 					// TODO(user): Specify other spec details if needed.
+					Spec: knlv1beta1.KNLConfigSpec{
+						PVCStorageClass:  common.ReturnPointerVal("standard"),
+						SRIOMLoaderImage: common.ReturnPointerVal("localhost/iomload:v1"),
+						SideCarHookImg:   common.ReturnPointerVal("localhost/knl2sidecar:v15"),
+					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				// err = k8sClient.Get(ctx, typeNamespacedName, knlconfig)
+				// Expect(err).NotTo(HaveOccurred())
+				// buf, _ := yaml.Marshal(*knlconfig)
+				// fmt.Println(string(buf))
 			}
 		})
 

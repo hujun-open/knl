@@ -197,7 +197,7 @@ func (magc *MAGC) Shell(ctx context.Context, clnt client.Client, ns, lab, chassi
 }
 
 func (gvm *SRVM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
-	defCPMVMName := getSRVMCardVMName(lab, chassis, gvm.Chassis.GetDefaultCPMSlot())
+	defCPMVMName := GetSRVMCardVMName(lab, chassis, gvm.Chassis.GetDefaultCPMSlot())
 	podList := &corev1.PodList{}
 	labelSelector := client.MatchingLabels{
 		"vm.kubevirt.io/name": defCPMVMName,
@@ -229,7 +229,7 @@ func (magc *MAGC) Console(ctx context.Context, clnt client.Client, ns, lab, chas
 }
 
 func (gvm *SRVM) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {
-	defCPMVMName := getSRVMCardVMName(lab, chassis, gvm.Chassis.GetDefaultCPMSlot())
+	defCPMVMName := GetSRVMCardVMName(lab, chassis, gvm.Chassis.GetDefaultCPMSlot())
 	podList := &corev1.PodList{}
 	labelSelector := client.MatchingLabels{
 		"vm.kubevirt.io/name": defCPMVMName,

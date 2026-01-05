@@ -123,14 +123,21 @@ func getSpokeName(vni int32, connectorIndex int) string {
 // this creates k8slan CR for all links
 // return two maps, first map: 1st key is nodename, 2nd key is LAN name, val is list of spoke name
 // 2nd map: key is spokename, value is corrsponding connector
-func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map[string]map[string][]string, map[string]*Connector, map[string]string, error) {
+func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) error {
 	gconf := GCONF.Get()
-	rmap := make(map[string]map[string][]string)
-	spokeConnectorMap := make(map[string]*Connector)
-	spokeLinkMap := make(map[string]string)
+	if plab.SpokeConnectorMap == nil {
+		plab.SpokeConnectorMap = make(map[string]*Connector)
+	}
+	if plab.SpokeMap == nil {
+		plab.SpokeMap = make(map[string]map[string][]string)
+	}
+	if plab.SpokeLinkMap == nil {
+		plab.SpokeLinkMap = make(map[string]string)
+	}
+
 	vniList, err := GetAvailableVNIs(ctx, clnt, len(plab.Lab.Spec.LinkList))
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get %d vni, %w", len(plab.Lab.Spec.LinkList), err)
+		return fmt.Errorf("failed to get %d vni, %w", len(plab.Lab.Spec.LinkList), err)
 	}
 	for i, linkName := range common.GetSortedKeySlice(plab.Lab.Spec.LinkList) {
 		// for linkName, link := range plab.Lab.Spec.LinkList {
@@ -142,7 +149,7 @@ func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map
 		)
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
-				return nil, nil, nil, fmt.Errorf("unexpected error getting existing LAN %v, %w", Getk8lanName(plab.Lab.Name, linkName), err)
+				return fmt.Errorf("unexpected error getting existing LAN %v, %w", Getk8lanName(plab.Lab.Name, linkName), err)
 			}
 			//not found, create new one
 			vni := vniList[i]
@@ -165,22 +172,23 @@ func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) (map
 		for i, c := range link.Connectors {
 			spokeName := getSpokeName(*lan.Spec.VNI, i)
 			lan.Spec.SpokeList = append(lan.Spec.SpokeList, spokeName)
-			if _, ok := rmap[*c.NodeName]; !ok {
-				rmap[*c.NodeName] = make(map[string][]string)
+			if _, ok := plab.SpokeMap[*c.NodeName]; !ok {
+				plab.SpokeMap[*c.NodeName] = make(map[string][]string)
 			}
-			if _, ok := rmap[*c.NodeName][linkName]; !ok {
-				rmap[*c.NodeName][linkName] = []string{}
+			if _, ok := plab.SpokeMap[*c.NodeName][linkName]; !ok {
+				plab.SpokeMap[*c.NodeName][linkName] = []string{}
 			}
-			rmap[*c.NodeName][linkName] = append(rmap[*c.NodeName][linkName], spokeName)
-			spokeConnectorMap[spokeName] = &c
-			spokeLinkMap[spokeName] = linkName
+			plab.SpokeMap[*c.NodeName][linkName] = append(plab.SpokeMap[*c.NodeName][linkName], spokeName)
+			plab.SpokeConnectorMap[spokeName] = &c
+			plab.SpokeLinkMap[spokeName] = linkName
 		}
 
 		err = createIfNotExistsOrRemove(ctx, clnt, plab, lan, true, false)
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("failed to create LAN CR for lab %v link %v, %w", plab.Lab.Name, linkName, err)
+			return fmt.Errorf("failed to create LAN CR for lab %v link %v, %w", plab.Lab.Name, linkName, err)
 		}
 
 	}
-	return rmap, spokeConnectorMap, spokeLinkMap, nil
+
+	return nil
 }

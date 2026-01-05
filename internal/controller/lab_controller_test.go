@@ -18,42 +18,62 @@ package controller
 
 import (
 	"context"
+	"fmt"
+	"time"
 
+	"github.com/goccy/go-yaml"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
+	"kubenetlab.net/knl/common"
+	kvv1 "kubevirt.io/api/core/v1"
 )
+
+func getTestKNLConfig() (types.NamespacedName, *knlv1beta1.KNLConfig) {
+	knlcfgName := "knlcfg"
+	return types.NamespacedName{Namespace: testControllerNS, Name: knlcfgName},
+		&knlv1beta1.KNLConfig{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      knlcfgName,
+				Namespace: testControllerNS,
+			},
+			// TODO(user): Specify other spec details if needed.
+			Spec: knlv1beta1.KNLConfigSpec{
+				PVCStorageClass:  common.ReturnPointerVal("standard"),
+				SRIOMLoaderImage: common.ReturnPointerVal("localhost/iomload:v1"),
+				SideCarHookImg:   common.ReturnPointerVal("localhost/knl2sidecar:v15"),
+				DefaultNode: &knlv1beta1.OneOfSystem{
+					Pod: &knlv1beta1.GeneralPod{
+						Image: common.ReturnPointerVal("podimage"),
+					},
+				},
+			},
+		}
+}
 
 var _ = Describe("Lab Controller", func() {
 	Context("When reconciling a resource", func() {
-		const resourceName = "test-resource"
+		const labName = "test-lab"
 
 		ctx := context.Background()
 
 		typeNamespacedName := types.NamespacedName{
-			Name:      resourceName,
-			Namespace: "default", // TODO(user):Modify as needed
+			Name:      labName,
+			Namespace: testControllerNS, // TODO(user):Modify as needed
 		}
 		lab := &knlv1beta1.Lab{}
 
 		BeforeEach(func() {
-			By("creating the custom resource for the Kind Lab")
-			err := k8sClient.Get(ctx, typeNamespacedName, lab)
+			By("installing knlconfig")
+			cfgKey, cfg := getTestKNLConfig()
+			err := k8sClient.Get(ctx, cfgKey, new(knlv1beta1.KNLConfig))
 			if err != nil && errors.IsNotFound(err) {
-				resource := &knlv1beta1.Lab{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      resourceName,
-						Namespace: "default",
-					},
-					// TODO(user): Specify other spec details if needed.
-				}
-				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
+				Expect(k8sClient.Create(ctx, cfg)).To(Succeed())
 			}
 		})
 
@@ -66,19 +86,64 @@ var _ = Describe("Lab Controller", func() {
 			By("Cleanup the specific resource instance Lab")
 			Expect(k8sClient.Delete(ctx, resource)).To(Succeed())
 		})
-		It("should successfully reconcile the resource", func() {
-			By("Reconciling the created resource")
-			controllerReconciler := &LabReconciler{
-				Client: k8sClient,
-				Scheme: k8sClient.Scheme(),
+
+		It("should successfully reconcile a custom resource for Lab", func() {
+			By("creating the custom resource for the Kind Lab")
+			err := k8sClient.Get(ctx, typeNamespacedName, lab)
+			if err != nil && errors.IsNotFound(err) {
+				resource := &knlv1beta1.Lab{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      labName,
+						Namespace: testControllerNS,
+					},
+					Spec: knlv1beta1.LabSpec{
+						LinkList: map[string]*knlv1beta1.Link{
+							"link-1": {
+								Connectors: []knlv1beta1.Connector{
+									{
+										NodeName: common.ReturnPointerVal("vsim-1"),
+									},
+									{
+										NodeName: common.ReturnPointerVal("pod-2"),
+									},
+								},
+							},
+							"link-3": {
+								Connectors: []knlv1beta1.Connector{
+									{
+										NodeName: common.ReturnPointerVal("vsim-1"),
+									},
+									{
+										NodeName: common.ReturnPointerVal("pod-3"),
+									},
+								},
+							},
+							"link-5": {
+								Connectors: []knlv1beta1.Connector{
+									{
+										NodeName: common.ReturnPointerVal("vsim-1"),
+									},
+									{
+										NodeName: common.ReturnPointerVal("pod-3"),
+									},
+								},
+							},
+						},
+					},
+					// TODO(user): Specify other spec details if needed.
+				}
+				Expect(k8sClient.Create(ctx, resource)).To(Succeed())
 			}
 
-			_, err := controllerReconciler.Reconcile(ctx, reconcile.Request{
-				NamespacedName: typeNamespacedName,
-			})
-			Expect(err).NotTo(HaveOccurred())
-			// TODO(user): Add more specific assertions depending on your controller's reconciliation logic.
-			// Example: If you expect a certain status condition after reconciliation, verify it here.
+			By("checking if the vsim's port order")
+			time.Sleep(10 * time.Second)
+			vmiKey := types.NamespacedName{Namespace: testControllerNS,
+				Name: knlv1beta1.GetSRVMCardVMName(labName, "vsim-1", "1")}
+			vmi := new(kvv1.VirtualMachineInstance)
+			Expect(k8sClient.Get(ctx, vmiKey, vmi)).To(Succeed())
+			buf, _ := yaml.Marshal(vmi)
+			fmt.Println(string(buf))
+
 		})
 	})
 })

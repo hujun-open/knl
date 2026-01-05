@@ -9,7 +9,7 @@ require (
 	github.com/distribution/reference v0.6.0
 	github.com/goccy/go-yaml v1.19.1
 	github.com/hujun-open/completers v0.0.1
-	github.com/hujun-open/k8slan v0.0.1
+	github.com/hujun-open/k8slan v0.0.5
 	github.com/hujun-open/myflags/v2 v2.2.3
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.7
 	github.com/onsi/ginkgo/v2 v2.27.2
@@ -121,5 +121,3 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.1 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
-
-replace github.com/hujun-open/k8slan => ../k8slan

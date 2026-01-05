@@ -163,7 +163,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 	isCPM := common.IsCPM(cardslot)
 	r := new(kvv1.VirtualMachineInstance)
 	r.ObjectMeta = common.GetObjMeta(
-		getSRVMCardVMName(lab.Lab.Name, chassisName, cardslot),
+		GetSRVMCardVMName(lab.Lab.Name, chassisName, cardslot),
 		lab.Lab.Name,
 		lab.Lab.Namespace,
 		chassisName,
@@ -224,9 +224,8 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 		r.Spec.Domain.CPU.IsolateEmulatorThread = true
 	}
 
-	//enable video, no need to remove video
-	r.Spec.Domain.Devices.AutoattachGraphicsDevice = new(bool)
-	*r.Spec.Domain.Devices.AutoattachGraphicsDevice = true
+	//disable video
+	r.Spec.Domain.Devices.AutoattachGraphicsDevice = common.ReturnPointerVal(false)
 
 	//cpu & memory
 	r.Spec.Domain.CPU.Cores = uint32(srvm.Chassis.Cards[cardslot].ReqCPU.AsApproximateFloat64()) //if the cpu is decimal, this round down to the int
@@ -235,6 +234,12 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 	r.Spec.Domain.Memory = &kvv1.Memory{
 		Guest: srvm.Chassis.Cards[cardslot].ReqMemory,
 	}
+	reqMem := resource.NewQuantity(srvm.Chassis.Cards[cardslot].ReqMemory.Value()/2,
+		srvm.Chassis.Cards[cardslot].ReqMemory.Format)
+	r.Spec.Domain.Resources.Requests = corev1.ResourceList{
+		corev1.ResourceMemory: *reqMem,
+	}
+
 	//check if hugepage is needed
 	if dedicated {
 		r.Spec.Domain.Memory.Hugepages = &kvv1.Hugepages{
@@ -367,7 +372,9 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 	}
 
 	//port links
-	for _, spokes := range lab.SpokeMap[chassisName] {
+	for _, linkName := range common.GetSortedKeySlice(lab.SpokeMap[chassisName]) {
+		spokes := lab.SpokeMap[chassisName][linkName]
+		// for _, spokes := range lab.SpokeMap[chassisName] {
 		for _, spokeName := range spokes {
 			if *lab.SpokeConnectorMap[spokeName].PortId != cardslot {
 				continue

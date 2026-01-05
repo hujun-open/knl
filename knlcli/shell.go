@@ -20,8 +20,12 @@ func (cli *CLI) ShellNode(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	sys, _ := lab.Spec.NodeList[cli.Shell.Node].GetSystem()
-	sys.Shell(context.Background(), clnt, cli.Namespace, cli.Shell.Lab, cli.Shell.Node, "")
+	if _, ok := lab.Spec.NodeList[cli.Shell.Node]; ok {
+		sys, _ := lab.Spec.NodeList[cli.Shell.Node].GetSystem()
+		sys.Shell(context.Background(), clnt, cli.Namespace, cli.Shell.Lab, cli.Shell.Node, "")
+	} else {
+		log.Fatalf("node %v is not specified in the lab %v", cli.Shell.Node, cli.Shell.Lab)
+	}
 }
 func (cli *CLI) ConsoleNode(cmd *cobra.Command, args []string) {
 	clnt, err := cli.getClnt()
@@ -34,6 +38,11 @@ func (cli *CLI) ConsoleNode(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	sys, _ := lab.Spec.NodeList[cli.Console.Node].GetSystem()
-	sys.Console(context.Background(), clnt, cli.Namespace, cli.Console.Lab, cli.Console.Node)
+	if _, ok := lab.Spec.NodeList[cli.Console.Node]; ok {
+		sys, _ := lab.Spec.NodeList[cli.Console.Node].GetSystem()
+		sys.Console(context.Background(), clnt, cli.Namespace, cli.Console.Lab, cli.Console.Node)
+	} else {
+		log.Fatalf("node %v is not specified in the lab %v", cli.Console.Node, cli.Console.Lab)
+	}
+
 }
