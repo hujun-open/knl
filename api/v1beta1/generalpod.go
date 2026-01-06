@@ -33,12 +33,12 @@ type GeneralPod struct {
 }
 
 func init() {
-	common.NewSysRegistry[Pod] = func() common.System { return new(GeneralPod) }
+	NewSysRegistry[Pod] = func() System { return new(GeneralPod) }
 }
 
 const (
-	Pod         common.NodeType = "pod"
-	RootPVCSize string          = "100Mi"
+	Pod         NodeType = "pod"
+	RootPVCSize string   = "100Mi"
 )
 
 func (gpod *GeneralPod) SetToAppDefVal() {
@@ -49,10 +49,10 @@ func (gpod *GeneralPod) FillDefaultVal(nodeName string) {
 
 }
 
-func (gpod *GeneralPod) GetNodeType(name string) common.NodeType {
+func (gpod *GeneralPod) GetNodeType(name string) NodeType {
 	return Pod
 }
-func (gpod *GeneralPod) Validate() error {
+func (gpod *GeneralPod) Validate(lab *LabSpec, nodeName string) error {
 	if gpod.Image == nil {
 		return fmt.Errorf("image not specified")
 	}
@@ -76,7 +76,7 @@ func (gpod *GeneralPod) Ensure(ctx context.Context, nodeName string, clnt client
 		return fmt.Errorf("failed to create etc pvc for pod %v in lab %v, %w", nodeName, lab.Lab.Name, err)
 	}
 	//create pod
-	pod := common.NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *gpod.Image, Pod)
+	pod := NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *gpod.Image, Pod)
 	if gpod.Command != nil {
 		pod.Spec.Containers[0].Command = strings.Fields(*gpod.Command)
 	}
@@ -139,7 +139,7 @@ func (gpod *GeneralPod) getRootPVC(ns, nodeName, labName string) *corev1.Persist
 	gconf := GCONF.Get()
 	name := fmt.Sprintf("%v-%v-root", labName, nodeName)
 	return &corev1.PersistentVolumeClaim{
-		ObjectMeta: common.GetObjMeta(name, labName, ns, nodeName, Pod),
+		ObjectMeta: GetObjMeta(name, labName, ns, nodeName, Pod),
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
 			StorageClassName: common.GetPointerVal(*gconf.PVCStorageClass),

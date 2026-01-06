@@ -54,7 +54,7 @@ func (cli *CLI) ShowLabs(cmd *cobra.Command, args []string) {
 			sys, nts := syst.GetSystem()
 			chassis := "n/a"
 			// slots := "n/a"
-			switch common.NodeType(strings.ToLower(nts)) {
+			switch v1beta1.NodeType(strings.ToLower(nts)) {
 			case v1beta1.SRSIM:
 				chassis = *((sys).(*v1beta1.SRSim).Chassis.Model)
 				// slots = strconv.Itoa(len((sys).(*v1beta1.SRSim).Chassis.Cards))

@@ -81,7 +81,7 @@ func DefKNLConfig() KNLConfigSpec {
 	val = val.Elem()
 	for i := 0; i < val.NumField(); i++ {
 		newPointerVal := reflect.New(val.Field(i).Type().Elem())
-		newPointerVal.Interface().(common.System).SetToAppDefVal()
+		newPointerVal.Interface().(System).SetToAppDefVal()
 		val.Field(i).Set(newPointerVal)
 	}
 	r.DefaultNode = &defOne
@@ -156,7 +156,7 @@ func LoadDef(in *LabSpec, def KNLConfigSpec) error {
 		if defNode.IsNil() {
 			continue
 		}
-		err = common.FillNilPointers(node, defNode.Interface().(common.System))
+		err = common.FillNilPointers(node, defNode.Interface().(System))
 		if err != nil {
 			return err
 		}

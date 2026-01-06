@@ -8,6 +8,7 @@ processor:
     - "Embedded[2-4]$"
     - "ParsedLab"
     - "SetOwnerFuncType"
+    - '\bSystem\b'
   ignoreFields:
     - "status$"
     - "TypeMeta$"

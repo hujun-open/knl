@@ -27,7 +27,7 @@ const (
 )
 
 func init() {
-	common.NewSysRegistry[VM] = func() common.System { return new(GeneralVM) }
+	NewSysRegistry[VM] = func() System { return new(GeneralVM) }
 }
 
 // GeneralVM specifies a general kubevirt VM
@@ -60,7 +60,7 @@ const (
 )
 
 const (
-	VM common.NodeType = "vm"
+	VM NodeType = "vm"
 )
 
 func (gvm *GeneralVM) SetToAppDefVal() {
@@ -84,12 +84,12 @@ func (gvm *GeneralVM) FillDefaultVal(nodeName string) {
 
 }
 
-func (gvm *GeneralVM) GetNodeType(name string) common.NodeType {
+func (gvm *GeneralVM) GetNodeType(name string) NodeType {
 
 	return VM
 }
 
-func (gvm *GeneralVM) Validate() error {
+func (gvm *GeneralVM) Validate(lab *LabSpec, nodeName string) error {
 	if gvm.Image == nil {
 		return fmt.Errorf("image not specified")
 	}
@@ -136,7 +136,7 @@ func (gvm *GeneralVM) Ensure(ctx context.Context, nodeName string, clnt client.C
 func (gvm *GeneralVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachineInstance {
 	gconf := GCONF.Get()
 	r := new(kvv1.VirtualMachineInstance)
-	r.ObjectMeta = common.GetObjMeta(
+	r.ObjectMeta = GetObjMeta(
 		common.GetPodName(lab.Lab.Name, vmname),
 		lab.Lab.Name,
 		lab.Lab.Namespace,

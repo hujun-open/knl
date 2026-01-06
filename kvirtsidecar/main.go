@@ -16,7 +16,6 @@ import (
 
 	"github.com/spf13/pflag"
 	"kubenetlab.net/knl/api/v1beta1"
-	"kubenetlab.net/knl/common"
 	knlv1beta1dict "kubenetlab.net/knl/dict"
 	vmSchema "kubevirt.io/api/core/v1"
 	"libvirt.org/go/libvirtxml"
@@ -73,7 +72,7 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 	if vmts, found = labels[knlv1beta1dict.ChassisTypeAnnotation]; !found {
 		return "", fmt.Errorf("failed to find %v label", knlv1beta1dict.ChassisTypeAnnotation)
 	}
-	vmt := common.NodeType(strings.ToLower(strings.TrimSpace(vmts)))
+	vmt := v1beta1.NodeType(strings.ToLower(strings.TrimSpace(vmts)))
 
 	if err := json.Unmarshal(vmiJSON, &vmiSpec); err != nil {
 		return "", err

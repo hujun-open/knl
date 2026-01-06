@@ -17,7 +17,6 @@ import (
 	"regexp"
 	"runtime"
 	"slices"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -30,7 +29,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"kubenetlab.net/knl/dict"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -216,49 +214,6 @@ func MakeErrviaStr(errs string) error {
 	logger := log.New(&buf, "", 0)
 	logger.Printf("[%s:%d]: %v", runtime.FuncForPC(pc).Name(), line, errs)
 	return errors.New(buf.String())
-}
-
-// This function is used for all objects created by operator,
-// if the object is not node specific, then nodeName and nodeType is empty
-func GetObjMeta(objName, labName, labNS, nodeName string, nodeType NodeType) metav1.ObjectMeta {
-	r := metav1.ObjectMeta{
-		Name:      objName,
-		Namespace: labNS,
-		Labels: map[string]string{
-			K8SLABELAPPKey:   K8SLABELAPPVAL,
-			K8SLABELSETUPKEY: labName,
-		},
-	}
-	if nodeName != "" {
-		r.Labels[dict.ChassisNameAnnotation] = nodeName
-		r.Labels[dict.ChassisTypeAnnotation] = string(nodeType)
-	}
-	return r
-}
-
-func NewFBBridgeNetworkDef(nsName, labName, brName, nodeName string, nodeType NodeType, brIndex, mtu int) *ncv1.NetworkAttachmentDefinition {
-	const specTempalte = `
-	{
-		"cniVersion": "0.3.1",
-		"name": "%v",
-		"type": "bridge",
-		"mtu": %d,
-		"bridge": "%v",
-		"ipam": {}
-	}
-	`
-	r := &ncv1.NetworkAttachmentDefinition{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "k8s.cni.cncf.io/v1",
-			Kind:       "NetworkAttachmentDefinition",
-		},
-		ObjectMeta: GetObjMeta(brName, labName, nsName, nodeName, nodeType),
-		Spec: ncv1.NetworkAttachmentDefinitionSpec{
-			Config: fmt.Sprintf(specTempalte, brName, mtu, fmt.Sprintf("vsrosfb%d", brIndex)),
-		},
-	}
-	r.Labels[BridgeIndexLabelKey] = strconv.Itoa(brIndex)
-	return r
 }
 
 func NewPortMACVTAPNAD(nsName, labName, nadname, resname string, mtu uint16, mac *net.HardwareAddr) *ncv1.NetworkAttachmentDefinition {
@@ -544,26 +499,6 @@ func IsHostPort(inputs string) bool {
 
 func GetPodName(lab, node string) string {
 	return lab + "-" + node
-}
-func NewBasePod(labName, nodeName, nameSpace, image string, nodeType NodeType) *corev1.Pod {
-	// gconf := conf.GCONF
-	r := new(corev1.Pod)
-	r.ObjectMeta = GetObjMeta(
-		GetPodName(labName, nodeName),
-		labName,
-		nameSpace,
-		nodeName,
-		nodeType,
-	)
-	r.ObjectMeta.Labels[K8SLABELNodeKEY] = nodeName
-	r.Spec.Containers = []corev1.Container{
-		{
-			Name:  "main",
-			Image: image,
-		},
-	}
-	r.ObjectMeta.Annotations = make(map[string]string)
-	return r
 }
 
 func GetPointerVal[T any](v T) *T {

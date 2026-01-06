@@ -167,7 +167,7 @@ func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) erro
 			//not found, create new one
 			vni := vniList[i]
 			lan = &k8slan.LAN{
-				ObjectMeta: common.GetObjMeta(Getk8lanName(plab.Lab.Name, linkName), plab.Lab.Name, plab.Lab.Namespace, "", ""),
+				ObjectMeta: GetObjMeta(Getk8lanName(plab.Lab.Name, linkName), plab.Lab.Name, plab.Lab.Namespace, "", ""),
 				Spec: k8slan.LANSpec{
 					NS:           common.GetPointerVal(Getk8lanName(plab.Lab.Name, linkName)),
 					BridgeName:   common.GetPointerVal(Getk8lanBRName(plab.Lab.Name, linkName)),

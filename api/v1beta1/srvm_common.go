@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-
-	"kubenetlab.net/knl/common"
 )
 
 // sysinfo detauls
@@ -47,18 +45,18 @@ const (
 )
 
 // name has prefix: <vmtype>-
-func ParseSRVMName_New(name string) (vmtype common.NodeType, err error) {
+func ParseSRVMName_New(name string) (vmtype NodeType, err error) {
 	s := strings.TrimSpace(name)
 	slist := strings.Split(s, "-")
 	if len(slist) < 2 {
 		err = fmt.Errorf("%v is not a valid name", name)
 		return
 	}
-	vmtype = common.NodeType(slist[0])
+	vmtype = NodeType(slist[0])
 	switch vmtype {
 	case SRVMVSIM, SRVMVSRI, SRVMMAGC:
 	default:
-		return common.Unknown, fmt.Errorf("unknown SR VM type %v", slist[0])
+		return Unknown, fmt.Errorf("unknown SR VM type %v", slist[0])
 	}
 	return
 }
@@ -66,14 +64,14 @@ func ParseSRVMName_New(name string) (vmtype common.NodeType, err error) {
 // name format for vsim/magc: vmtype-vmid-cardid
 // name format for vpc/vsri: vmtype-vmid
 // cardid is either a,b or a number
-func ParseSRVMName(name string) (vmtype common.NodeType, vmid int, cardid string, err error) {
+func ParseSRVMName(name string) (vmtype NodeType, vmid int, cardid string, err error) {
 	s := strings.TrimSpace(name)
 	slist := strings.Split(s, "-")
 	if len(slist) < 2 {
 		err = fmt.Errorf("%v is not a valid name", name)
 		return
 	}
-	vmtype = common.NodeType(slist[0])
+	vmtype = NodeType(slist[0])
 	vmid, err = strconv.Atoi(slist[1])
 	switch vmtype {
 	case SRVMVSRI:
@@ -117,7 +115,7 @@ func getFullQualifiedSRVMChassisName(lab, chassis string) string {
 	return strings.ToLower(fmt.Sprintf("%v-%v", lab, chassis))
 }
 
-func IsSRVM(nodeT common.NodeType) bool {
+func IsSRVM(nodeT NodeType) bool {
 	switch nodeT {
 	case SRVMMAGC, SRVMVSIM, SRVMVSRI:
 		return true

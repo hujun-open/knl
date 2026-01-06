@@ -3,8 +3,6 @@ package v1beta1
 import (
 	"fmt"
 	"reflect"
-
-	"kubenetlab.net/knl/common"
 )
 
 // OneOfSystem specifies one KNL node type, only one field should be specified.
@@ -57,7 +55,7 @@ func (onesys *OneOfSystem) validate() error {
 }
 
 // GetSystem return the the specified node type as System interface, and corresponding field name
-func (onesys *OneOfSystem) GetSystem() (common.System, string) {
+func (onesys *OneOfSystem) GetSystem() (System, string) {
 	v := reflect.ValueOf(*onesys)
 	t := reflect.TypeOf(*onesys)
 	for i := 0; i < v.NumField(); i++ {
@@ -66,7 +64,7 @@ func (onesys *OneOfSystem) GetSystem() (common.System, string) {
 		if fieldValue.Kind() == reflect.Ptr {
 			// 5. Use IsNil() to check if the pointer value is nil
 			if !fieldValue.IsNil() {
-				return fieldValue.Interface().(common.System), t.Field(i).Name
+				return fieldValue.Interface().(System), t.Field(i).Name
 			}
 		}
 	}
@@ -82,7 +80,7 @@ func (spec *LabSpec) Validate() error {
 			return fmt.Errorf("Node %v is invalid, %w", nodeName, err)
 		}
 		sys, _ := spec.NodeList[nodeName].GetSystem()
-		if err := sys.Validate(); err != nil {
+		if err := sys.Validate(spec, nodeName); err != nil {
 			return fmt.Errorf("node %v failed validation, %w", nodeName, err)
 		}
 	}

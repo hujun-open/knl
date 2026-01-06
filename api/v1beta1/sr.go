@@ -101,7 +101,7 @@ func getCPMVMListenPorts() *[]kvv1.Port {
 type SRChassis struct {
 	//type of chassis, srsim, vsim, vsri or magc, this field is derived only, no accepting user input
 	// +nodoc
-	Type *common.NodeType `json:"type,omitempty"`
+	Type *NodeType `json:"type,omitempty"`
 	//chassis model
 	Model *string `json:"model,omitempty"`
 	// a dictionary of CPM and IOM cards,
@@ -139,7 +139,7 @@ func (chassis *SRChassis) Validate() error {
 }
 
 // DefaultSIMChassis return default chassis for SRSIM or VSIM
-func DefaultSIMChassis(nt common.NodeType) *SRChassis {
+func DefaultSIMChassis(nt NodeType) *SRChassis {
 	r := &SRChassis{
 		Type:  common.ReturnPointerVal(nt),
 		Model: common.ReturnPointerVal("SR-7"),
@@ -286,7 +286,7 @@ func (chassis *SRChassis) GetDefaultMDASlot() string {
 	return "n/a"
 }
 
-func (card *SRCard) FillDefaultVal(nt common.NodeType, cardid string) {
+func (card *SRCard) FillDefaultVal(nt NodeType, cardid string) {
 	//cpu & memory
 	switch nt {
 	case SRSIM:

@@ -16,18 +16,18 @@ import (
 )
 
 func init() {
-	newvsimf := func() common.System { return new(VSIM) }
-	common.NewSysRegistry[SRVMVSIM] = newvsimf
-	newvsrif := func() common.System { return new(VSRI) }
-	common.NewSysRegistry[SRVMVSRI] = newvsrif
-	newmagcf := func() common.System { return new(MAGC) }
-	common.NewSysRegistry[SRVMMAGC] = newmagcf
+	newvsimf := func() System { return new(VSIM) }
+	NewSysRegistry[SRVMVSIM] = newvsimf
+	newvsrif := func() System { return new(VSRI) }
+	NewSysRegistry[SRVMVSRI] = newvsrif
+	newmagcf := func() System { return new(MAGC) }
+	NewSysRegistry[SRVMMAGC] = newmagcf
 }
 
 const (
-	SRVMVSIM common.NodeType = "vsim"
-	SRVMVSRI common.NodeType = "vsri"
-	SRVMMAGC common.NodeType = "magc"
+	SRVMVSIM NodeType = "vsim"
+	SRVMVSRI NodeType = "vsri"
+	SRVMMAGC NodeType = "magc"
 )
 
 // VSIM specifies a Nokia vSIM router
@@ -92,8 +92,8 @@ func (vsim *VSIM) SetToAppDefVal() {
 	vsim.Chassis = DefaultSIMChassis(SRVMVSIM)
 	vsim.License = common.ReturnPointerVal(string(DefaultVSIMLicSecName))
 }
-func (vsim *VSIM) Validate() error {
-	return (*SRVM)(vsim).Validate()
+func (vsim *VSIM) Validate(lab *LabSpec, nodeName string) error {
+	return (*SRVM)(vsim).Validate(lab, nodeName)
 }
 func (vsim *VSIM) Ensure(ctx context.Context, nodeName string, clnt client.Client, forceRemoval bool) error {
 	return (*SRVM)(vsim).Ensure(ctx, nodeName, clnt, forceRemoval)
@@ -111,8 +111,8 @@ func (vsri *VSRI) SetToAppDefVal() {
 	vsri.License = common.ReturnPointerVal(string(DefaultVSRLicSecName))
 }
 
-func (vsri *VSRI) Validate() error {
-	return (*SRVM)(vsri).Validate()
+func (vsri *VSRI) Validate(lab *LabSpec, nodeName string) error {
+	return (*SRVM)(vsri).Validate(lab, nodeName)
 }
 func (vsri *VSRI) Ensure(ctx context.Context, nodeName string, clnt client.Client, forceRemoval bool) error {
 	return (*SRVM)(vsri).Ensure(ctx, nodeName, clnt, forceRemoval)
@@ -130,8 +130,8 @@ func (magc *MAGC) SetToAppDefVal() {
 	magc.License = common.ReturnPointerVal(string(DefaultMAGCLicSecName))
 }
 
-func (magc *MAGC) Validate() error {
-	return (*SRVM)(magc).Validate()
+func (magc *MAGC) Validate(lab *LabSpec, nodeName string) error {
+	return (*SRVM)(magc).Validate(lab, nodeName)
 }
 func (magc *MAGC) Ensure(ctx context.Context, nodeName string, clnt client.Client, forceRemoval bool) error {
 	return (*SRVM)(magc).Ensure(ctx, nodeName, clnt, forceRemoval)
@@ -153,7 +153,7 @@ func (srvm *SRVM) FillDefaultVal(name string) {
 	}
 }
 
-func (srvm *SRVM) Validate() error {
+func (srvm *SRVM) Validate(lab *LabSpec, nodeName string) error {
 	if srvm.Chassis == nil {
 		return fmt.Errorf("chassis not specified")
 	}
@@ -164,15 +164,6 @@ func (srvm *SRVM) Validate() error {
 		if _, err := reference.Parse(*srvm.Image); err != nil {
 			return fmt.Errorf("%v is not valid image url, %w", *srvm.Image, err)
 		}
-		// if url, err := url.Parse(*srvm.Image); err != nil {
-		// 	return fmt.Errorf("invalid image url %v, %w", *srvm.Image, err)
-		// } else {
-		// 	switch strings.ToLower(url.Scheme) {
-		// 	case "docker":
-		// 	default:
-		// 		return fmt.Errorf("only support http,https or docker url, %w", err)
-		// 	}
-		// }
 	}
 	if srvm.License == nil {
 		return fmt.Errorf("license not specified")
@@ -180,12 +171,20 @@ func (srvm *SRVM) Validate() error {
 	if srvm.Dedicate == nil {
 		return fmt.Errorf("dedidcate not specified")
 	}
-
+	for linkName, link := range lab.LinkList {
+		for _, c := range link.Connectors {
+			if c.PortId != nil && *c.NodeName == nodeName {
+				if _, ok := srvm.Chassis.Cards[*c.PortId]; !ok {
+					return fmt.Errorf("port %v of node %v in link %v doesn't exists in its chassis spec", *c.PortId, nodeName, linkName)
+				}
+			}
+		}
+	}
 	return srvm.Chassis.Validate()
 }
 
-func GetSRVMviaSys(nodeName string, sys common.System) *SRVM {
-	switch common.GetNodeTypeViaName(nodeName) {
+func GetSRVMviaSys(nodeName string, sys System) *SRVM {
+	switch GetNodeTypeViaName(nodeName) {
 	case SRVMMAGC:
 		return (*SRVM)(sys.(*MAGC))
 	case SRVMVSIM:

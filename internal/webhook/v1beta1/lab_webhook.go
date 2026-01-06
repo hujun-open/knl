@@ -105,7 +105,7 @@ func (d *LabCustomDefaulter) Default(_ context.Context, obj runtime.Object) erro
 		sys, _ := lab.Spec.NodeList[nodeName].GetSystem()
 		if sys == nil {
 			lablog.Info(fmt.Sprintf("node %v doesn't specify node type", nodeName), "lab", lab.GetName())
-			sys = common.GetNewSystemViaName(nodeName)
+			sys = knlv1beta1.GetNewSystemViaName(nodeName)
 			if sys == nil {
 				return fmt.Errorf("failed to derived node type from name %v", nodeName)
 			}
@@ -120,11 +120,11 @@ func (d *LabCustomDefaulter) Default(_ context.Context, obj runtime.Object) erro
 		return err
 	}
 	//fill node specific Default
-	SRVMs := make(map[string]common.System)
+	SRVMs := make(map[string]knlv1beta1.System)
 	for nodeName := range lab.Spec.NodeList {
 		sys, _ := lab.Spec.NodeList[nodeName].GetSystem()
 		sys.FillDefaultVal(nodeName)
-		if v1beta1.IsSRVM(common.GetNodeTypeViaName(nodeName)) {
+		if v1beta1.IsSRVM(knlv1beta1.GetNodeTypeViaName(nodeName)) {
 			SRVMs[nodeName] = sys
 		}
 	}

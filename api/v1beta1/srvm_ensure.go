@@ -54,7 +54,7 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 	}
 	if !common.IsIntegratedChassis(*srvm.Chassis.Model) { //these are per distributed SR system NAD, only need one per system, so only CPM node creates them
 		//check FB NAD
-		fbnad := common.NewFBBridgeNetworkDef(lab.Lab.Namespace, lab.Lab.Name,
+		fbnad := NewFBBridgeNetworkDef(lab.Lab.Namespace, lab.Lab.Name,
 			common.GetVSROSFBName(lab.Lab.Name, nodeName), nodeName, *srvm.Chassis.Type,
 			int(indexList[0]), SRVMFBMTU)
 		err := createIfNotExistsOrRemove(ctx, clnt, lab, fbnad, true, forceRemoval)
@@ -63,7 +63,7 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 		}
 		if vmt == SRVMMAGC {
 			//MAG-c data fabric NAD
-			dfnad := common.NewFBBridgeNetworkDef(lab.Lab.Namespace, lab.Lab.Name,
+			dfnad := NewFBBridgeNetworkDef(lab.Lab.Namespace, lab.Lab.Name,
 				common.GetMAGCDFName(lab.Lab.Name, nodeName), nodeName, *srvm.Chassis.Type,
 				int(indexList[1]), SRVMFBMTU)
 			err := createIfNotExistsOrRemove(ctx, clnt, lab, dfnad, true, forceRemoval)
@@ -162,7 +162,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 	gconf := GCONF.Get()
 	isCPM := common.IsCPM(cardslot)
 	r := new(kvv1.VirtualMachineInstance)
-	r.ObjectMeta = common.GetObjMeta(
+	r.ObjectMeta = GetObjMeta(
 		GetSRVMCardVMName(lab.Lab.Name, chassisName, cardslot),
 		lab.Lab.Name,
 		lab.Lab.Namespace,

@@ -20,14 +20,14 @@ import (
 )
 
 func init() {
-	common.NewSysRegistry[SRL] = func() common.System { return new(SRLinux) }
+	NewSysRegistry[SRL] = func() System { return new(SRLinux) }
 }
 
 const (
-	SRL           common.NodeType = "srl"
-	DefaultSRLMem string          = "4Gi"
-	BaseMACPrefix string          = "FA:FA"
-	EtcPVCSize    string          = "100Mi"
+	SRL           NodeType = "srl"
+	DefaultSRLMem string   = "4Gi"
+	BaseMACPrefix string   = "FA:FA"
+	EtcPVCSize    string   = "100Mi"
 )
 
 // chassis_type-base_mac-cpm-slot-iom-mda
@@ -139,11 +139,11 @@ func (srl *SRLinux) FillDefaultVal(nodeName string) {
 
 }
 
-func (srl *SRLinux) GetNodeType(name string) common.NodeType {
+func (srl *SRLinux) GetNodeType(name string) NodeType {
 	return SRL
 }
 
-func (srl *SRLinux) Validate() error {
+func (srl *SRLinux) Validate(lab *LabSpec, nodeName string) error {
 	if srl.Image == nil {
 		return fmt.Errorf("image not specified")
 	}
@@ -178,7 +178,7 @@ func (srl *SRLinux) getEtcPVC(ns, nodeName, labName string) *corev1.PersistentVo
 	gconf := GCONF.Get()
 	name := fmt.Sprintf("%v-%v-etc", labName, nodeName)
 	return &corev1.PersistentVolumeClaim{
-		ObjectMeta: common.GetObjMeta(name, labName, ns, nodeName, SRL),
+		ObjectMeta: GetObjMeta(name, labName, ns, nodeName, SRL),
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
 			StorageClassName: common.GetPointerVal(*gconf.PVCStorageClass),
@@ -205,7 +205,7 @@ func (srl *SRLinux) getConfigMapFromSRLChassis(ns, nodeName, labName string, nod
 		panic(err)
 	}
 	return &corev1.ConfigMap{
-		ObjectMeta: common.GetObjMeta(name, labName, ns, nodeName, SRL),
+		ObjectMeta: GetObjMeta(name, labName, ns, nodeName, SRL),
 		Data: map[string]string{
 			"topology.yml": string(buf),
 		},
@@ -237,7 +237,7 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 	}
 
 	//create pod
-	pod := common.NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *srl.Image, SRL)
+	pod := NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *srl.Image, SRL)
 	//create init-container to sync file from pvc to emptydir
 
 	initContainer := corev1.Container{

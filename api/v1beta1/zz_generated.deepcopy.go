@@ -23,7 +23,6 @@ package v1beta1
 import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"kubenetlab.net/knl/common"
 	corev1 "kubevirt.io/api/core/v1"
 )
 
@@ -627,7 +626,7 @@ func (in *SRChassis) DeepCopyInto(out *SRChassis) {
 	*out = *in
 	if in.Type != nil {
 		in, out := &in.Type, &out.Type
-		*out = new(common.NodeType)
+		*out = new(NodeType)
 		**out = **in
 	}
 	if in.Model != nil {

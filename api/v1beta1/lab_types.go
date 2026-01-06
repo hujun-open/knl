@@ -21,7 +21,6 @@ import (
 	"sort"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"kubenetlab.net/knl/common"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -100,7 +99,7 @@ func init() {
 }
 
 // AssignSystem assign s to corresponding field of node
-func AssignSystem(s common.System, node *OneOfSystem) {
+func AssignSystem(s System, node *OneOfSystem) {
 	targetType := reflect.TypeOf(s).Elem() //should be type of node
 	targetVal := reflect.ValueOf(s)
 	nodeVal := reflect.ValueOf(node)
