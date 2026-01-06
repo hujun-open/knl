@@ -86,5 +86,24 @@ func (spec *LabSpec) Validate() error {
 			return fmt.Errorf("node %v failed validation, %w", nodeName, err)
 		}
 	}
+	for linkName, link := range spec.LinkList {
+		if err := link.Validate(); err != nil {
+			return fmt.Errorf("link %v is invalid, %w", linkName, err)
+		}
+		//check port settting
+		// for _, c := range link.Connectors {
+		// 	if c.PortId != nil {
+		// 		if onesys, ok := spec.NodeList[*c.NodeName]; !ok {
+		// 			return fmt.Errorf("node %v in link %v is not specified in nodes section", *c.NodeName, linkName)
+		// 		} else {
+		// 			_, sysType := spec.NodeList[*c.NodeName].GetSystem()
+		// 			switch sysType {
+		// 				case "VSRI","VSIM"
+		// 			}
+		// 		}
+		// 	}
+		// }
+	}
+
 	return nil
 }

@@ -67,6 +67,11 @@ type SRVM struct {
 	// +optional
 	// +nullable
 	UUID *string `json:"uuid,omitempty"`
+	// if true, allocate dedicate cpu and huge page memory;
+	// recommand to set to true in case of vsr and magc
+	// +optional
+	// +nullable
+	Dedicate *bool `json:"dedicate,omitempty"`
 }
 
 const (
@@ -79,6 +84,7 @@ const (
 
 func (srvm *SRVM) setToAppDefVal() {
 	srvm.DiskSize = common.ReturnPointerVal(resource.MustParse(DefaultSRVMDiskSize))
+	srvm.Dedicate = common.ReturnPointerVal(false)
 }
 
 func (vsim *VSIM) SetToAppDefVal() {
@@ -100,6 +106,7 @@ func (vsim *VSIM) FillDefaultVal(name string) {
 }
 
 func (vsri *VSRI) SetToAppDefVal() {
+	(*SRVM)(vsri).setToAppDefVal()
 	vsri.Chassis = DefaultVSRIChassis()
 	vsri.License = common.ReturnPointerVal(string(DefaultVSRLicSecName))
 }
@@ -118,6 +125,7 @@ func (vsri *VSRI) FillDefaultVal(name string) {
 }
 
 func (magc *MAGC) SetToAppDefVal() {
+	(*SRVM)(magc).setToAppDefVal()
 	magc.Chassis = DefaultMAGCChassis()
 	magc.License = common.ReturnPointerVal(string(DefaultMAGCLicSecName))
 }
@@ -168,6 +176,9 @@ func (srvm *SRVM) Validate() error {
 	}
 	if srvm.License == nil {
 		return fmt.Errorf("license not specified")
+	}
+	if srvm.Dedicate == nil {
+		return fmt.Errorf("dedidcate not specified")
 	}
 
 	return srvm.Chassis.Validate()

@@ -99,7 +99,7 @@ func getCPMVMListenPorts() *[]kvv1.Port {
 
 // SRChassis is used by srsim, vsim, vsri and magc to specify the chassis configuration.
 type SRChassis struct {
-	//type of chassis, srsim, vsim vsris or magc, this field is derived only, no accepting user input
+	//type of chassis, srsim, vsim, vsri or magc, this field is derived only, no accepting user input
 	// +nodoc
 	Type *common.NodeType `json:"type,omitempty"`
 	//chassis model
@@ -209,7 +209,7 @@ func DefaultMAGCChassis() *SRChassis {
 	}
 	r.Cards["2"] = &SRCard{
 		Model:       common.ReturnPointerVal("iom-v-mg"),
-		MDAs:        common.GetPointerVal([]string{"isa-ms-v", "isa-ms-v"}),
+		MDAs:        common.GetPointerVal([]string{"isa-ms-v"}),
 		ReqMemory:   common.ReturnPointerVal(resource.MustParse(DefaultMAGCMGMEM)),
 		ReqCPU:      common.ReturnPointerVal(resource.MustParse(DefaultMAGCMGCPU)),
 		ListenPorts: getIOMVMListenPorts(),

@@ -344,7 +344,11 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 		for _, spokeName := range spokes {
 			lanName := Getk8lanName(lab.Lab.Name, lab.SpokeLinkMap[spokeName])
 			nadName := k8slan.GetNADName(lanName, spokeName, true)
-			netStr += fmt.Sprintf("%v@e1-%d,", nadName, i)
+			if lab.SpokeConnectorMap[spokeName].PortId != nil {
+				netStr += fmt.Sprintf("%v@%v,", nadName, *lab.SpokeConnectorMap[spokeName].PortId)
+			} else {
+				netStr += fmt.Sprintf("%v@e1-%d,", nadName, i)
+			}
 			resKey := fmt.Sprintf("%v/%v", K8sLANResKeyPrefix, nadName)
 			pod.Spec.Containers[0].Resources.Limits[corev1.ResourceName(resKey)] = resource.MustParse("1")
 			i += 1

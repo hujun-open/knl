@@ -16,18 +16,31 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+// Link defines a layer2 connection between nodes,
+// two or more nodes per link are supported.
 type Link struct {
 	//+required
+	//a list of nodes connect to the link's layer2 network
 	Connectors []Connector `json:"nodes"`
 	GWAddr     *string     `json:"gwAddr,omitempty"` //a prefix
 }
 
+func (link *Link) Validate() error {
+	if len(link.Connectors) < 2 {
+		return fmt.Errorf("the minimal number of nodes per link is 2")
+	}
+	return nil
+}
+
+// Connector specifies a node name and how it connects to the link
 type Connector struct {
 	//+required
-	NodeName *string `json:"node"`           //node name, in case of distruited system like vsim/mag-c, it is the name of IOM VM
-	PortId   *string `json:"port,omitempty"` //used by srsim for mda port id, and by SRVM for IOM slot id
-	Addr     *string `json:"addr,omitempty"` //a prefix, used for cloud-init on vmLinux, and podlinux
-	Mac      *string `json:"mac,omitempty"`  //used for cloud-init on vmLinux, and podlinux
+	//name of node connects to the link
+	NodeName *string `json:"node"` //node name
+	//used by srsim for mda port id, by SRVM for IOM slot id and by SRL for interface id
+	PortId *string `json:"port,omitempty"`
+	Addr   *string `json:"addr,omitempty"` //a prefix, used for cloud-init on vmLinux, and podlinux
+	Mac    *string `json:"mac,omitempty"`  //used for cloud-init on vmLinux, and podlinux
 }
 
 func Getk8lanName(lab, link string) string {

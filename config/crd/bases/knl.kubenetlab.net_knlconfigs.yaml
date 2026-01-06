@@ -144,10 +144,16 @@ spec:
                             description: SFM model
                             type: string
                           type:
-                            description: type of chassis, srsim, vsim vsris or magc,
+                            description: type of chassis, srsim, vsim, vsri or magc,
                               this field is derived only, no accepting user input
                             type: string
                         type: object
+                      dedicate:
+                        description: |-
+                          if true, allocate dedicate cpu and huge page memory;
+                          recommand to set to true in case of vsr and magc
+                        nullable: true
+                        type: boolean
                       diskSize:
                         anyOf:
                         - type: integer
@@ -342,7 +348,7 @@ spec:
                             description: SFM model
                             type: string
                           type:
-                            description: type of chassis, srsim, vsim vsris or magc,
+                            description: type of chassis, srsim, vsim, vsri or magc,
                               this field is derived only, no accepting user input
                             type: string
                         type: object
@@ -533,10 +539,16 @@ spec:
                             description: SFM model
                             type: string
                           type:
-                            description: type of chassis, srsim, vsim vsris or magc,
+                            description: type of chassis, srsim, vsim, vsri or magc,
                               this field is derived only, no accepting user input
                             type: string
                         type: object
+                      dedicate:
+                        description: |-
+                          if true, allocate dedicate cpu and huge page memory;
+                          recommand to set to true in case of vsr and magc
+                        nullable: true
+                        type: boolean
                       diskSize:
                         anyOf:
                         - type: integer
@@ -664,10 +676,16 @@ spec:
                             description: SFM model
                             type: string
                           type:
-                            description: type of chassis, srsim, vsim vsris or magc,
+                            description: type of chassis, srsim, vsim, vsri or magc,
                               this field is derived only, no accepting user input
                             type: string
                         type: object
+                      dedicate:
+                        description: |-
+                          if true, allocate dedicate cpu and huge page memory;
+                          recommand to set to true in case of vsr and magc
+                        nullable: true
+                        type: boolean
                       diskSize:
                         anyOf:
                         - type: integer

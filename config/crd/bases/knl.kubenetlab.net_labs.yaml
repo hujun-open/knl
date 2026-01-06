@@ -41,19 +41,28 @@ spec:
             properties:
               links:
                 additionalProperties:
+                  description: |-
+                    Link defines a layer2 connection between nodes,
+                    two or more nodes per link are supported.
                   properties:
                     gwAddr:
                       type: string
                     nodes:
+                      description: a list of nodes connect to the link's layer2 network
                       items:
+                        description: Connector specifies a node name and how it connects
+                          to the link
                         properties:
                           addr:
                             type: string
                           mac:
                             type: string
                           node:
+                            description: name of node connects to the link
                             type: string
                           port:
+                            description: used by srsim for mda port id, by SRVM for
+                              IOM slot id and by SRL for interface id
                             type: string
                         required:
                         - node
@@ -171,10 +180,16 @@ spec:
                               description: SFM model
                               type: string
                             type:
-                              description: type of chassis, srsim, vsim vsris or magc,
+                              description: type of chassis, srsim, vsim, vsri or magc,
                                 this field is derived only, no accepting user input
                               type: string
                           type: object
+                        dedicate:
+                          description: |-
+                            if true, allocate dedicate cpu and huge page memory;
+                            recommand to set to true in case of vsr and magc
+                          nullable: true
+                          type: boolean
                         diskSize:
                           anyOf:
                           - type: integer
@@ -370,7 +385,7 @@ spec:
                               description: SFM model
                               type: string
                             type:
-                              description: type of chassis, srsim, vsim vsris or magc,
+                              description: type of chassis, srsim, vsim, vsri or magc,
                                 this field is derived only, no accepting user input
                               type: string
                           type: object
@@ -563,10 +578,16 @@ spec:
                               description: SFM model
                               type: string
                             type:
-                              description: type of chassis, srsim, vsim vsris or magc,
+                              description: type of chassis, srsim, vsim, vsri or magc,
                                 this field is derived only, no accepting user input
                               type: string
                           type: object
+                        dedicate:
+                          description: |-
+                            if true, allocate dedicate cpu and huge page memory;
+                            recommand to set to true in case of vsr and magc
+                          nullable: true
+                          type: boolean
                         diskSize:
                           anyOf:
                           - type: integer
@@ -695,10 +716,16 @@ spec:
                               description: SFM model
                               type: string
                             type:
-                              description: type of chassis, srsim, vsim vsris or magc,
+                              description: type of chassis, srsim, vsim, vsri or magc,
                                 this field is derived only, no accepting user input
                               type: string
                           type: object
+                        dedicate:
+                          description: |-
+                            if true, allocate dedicate cpu and huge page memory;
+                            recommand to set to true in case of vsr and magc
+                          nullable: true
+                          type: boolean
                         diskSize:
                           anyOf:
                           - type: integer

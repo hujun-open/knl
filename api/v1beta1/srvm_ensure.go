@@ -213,12 +213,13 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 
 	//check if need pin CPU
 	// if common.IsResourcePinNeededViaSysinfo(node.SRSysinfoStr) {
-	dedicated := false
+	dedicated := *srvm.Dedicate
 
-	switch vmt {
-	case SRVMVSRI, SRVMMAGC:
-		dedicated = true
-	}
+	// switch vmt {
+	// case SRVMVSRI, SRVMMAGC:
+	// 	dedicated = true
+	// }
+
 	if dedicated {
 		r.Spec.Domain.CPU.DedicatedCPUPlacement = true
 		r.Spec.Domain.CPU.IsolateEmulatorThread = true
@@ -234,10 +235,12 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 	r.Spec.Domain.Memory = &kvv1.Memory{
 		Guest: srvm.Chassis.Cards[cardslot].ReqMemory,
 	}
-	reqMem := resource.NewQuantity(srvm.Chassis.Cards[cardslot].ReqMemory.Value()/2,
-		srvm.Chassis.Cards[cardslot].ReqMemory.Format)
-	r.Spec.Domain.Resources.Requests = corev1.ResourceList{
-		corev1.ResourceMemory: *reqMem,
+	if !dedicated {
+		reqMem := resource.NewQuantity(srvm.Chassis.Cards[cardslot].ReqMemory.Value()/2,
+			srvm.Chassis.Cards[cardslot].ReqMemory.Format)
+		r.Spec.Domain.Resources.Requests = corev1.ResourceList{
+			corev1.ResourceMemory: *reqMem,
+		}
 	}
 
 	//check if hugepage is needed
