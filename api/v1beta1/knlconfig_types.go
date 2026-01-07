@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"kubenetlab.net/knl/common"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -69,11 +68,11 @@ type KNLConfigSpec struct {
 // this is the application default, meaning when user didn't specify the corresponding field in KNLconfig
 func DefKNLConfig() KNLConfigSpec {
 	r := KNLConfigSpec{
-		SFTPSever:        common.ReturnPointerVal("knl-sftp-service.knl-system.svc.cluster.local:22"),
-		VXLANGrpAddr:     common.ReturnPointerVal("ff18::100"),
-		PVCStorageClass:  common.ReturnPointerVal("nfs-client"),
-		SRCPMLoaderImage: common.ReturnPointerVal("http://knl-http.knl-system.svc.cluster.local/cpmload.img"),
-		VXLANDefaultDev:  common.ReturnPointerVal("eth0"),
+		SFTPSever:        ReturnPointerVal("knl-sftp-service.knl-system.svc.cluster.local:22"),
+		VXLANGrpAddr:     ReturnPointerVal("ff18::100"),
+		PVCStorageClass:  ReturnPointerVal("nfs-client"),
+		SRCPMLoaderImage: ReturnPointerVal("http://knl-http.knl-system.svc.cluster.local/cpmload.img"),
+		VXLANDefaultDev:  ReturnPointerVal("eth0"),
 	}
 	//create app default for each node type
 	defOne := OneOfSystem{}
@@ -156,7 +155,7 @@ func LoadDef(in *LabSpec, def KNLConfigSpec) error {
 		if defNode.IsNil() {
 			continue
 		}
-		err = common.FillNilPointers(node, defNode.Interface().(System))
+		err = FillNilPointers(node, defNode.Interface().(System))
 		if err != nil {
 			return err
 		}
@@ -205,7 +204,7 @@ func (knlcfg *KNLConfig) Validate() error {
 		return fmt.Errorf("sidecar image not specified")
 	}
 	if knlcfg.Spec.SFTPSever != nil {
-		if !common.IsHostPort(*knlcfg.Spec.SFTPSever) {
+		if !IsHostPort(*knlcfg.Spec.SFTPSever) {
 			return fmt.Errorf("%v must be in format as addr/host:port", *knlcfg.Spec.SFTPSever)
 		}
 	} else {

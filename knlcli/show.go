@@ -13,8 +13,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"kubenetlab.net/knl/api/v1beta1"
-	"kubenetlab.net/knl/common"
-	"kubenetlab.net/knl/dict"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -47,7 +45,7 @@ func (cli *CLI) ShowLabs(cmd *cobra.Command, args []string) {
 	for i, lab := range labList {
 		fmt.Fprintf(w, "%v:\n", lab.Name)
 		fmt.Fprintln(w, "\tNode\tType\tChassis\tPods\tWorker/PodIP")
-		sortedNodeList := common.GetSortedKeySlice(lab.Spec.NodeList)
+		sortedNodeList := v1beta1.GetSortedKeySlice(lab.Spec.NodeList)
 
 		for _, node := range sortedNodeList {
 			syst := lab.Spec.NodeList[node]
@@ -79,7 +77,7 @@ func (cli *CLI) ShowLabs(cmd *cobra.Command, args []string) {
 				}
 			}
 		}
-		sortedLinkList := common.GetSortedKeySlice(lab.Spec.LinkList)
+		sortedLinkList := v1beta1.GetSortedKeySlice(lab.Spec.LinkList)
 		fmt.Fprintln(w, "\tLink\tNodes")
 		for _, link := range sortedLinkList {
 			fmt.Fprintf(w, "\t%v\t%v\n", link, *lab.Spec.LinkList[link].Connectors[0].NodeName)
@@ -102,8 +100,8 @@ func getPods(ctx context.Context, clnt client.Client, ns, lab, node string) []co
 	listOpts := []client.ListOption{
 		client.InNamespace(ns),
 		client.MatchingLabels{
-			common.K8SLABELSETUPKEY:    lab,
-			dict.ChassisNameAnnotation: node,
+			v1beta1.K8SLABELSETUPKEY:      lab,
+			v1beta1.ChassisNameAnnotation: node,
 		},
 	}
 	err := clnt.List(ctx, pods, listOpts...)

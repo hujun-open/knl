@@ -12,7 +12,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
-	"kubenetlab.net/knl/common"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -51,7 +50,7 @@ func (srsim *SRSim) SetToAppDefVal() {
 }
 
 func (srsim *SRSim) FillDefaultVal(nodeName string) {
-	srsim.Chassis.Type = common.ReturnPointerVal(SRSIM)
+	srsim.Chassis.Type = ReturnPointerVal(SRSIM)
 }
 
 func (srsim *SRSim) GetNodeType(name string) NodeType {
@@ -79,7 +78,7 @@ func (srsim *SRSim) getCFPVC(ns, nodeName, labName, slot string, id int) *corev1
 		ObjectMeta: GetObjMeta(srsim.getCFPVCName(nodeName, labName, slot, id), labName, ns, nodeName, SRSIM),
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
-			StorageClassName: common.GetPointerVal(*gconf.PVCStorageClass),
+			StorageClassName: GetPointerVal(*gconf.PVCStorageClass),
 			Resources: corev1.VolumeResourceRequirements{
 				Requests: map[corev1.ResourceName]resource.Quantity{
 					corev1.ResourceStorage: resource.MustParse(CFSize),
@@ -97,12 +96,12 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 	// gconf := GCONF.Get()
 	val := ctx.Value(ParsedLabKey)
 	if val == nil {
-		return common.MakeErr(fmt.Errorf("failed to get parsed lab obj from context"))
+		return MakeErr(fmt.Errorf("failed to get parsed lab obj from context"))
 	}
 	var lab *ParsedLab
 	var ok bool
 	if lab, ok = val.(*ParsedLab); !ok {
-		return common.MakeErr(fmt.Errorf("context stored value is not a ParsedLabSpec"))
+		return MakeErr(fmt.Errorf("context stored value is not a ParsedLabSpec"))
 	}
 
 	//create pod
@@ -113,7 +112,7 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 			Name:  strings.ToLower("slot-" + slotid),
 			Image: *srsim.Image,
 			SecurityContext: &corev1.SecurityContext{
-				Privileged: common.ReturnPointerVal(true),
+				Privileged: ReturnPointerVal(true),
 			},
 		}
 		//license file
@@ -170,7 +169,7 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 			}
 		}
 
-		if common.IsCPM(slotid) {
+		if IsCPM(slotid) {
 			//cpm
 			//cf cards
 			for i := 1; i <= 3; i++ {
@@ -221,7 +220,7 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 	netStr := ""
 	i := 1
 	pod.Spec.Containers[0].Resources.Limits = make(corev1.ResourceList)
-	for _, linkName := range common.GetSortedKeySlice(lab.SpokeMap[nodeName]) {
+	for _, linkName := range GetSortedKeySlice(lab.SpokeMap[nodeName]) {
 		spokes := lab.SpokeMap[nodeName][linkName]
 		// for _, spokes := range lab.SpokeMap[nodeName] {
 		for _, spokeName := range spokes {
@@ -254,7 +253,7 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 
 func (srsim *SRSim) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
 	pod := &corev1.Pod{}
-	podKey := types.NamespacedName{Namespace: ns, Name: common.GetPodName(lab, chassis)}
+	podKey := types.NamespacedName{Namespace: ns, Name: GetPodName(lab, chassis)}
 	err := clnt.Get(ctx, podKey, pod)
 	if err != nil {
 		log.Fatalf("failed to list pods: %v", err)
@@ -263,16 +262,16 @@ func (srsim *SRSim) Shell(ctx context.Context, clnt client.Client, ns, lab, chas
 		username = "admin"
 	}
 	fmt.Println("connecting to", chassis, "at", pod.Status.PodIP, "username", username)
-	common.SysCallSSH(username, pod.Status.PodIP)
+	SysCallSSH(username, pod.Status.PodIP)
 
 }
 
 func (srsim *SRSim) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {
 	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
-	fmt.Printf("connecting to %v\n", common.GetPodName(lab, chassis))
+	fmt.Printf("connecting to %v\n", GetPodName(lab, chassis))
 	syscall.Exec("/bin/sh",
 		[]string{"sh", "-c",
 			fmt.Sprintf("kubectl -n %v exec -it %v -- bash",
-				ns, common.GetPodName(lab, chassis))},
+				ns, GetPodName(lab, chassis))},
 		envList)
 }

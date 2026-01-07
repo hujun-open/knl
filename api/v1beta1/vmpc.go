@@ -15,8 +15,6 @@ import (
 	"github.com/tredoe/osutil/user/crypt/sha512_crypt"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"kubenetlab.net/knl/common"
-	"kubenetlab.net/knl/dict"
 	kvv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -64,14 +62,14 @@ const (
 )
 
 func (gvm *GeneralVM) SetToAppDefVal() {
-	gvm.ReqCPU = common.ReturnPointerVal(resource.MustParse(DefVPCCPU))
-	gvm.ReqMemory = common.ReturnPointerVal(resource.MustParse(DefVPCMem))
-	gvm.PinCPU = common.ReturnPointerVal(false)
-	gvm.HugePage = common.ReturnPointerVal(false)
-	gvm.Username = common.ReturnPointerVal("lab")
-	gvm.Password = common.ReturnPointerVal("lab123")
-	gvm.InitMethod = common.ReturnPointerVal(string(InitMethod_CLOUDINIT))
-	gvm.Ports = common.ReturnPointerVal([]kvv1.Port{
+	gvm.ReqCPU = ReturnPointerVal(resource.MustParse(DefVPCCPU))
+	gvm.ReqMemory = ReturnPointerVal(resource.MustParse(DefVPCMem))
+	gvm.PinCPU = ReturnPointerVal(false)
+	gvm.HugePage = ReturnPointerVal(false)
+	gvm.Username = ReturnPointerVal("lab")
+	gvm.Password = ReturnPointerVal("lab123")
+	gvm.InitMethod = ReturnPointerVal(string(InitMethod_CLOUDINIT))
+	gvm.Ports = ReturnPointerVal([]kvv1.Port{
 		{
 			Name:     "ssh",
 			Protocol: "TCP",
@@ -109,26 +107,26 @@ func (gvm *GeneralVM) Ensure(ctx context.Context, nodeName string, clnt client.C
 	gconf := GCONF.Get()
 	val := ctx.Value(ParsedLabKey)
 	if val == nil {
-		return common.MakeErr(fmt.Errorf("failed to get parsed lab obj from context"))
+		return MakeErr(fmt.Errorf("failed to get parsed lab obj from context"))
 	}
 	var lab *ParsedLab
 	var ok bool
 	if lab, ok = val.(*ParsedLab); !ok {
-		return common.MakeErr(fmt.Errorf("context stored value is not a ParsedLabSpec"))
+		return MakeErr(fmt.Errorf("context stored value is not a ParsedLabSpec"))
 	}
 	//create DV
-	dv := common.NewDV(lab.Lab.Namespace, lab.Lab.Name,
-		common.GetVMPCDVName(lab.Lab.Name, nodeName),
+	dv := NewDV(lab.Lab.Namespace, lab.Lab.Name,
+		GetVMPCDVName(lab.Lab.Name, nodeName),
 		*gvm.Image, gconf.PVCStorageClass, gvm.DiskSize)
 	err := createIfNotExistsOrRemove(ctx, clnt, lab, dv, false, forceRemoval)
 	if err != nil {
-		return common.MakeErr(err)
+		return MakeErr(err)
 	}
 	//create vm
 	vmi := gvm.getVMI(lab, nodeName)
 	err = createIfNotExistsOrFailedOrRemove(ctx, clnt, lab, vmi, checkVMIfail, true, forceRemoval)
 	if err != nil {
-		return common.MakeErr(err)
+		return MakeErr(err)
 	}
 	return nil
 }
@@ -137,16 +135,16 @@ func (gvm *GeneralVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachine
 	gconf := GCONF.Get()
 	r := new(kvv1.VirtualMachineInstance)
 	r.ObjectMeta = GetObjMeta(
-		common.GetPodName(lab.Lab.Name, vmname),
+		GetPodName(lab.Lab.Name, vmname),
 		lab.Lab.Name,
 		lab.Lab.Namespace,
 		vmname,
 		VM,
 	)
 	r.ObjectMeta.Annotations = map[string]string{
-		// dict.LabNameAnnotation:       lab.Lab.Name,
-		// dict.ChassisTypeAnnotation:   string(VM),
-		dict.KvirtSideCarAnnontation: fmt.Sprintf(`[{"image": "%v"}]`, *gconf.SideCarHookImg),
+		// LabNameAnnotation:       lab.Lab.Name,
+		// ChassisTypeAnnotation:   string(VM),
+		KvirtSideCarAnnontation: fmt.Sprintf(`[{"image": "%v"}]`, *gconf.SideCarHookImg),
 	}
 	r.Spec.Domain.CPU = &kvv1.CPU{
 		Model: "host-passthrough",
@@ -176,7 +174,7 @@ func (gvm *GeneralVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachine
 			Name: "root",
 			VolumeSource: kvv1.VolumeSource{
 				DataVolume: &kvv1.DataVolumeSource{
-					Name: common.GetVMPCDVName(lab.Lab.Name, vmname),
+					Name: GetVMPCDVName(lab.Lab.Name, vmname),
 				},
 			},
 		},
@@ -315,7 +313,7 @@ method=manual
 			},
 		})
 	//port links
-	for _, linkName := range common.GetSortedKeySlice(lab.SpokeMap[vmname]) {
+	for _, linkName := range GetSortedKeySlice(lab.SpokeMap[vmname]) {
 		spokes := lab.SpokeMap[vmname][linkName]
 		// for _, spokes := range lab.SpokeMap[vmname] {
 		for _, spokeName := range spokes {
@@ -420,32 +418,32 @@ func encodeDataURL(msg string) string {
 func (gvm *GeneralVM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
 	podList := &corev1.PodList{}
 	labelSelector := client.MatchingLabels{
-		"vm.kubevirt.io/name": common.GetPodName(lab, chassis),
+		"vm.kubevirt.io/name": GetPodName(lab, chassis),
 	}
 	err := clnt.List(ctx, podList, client.InNamespace(ns), labelSelector)
 	if err != nil {
 		log.Fatalf("failed to list pods: %v", err)
 	}
 	if len(podList.Items) == 0 {
-		log.Fatalf("failed to find vm pod %v", common.GetPodName(lab, chassis))
+		log.Fatalf("failed to find vm pod %v", GetPodName(lab, chassis))
 
 	}
 	fmt.Println("connecting to", chassis, "at", podList.Items[0].Status.PodIP, "username", *gvm.Username)
-	common.SysCallSSH(*gvm.Username, podList.Items[0].Status.PodIP)
+	SysCallSSH(*gvm.Username, podList.Items[0].Status.PodIP)
 }
 
 func (gvm *GeneralVM) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {
 
 	podList := &corev1.PodList{}
 	labelSelector := client.MatchingLabels{
-		"vm.kubevirt.io/name": common.GetPodName(lab, chassis),
+		"vm.kubevirt.io/name": GetPodName(lab, chassis),
 	}
 	err := clnt.List(ctx, podList, client.InNamespace(ns), labelSelector)
 	if err != nil {
 		log.Fatalf("failed to list pods: %v", err)
 	}
 	if len(podList.Items) == 0 {
-		log.Fatalf("failed to find vm pod %v", common.GetPodName(lab, chassis))
+		log.Fatalf("failed to find vm pod %v", GetPodName(lab, chassis))
 
 	}
 	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}

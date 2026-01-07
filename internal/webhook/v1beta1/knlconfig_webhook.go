@@ -28,7 +28,6 @@ import (
 
 	"kubenetlab.net/knl/api/v1beta1"
 	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
-	"kubenetlab.net/knl/common"
 )
 
 // nolint:unused
@@ -67,7 +66,7 @@ func (d *KNLConfigCustomDefaulter) Default(_ context.Context, obj runtime.Object
 	}
 	knlconfiglog.Info("Defaulting for KNLConfig", "name", knlconfig.GetName())
 	spec := knlconfig.Spec
-	err := common.FillNilPointers(&spec, v1beta1.DefKNLConfig())
+	err := knlv1beta1.FillNilPointers(&spec, v1beta1.DefKNLConfig())
 	if err != nil {
 		return err
 	}

@@ -10,7 +10,6 @@ import (
 	k8slan "github.com/hujun-open/k8slan/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"kubenetlab.net/knl/common"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -62,12 +61,12 @@ func (gpod *GeneralPod) Validate(lab *LabSpec, nodeName string) error {
 func (gpod *GeneralPod) Ensure(ctx context.Context, nodeName string, clnt client.Client, forceRemoval bool) error {
 	val := ctx.Value(ParsedLabKey)
 	if val == nil {
-		return common.MakeErr(fmt.Errorf("failed to get parsed lab obj from context"))
+		return MakeErr(fmt.Errorf("failed to get parsed lab obj from context"))
 	}
 	var lab *ParsedLab
 	var ok bool
 	if lab, ok = val.(*ParsedLab); !ok {
-		return common.MakeErr(fmt.Errorf("context stored value is not a ParsedLabSpec"))
+		return MakeErr(fmt.Errorf("context stored value is not a ParsedLabSpec"))
 	}
 	//create PVC
 	rootPVC := gpod.getRootPVC(lab.Lab.Namespace, nodeName, lab.Lab.Name)
@@ -102,7 +101,7 @@ func (gpod *GeneralPod) Ensure(ctx context.Context, nodeName string, clnt client
 	//refer to NADs
 	netStr := ""
 	pod.Spec.Containers[0].Resources.Limits = make(corev1.ResourceList)
-	for _, linkName := range common.GetSortedKeySlice(lab.SpokeMap[nodeName]) {
+	for _, linkName := range GetSortedKeySlice(lab.SpokeMap[nodeName]) {
 		spokes := lab.SpokeMap[nodeName][linkName]
 		// for _, spokes := range lab.SpokeMap[nodeName] {
 		for _, spokeName := range spokes {
@@ -142,7 +141,7 @@ func (gpod *GeneralPod) getRootPVC(ns, nodeName, labName string) *corev1.Persist
 		ObjectMeta: GetObjMeta(name, labName, ns, nodeName, Pod),
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
-			StorageClassName: common.GetPointerVal(*gconf.PVCStorageClass),
+			StorageClassName: GetPointerVal(*gconf.PVCStorageClass),
 			Resources: corev1.VolumeResourceRequirements{
 				Requests: map[corev1.ResourceName]resource.Quantity{
 					corev1.ResourceStorage: resource.MustParse(RootPVCSize),
@@ -154,11 +153,11 @@ func (gpod *GeneralPod) getRootPVC(ns, nodeName, labName string) *corev1.Persist
 
 func (gpod *GeneralPod) Shell(ctx context.Context, clnt client.Client, ns, lab, node, username string) {
 	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
-	fmt.Printf("connecting to %v\n", common.GetPodName(lab, node))
+	fmt.Printf("connecting to %v\n", GetPodName(lab, node))
 	syscall.Exec("/bin/sh",
 		[]string{"sh", "-c",
 			fmt.Sprintf("kubectl -n %v exec -it %v -- bash",
-				ns, common.GetPodName(lab, node))},
+				ns, GetPodName(lab, node))},
 		envList)
 
 }

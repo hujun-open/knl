@@ -11,7 +11,6 @@ import (
 	"github.com/distribution/reference"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"kubenetlab.net/knl/common"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -83,14 +82,14 @@ const (
 )
 
 func (srvm *SRVM) setToAppDefVal() {
-	srvm.DiskSize = common.ReturnPointerVal(resource.MustParse(DefaultSRVMDiskSize))
-	srvm.Dedicate = common.ReturnPointerVal(false)
+	srvm.DiskSize = ReturnPointerVal(resource.MustParse(DefaultSRVMDiskSize))
+	srvm.Dedicate = ReturnPointerVal(false)
 }
 
 func (vsim *VSIM) SetToAppDefVal() {
 	(*SRVM)(vsim).setToAppDefVal()
 	vsim.Chassis = DefaultSIMChassis(SRVMVSIM)
-	vsim.License = common.ReturnPointerVal(string(DefaultVSIMLicSecName))
+	vsim.License = ReturnPointerVal(string(DefaultVSIMLicSecName))
 }
 func (vsim *VSIM) Validate(lab *LabSpec, nodeName string) error {
 	return (*SRVM)(vsim).Validate(lab, nodeName)
@@ -100,7 +99,7 @@ func (vsim *VSIM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 }
 
 func (vsim *VSIM) FillDefaultVal(name string) {
-	vsim.Chassis.Type = common.ReturnPointerVal(SRVMVSIM)
+	vsim.Chassis.Type = ReturnPointerVal(SRVMVSIM)
 	(*SRVM)(vsim).FillDefaultVal(name)
 
 }
@@ -108,7 +107,7 @@ func (vsim *VSIM) FillDefaultVal(name string) {
 func (vsri *VSRI) SetToAppDefVal() {
 	(*SRVM)(vsri).setToAppDefVal()
 	vsri.Chassis = DefaultVSRIChassis()
-	vsri.License = common.ReturnPointerVal(string(DefaultVSRLicSecName))
+	vsri.License = ReturnPointerVal(string(DefaultVSRLicSecName))
 }
 
 func (vsri *VSRI) Validate(lab *LabSpec, nodeName string) error {
@@ -119,7 +118,7 @@ func (vsri *VSRI) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 }
 
 func (vsri *VSRI) FillDefaultVal(name string) {
-	vsri.Chassis.Type = common.ReturnPointerVal(SRVMVSRI)
+	vsri.Chassis.Type = ReturnPointerVal(SRVMVSRI)
 	(*SRVM)(vsri).FillDefaultVal(name)
 
 }
@@ -127,7 +126,7 @@ func (vsri *VSRI) FillDefaultVal(name string) {
 func (magc *MAGC) SetToAppDefVal() {
 	(*SRVM)(magc).setToAppDefVal()
 	magc.Chassis = DefaultMAGCChassis()
-	magc.License = common.ReturnPointerVal(string(DefaultMAGCLicSecName))
+	magc.License = ReturnPointerVal(string(DefaultMAGCLicSecName))
 }
 
 func (magc *MAGC) Validate(lab *LabSpec, nodeName string) error {
@@ -138,7 +137,7 @@ func (magc *MAGC) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 }
 
 func (magc *MAGC) FillDefaultVal(name string) {
-	magc.Chassis.Type = common.ReturnPointerVal(SRVMMAGC)
+	magc.Chassis.Type = ReturnPointerVal(SRVMMAGC)
 	(*SRVM)(magc).FillDefaultVal(name)
 
 }
@@ -148,7 +147,7 @@ func (srvm *SRVM) FillDefaultVal(name string) {
 		return
 	}
 	for slot := range srvm.Chassis.Cards {
-		srvm.Chassis.Cards[slot].SysInfo = common.SetDefaultGeneric(srvm.Chassis.Cards[slot].SysInfo, srvm.Chassis.GetDefaultSysinfoStr(slot))
+		srvm.Chassis.Cards[slot].SysInfo = SetDefaultGeneric(srvm.Chassis.Cards[slot].SysInfo, srvm.Chassis.GetDefaultSysinfoStr(slot))
 		srvm.Chassis.Cards[slot].FillDefaultVal(*srvm.Chassis.Type, slot)
 	}
 }
@@ -224,7 +223,7 @@ func (gvm *SRVM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis
 		username = "admin"
 	}
 	fmt.Println("connecting to", chassis, "at", podList.Items[0].Status.PodIP, "username", username)
-	common.SysCallSSH(username, podList.Items[0].Status.PodIP)
+	SysCallSSH(username, podList.Items[0].Status.PodIP)
 }
 
 func (vsim *VSIM) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {

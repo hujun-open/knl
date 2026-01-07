@@ -16,7 +16,6 @@ import (
 
 	"github.com/spf13/pflag"
 	"kubenetlab.net/knl/api/v1beta1"
-	knlv1beta1dict "kubenetlab.net/knl/dict"
 	vmSchema "kubevirt.io/api/core/v1"
 	"libvirt.org/go/libvirtxml"
 )
@@ -69,8 +68,8 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 	labels := vmiSpec.GetLabels()
 	var found bool
 	var vmts string
-	if vmts, found = labels[knlv1beta1dict.ChassisTypeAnnotation]; !found {
-		return "", fmt.Errorf("failed to find %v label", knlv1beta1dict.ChassisTypeAnnotation)
+	if vmts, found = labels[v1beta1.ChassisTypeAnnotation]; !found {
+		return "", fmt.Errorf("failed to find %v label", v1beta1.ChassisTypeAnnotation)
 	}
 	vmt := v1beta1.NodeType(strings.ToLower(strings.TrimSpace(vmts)))
 
@@ -82,30 +81,30 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 	switch vmt {
 	case v1beta1.SRVMVSIM, v1beta1.SRVMVSRI, v1beta1.SRVMMAGC:
 
-		if _, found = annotations[knlv1beta1dict.VSROSSysinfoAnno]; !found {
+		if _, found = annotations[v1beta1.VSROSSysinfoAnno]; !found {
 			//if not vsros, return unchanged
 			return string(domainXML), nil
 		}
-		if sftpSvrAddr, found = annotations[knlv1beta1dict.SftpSVRAnnontation]; !found {
-			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1dict.SftpSVRAnnontation)
+		if sftpSvrAddr, found = annotations[v1beta1.SftpSVRAnnontation]; !found {
+			return "", fmt.Errorf("can't find %v in VMI's annontation", v1beta1.SftpSVRAnnontation)
 		}
-		if sftpUser, found = annotations[knlv1beta1dict.SftpUserAnnontation]; !found {
-			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1dict.SftpUserAnnontation)
+		if sftpUser, found = annotations[v1beta1.SftpUserAnnontation]; !found {
+			return "", fmt.Errorf("can't find %v in VMI's annontation", v1beta1.SftpUserAnnontation)
 		}
-		if sftpPass, found = annotations[knlv1beta1dict.SftpPassAnnontation]; !found {
-			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1dict.SftpPassAnnontation)
+		if sftpPass, found = annotations[v1beta1.SftpPassAnnontation]; !found {
+			return "", fmt.Errorf("can't find %v in VMI's annontation", v1beta1.SftpPassAnnontation)
 		}
 		//sftpSvrAddr must be addr or hostname + port
-		if sftpSvrAddr, found = annotations[knlv1beta1dict.SftpSVRAnnontation]; !found {
-			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1dict.SftpSVRAnnontation)
+		if sftpSvrAddr, found = annotations[v1beta1.SftpSVRAnnontation]; !found {
+			return "", fmt.Errorf("can't find %v in VMI's annontation", v1beta1.SftpSVRAnnontation)
 		}
-		if ftpPathMapJsonStr, found = annotations[knlv1beta1dict.FTPPathMapAnnotation]; !found {
-			return "", fmt.Errorf("can't find %v in VMI's annontation", knlv1beta1dict.FTPPathMapAnnotation)
+		if ftpPathMapJsonStr, found = annotations[v1beta1.FTPPathMapAnnotation]; !found {
+			return "", fmt.Errorf("can't find %v in VMI's annontation", v1beta1.FTPPathMapAnnotation)
 		}
 		ftpPathMap := make(map[string]string)
 		err := json.Unmarshal([]byte(ftpPathMapJsonStr), &ftpPathMap)
 		if err != nil {
-			return "", fmt.Errorf("failed to unmarshal annontation %v value, %w", knlv1beta1dict.FTPPathMapAnnotation, err)
+			return "", fmt.Errorf("failed to unmarshal annontation %v value, %w", v1beta1.FTPPathMapAnnotation, err)
 		}
 
 		//generate ftp server config
@@ -139,7 +138,7 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 		newSpec.Devices.Disks[0].Target.Dev = "hda"
 
 		//add sysinfo
-		sysinfo := annotations[knlv1beta1dict.VSROSSysinfoAnno]
+		sysinfo := annotations[v1beta1.VSROSSysinfoAnno]
 		//NOTE: can't remove or change UUID in orignal smbios uuid entry, otherwise, kubevirt won't be able to report VMI status as running
 		for i := range newSpec.SysInfo[0].SMBIOS.System.Entry {
 			if newSpec.SysInfo[0].SMBIOS.System.Entry[i].Name == "product" {
@@ -250,6 +249,11 @@ const (
 	}
 }
 ],
+"logging": {
+ftp_exchanges: true,
+file_accesses: true,
+file: "/tmp/ftpsvr.log"
+},
 "passive_transfer_port_range": {
 "start": 2122,
 "end": 2130

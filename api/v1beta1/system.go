@@ -42,11 +42,7 @@ func (nt *NodeType) UnmarshalText(text []byte) error {
 }
 
 // NewSysRegistry contains mapping between node type and a new empty node with corresponding type
-var NewSysRegistry map[NodeType]func() System
-
-func init() {
-	NewSysRegistry = make(map[NodeType]func() System)
-}
+var NewSysRegistry = make(map[NodeType]func() System)
 
 func GetNewSystemViaType(t NodeType) System {
 	if f, ok := NewSysRegistry[t]; ok {

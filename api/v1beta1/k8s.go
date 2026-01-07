@@ -9,7 +9,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"kubenetlab.net/knl/common"
 	kvv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -24,7 +23,7 @@ func createIfNotExistsOrRemove(ctx context.Context,
 	if needOwner {
 		err = lab.SetOwnerFunc(target)
 		if err != nil {
-			return common.MakeErr(err)
+			return MakeErr(err)
 		}
 	}
 	err = clnt.Get(ctx,
@@ -39,21 +38,21 @@ func createIfNotExistsOrRemove(ctx context.Context,
 			//not found, create it
 			err = clnt.Create(ctx, target)
 			if err != nil {
-				return common.MakeErr(err)
+				return MakeErr(err)
 			}
 		} else {
-			return common.MakeErr(err)
+			return MakeErr(err)
 		}
 	} else {
 		if remove {
 			if err = clnt.Delete(ctx, target); err != nil {
-				return common.MakeErr(err)
+				return MakeErr(err)
 			}
 			return nil
 		} else {
 			if needOwner {
 				if err = IsOwnedbyLab(target, lab); err != nil {
-					return common.MakeErr(err)
+					return MakeErr(err)
 				}
 			}
 		}
@@ -88,7 +87,7 @@ func createIfNotExistsOrFailedOrRemove(ctx context.Context,
 	if needOwner {
 		err = lab.SetOwnerFunc(target)
 		if err != nil {
-			return common.MakeErr(err)
+			return MakeErr(err)
 		}
 	}
 	err = clnt.Get(ctx,
@@ -103,22 +102,22 @@ func createIfNotExistsOrFailedOrRemove(ctx context.Context,
 			//not found, create it
 			err = clnt.Create(ctx, target)
 			if err != nil {
-				return common.MakeErr(err)
+				return MakeErr(err)
 			}
 		} else {
-			return common.MakeErr(err)
+			return MakeErr(err)
 		}
 	} else {
 		if remove {
 			if err = clnt.Delete(ctx, target); err != nil {
-				return common.MakeErr(err)
+				return MakeErr(err)
 			}
 			return nil
 		} else {
 
 			if needOwner {
 				if err = IsOwnedbyLab(target, lab); err != nil {
-					return common.MakeErr(err)
+					return MakeErr(err)
 				}
 			}
 		}
@@ -130,11 +129,11 @@ func createIfNotExistsOrFailedOrRemove(ctx context.Context,
 		if err != nil {
 			return err
 		}
-		common.WaitForObjGone(ctx, clnt, lab.Lab.Namespace, target)
+		WaitForObjGone(ctx, clnt, lab.Lab.Namespace, target)
 
 		err = clnt.Create(ctx, target)
 		if err != nil {
-			return common.MakeErr(err)
+			return MakeErr(err)
 		}
 	}
 	return nil

@@ -45,7 +45,6 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
-	"kubenetlab.net/knl/common"
 	webhookv1beta1 "kubenetlab.net/knl/internal/webhook/v1beta1"
 	kvv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
@@ -98,7 +97,7 @@ var _ = BeforeSuite(func() {
 	// 	},
 	// }
 	testEnv = &envtest.Environment{
-		UseExistingCluster: common.ReturnPointerVal(true),
+		UseExistingCluster: knlv1beta1.ReturnPointerVal(true),
 	}
 
 	// Retrieve the first found binary directory to allow running tests from IDEs

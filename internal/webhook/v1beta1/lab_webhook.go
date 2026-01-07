@@ -30,7 +30,6 @@ import (
 
 	"kubenetlab.net/knl/api/v1beta1"
 	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
-	"kubenetlab.net/knl/common"
 )
 
 // nolint:unused
@@ -81,8 +80,8 @@ func (d *LabCustomDefaulter) Default(_ context.Context, obj runtime.Object) erro
 				lab.Spec.NodeList[*c.NodeName] = new(knlv1beta1.OneOfSystem)
 			}
 			//derive mac
-			derivedMAC := common.DeriveMac(common.BaseMACAddr, macOffset)
-			lab.Spec.LinkList[linkName].Connectors[i].Mac = common.SetDefaultGeneric(lab.Spec.LinkList[linkName].Connectors[i].Mac, derivedMAC.String())
+			derivedMAC := knlv1beta1.DeriveMac(knlv1beta1.BaseMACAddr, macOffset)
+			lab.Spec.LinkList[linkName].Connectors[i].Mac = knlv1beta1.SetDefaultGeneric(lab.Spec.LinkList[linkName].Connectors[i].Mac, derivedMAC.String())
 		}
 	}
 	//check missing CPM
@@ -136,8 +135,8 @@ func (d *LabCustomDefaulter) Default(_ context.Context, obj runtime.Object) erro
 					continue
 				}
 				srvm := v1beta1.GetSRVMviaSys(*c.NodeName, sys)
-				c.PortId = common.ReturnPointerVal(srvm.Chassis.GetDefaultMDASlot())
-				lab.Spec.LinkList[linkName].Connectors[cid].PortId = common.SetDefaultGeneric(lab.Spec.LinkList[linkName].Connectors[cid].PortId, srvm.Chassis.GetDefaultMDASlot())
+				c.PortId = knlv1beta1.ReturnPointerVal(srvm.Chassis.GetDefaultMDASlot())
+				lab.Spec.LinkList[linkName].Connectors[cid].PortId = knlv1beta1.SetDefaultGeneric(lab.Spec.LinkList[linkName].Connectors[cid].PortId, srvm.Chassis.GetDefaultMDASlot())
 
 			}
 		}

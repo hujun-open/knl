@@ -30,7 +30,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
-	"kubenetlab.net/knl/common"
 	kvv1 "kubevirt.io/api/core/v1"
 )
 
@@ -44,12 +43,12 @@ func getTestKNLConfig() (types.NamespacedName, *knlv1beta1.KNLConfig) {
 			},
 			// TODO(user): Specify other spec details if needed.
 			Spec: knlv1beta1.KNLConfigSpec{
-				PVCStorageClass:  common.ReturnPointerVal("standard"),
-				SRIOMLoaderImage: common.ReturnPointerVal("localhost/iomload:v1"),
-				SideCarHookImg:   common.ReturnPointerVal("localhost/knl2sidecar:v15"),
+				PVCStorageClass:  knlv1beta1.ReturnPointerVal("standard"),
+				SRIOMLoaderImage: knlv1beta1.ReturnPointerVal("localhost/iomload:v1"),
+				SideCarHookImg:   knlv1beta1.ReturnPointerVal("localhost/knl2sidecar:v15"),
 				DefaultNode: &knlv1beta1.OneOfSystem{
 					Pod: &knlv1beta1.GeneralPod{
-						Image: common.ReturnPointerVal("podimage"),
+						Image: knlv1beta1.ReturnPointerVal("podimage"),
 					},
 				},
 			},
@@ -101,30 +100,30 @@ var _ = Describe("Lab Controller", func() {
 							"link-1": {
 								Connectors: []knlv1beta1.Connector{
 									{
-										NodeName: common.ReturnPointerVal("vsim-1"),
+										NodeName: knlv1beta1.ReturnPointerVal("vsim-1"),
 									},
 									{
-										NodeName: common.ReturnPointerVal("pod-2"),
+										NodeName: knlv1beta1.ReturnPointerVal("pod-2"),
 									},
 								},
 							},
 							"link-3": {
 								Connectors: []knlv1beta1.Connector{
 									{
-										NodeName: common.ReturnPointerVal("vsim-1"),
+										NodeName: knlv1beta1.ReturnPointerVal("vsim-1"),
 									},
 									{
-										NodeName: common.ReturnPointerVal("pod-3"),
+										NodeName: knlv1beta1.ReturnPointerVal("pod-3"),
 									},
 								},
 							},
 							"link-5": {
 								Connectors: []knlv1beta1.Connector{
 									{
-										NodeName: common.ReturnPointerVal("vsim-1"),
+										NodeName: knlv1beta1.ReturnPointerVal("vsim-1"),
 									},
 									{
-										NodeName: common.ReturnPointerVal("pod-3"),
+										NodeName: knlv1beta1.ReturnPointerVal("pod-3"),
 									},
 								},
 							},

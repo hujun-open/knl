@@ -14,8 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"kubenetlab.net/knl/common"
-	"kubenetlab.net/knl/dict"
 	kvv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -35,12 +33,12 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 	gconf := GCONF.Get()
 	val := ctx.Value(ParsedLabKey)
 	if val == nil {
-		return common.MakeErr(fmt.Errorf("failed to get parsed lab obj from context"))
+		return MakeErr(fmt.Errorf("failed to get parsed lab obj from context"))
 	}
 	var lab *ParsedLab
 	var ok bool
 	if lab, ok = val.(*ParsedLab); !ok {
-		return common.MakeErr(fmt.Errorf("context stored value is not a ParsedLabSpec"))
+		return MakeErr(fmt.Errorf("context stored value is not a ParsedLabSpec"))
 	}
 	vmt, _ := ParseSRVMName_New(nodeName)
 	//networking
@@ -50,25 +48,25 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 	}
 	indexList, err := GetAvailableBrIndex(ctx, clnt, indexNum)
 	if err != nil {
-		return common.MakeErr(fmt.Errorf("failed to allocate bridge index, %w", err))
+		return MakeErr(fmt.Errorf("failed to allocate bridge index, %w", err))
 	}
-	if !common.IsIntegratedChassis(*srvm.Chassis.Model) { //these are per distributed SR system NAD, only need one per system, so only CPM node creates them
+	if !IsIntegratedChassis(*srvm.Chassis.Model) { //these are per distributed SR system NAD, only need one per system, so only CPM node creates them
 		//check FB NAD
 		fbnad := NewFBBridgeNetworkDef(lab.Lab.Namespace, lab.Lab.Name,
-			common.GetVSROSFBName(lab.Lab.Name, nodeName), nodeName, *srvm.Chassis.Type,
+			GetVSROSFBName(lab.Lab.Name, nodeName), nodeName, *srvm.Chassis.Type,
 			int(indexList[0]), SRVMFBMTU)
 		err := createIfNotExistsOrRemove(ctx, clnt, lab, fbnad, true, forceRemoval)
 		if err != nil {
-			return common.MakeErr(err)
+			return MakeErr(err)
 		}
 		if vmt == SRVMMAGC {
 			//MAG-c data fabric NAD
 			dfnad := NewFBBridgeNetworkDef(lab.Lab.Namespace, lab.Lab.Name,
-				common.GetMAGCDFName(lab.Lab.Name, nodeName), nodeName, *srvm.Chassis.Type,
+				GetMAGCDFName(lab.Lab.Name, nodeName), nodeName, *srvm.Chassis.Type,
 				int(indexList[1]), SRVMFBMTU)
 			err := createIfNotExistsOrRemove(ctx, clnt, lab, dfnad, true, forceRemoval)
 			if err != nil {
-				return common.MakeErr(err)
+				return MakeErr(err)
 			}
 		}
 	}
@@ -76,29 +74,29 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 	if strings.HasPrefix(*srvm.Image, FTPImagePrefix) {
 		//check sr release
 		imgageSubFolder := strings.TrimPrefix(*srvm.Image, FTPImagePrefix)
-		expectedTarget := filepath.Join("/"+common.KNLROOTName, common.IMGSubFolder, imgageSubFolder)
-		vmlinkname := filepath.Join(common.KNLROOTName, common.GetFTPSROSImgPath(lab.Lab.Name, nodeName))
+		expectedTarget := filepath.Join("/"+KNLROOTName, IMGSubFolder, imgageSubFolder)
+		vmlinkname := filepath.Join(KNLROOTName, GetFTPSROSImgPath(lab.Lab.Name, nodeName))
 		curLinked, err := os.Readlink(vmlinkname)
 		if err != nil || curLinked != expectedTarget {
 			//create sr release folder
-			err = common.ReCreateSymLink(lab.Lab.Name, nodeName, imgageSubFolder)
+			err = ReCreateSymLink(lab.Lab.Name, nodeName, imgageSubFolder)
 			if err != nil {
-				return common.MakeErr(err)
+				return MakeErr(err)
 			}
 		}
 	}
 	//check sr cfg folder
-	absPath := common.GetSRConfigFTPSubFolder(lab.Lab.Name, nodeName)
+	absPath := GetSRConfigFTPSubFolder(lab.Lab.Name, nodeName)
 	if _, err := os.Stat(absPath); errors.Is(err, os.ErrNotExist) {
 		//create the folder
 		err = os.MkdirAll(absPath, 0755)
 		if err != nil {
-			return common.MakeErr(err)
+			return MakeErr(err)
 		}
 	}
 	var licFullPath string
 	for slot := range srvm.Chassis.Cards {
-		if common.IsCPM(slot) {
+		if IsCPM(slot) {
 			//get the lic
 			licKey := types.NamespacedName{Namespace: MYNAMESPACE, Name: *srvm.License}
 			licSec := new(corev1.Secret)
@@ -106,15 +104,15 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 			if err != nil {
 				return fmt.Errorf("failed to read license secret %v, %w", *srvm.License, err)
 			}
-			licFolder := filepath.Join("/", common.KNLROOTName, common.LicSubFolder)
+			licFolder := filepath.Join("/", KNLROOTName, LicSubFolder)
 			err = os.MkdirAll(licFolder, 0755)
 			if err != nil {
-				return common.MakeErr(fmt.Errorf("failed to create lic sub folder, %w", err))
+				return MakeErr(fmt.Errorf("failed to create lic sub folder, %w", err))
 			}
 			licFullPath = filepath.Join(licFolder, getSRVMLicFileName(lab.Lab.Name, nodeName))
 			err = os.WriteFile(licFullPath, licSec.Data[SRVMLicSecretKeyName], 0644)
 			if err != nil {
-				return common.MakeErr(fmt.Errorf("failed to write license file, %w", err))
+				return MakeErr(fmt.Errorf("failed to write license file, %w", err))
 			}
 
 			//SRVM CPM DV
@@ -125,12 +123,12 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 				diskSize = &SRCPMVMDiskSize
 			}
 
-			dv := common.NewDV(lab.Lab.Namespace, lab.Lab.Name,
-				common.GetSRVMDVName(lab.Lab.Name, nodeName, slot),
+			dv := NewDV(lab.Lab.Namespace, lab.Lab.Name,
+				GetSRVMDVName(lab.Lab.Name, nodeName, slot),
 				cpmImage, gconf.PVCStorageClass, diskSize)
 			err = createIfNotExistsOrRemove(ctx, clnt, lab, dv, false, forceRemoval)
 			if err != nil {
-				return common.MakeErr(err)
+				return MakeErr(err)
 			}
 		}
 		//get sftp credentials
@@ -141,7 +139,7 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 			sftpSec := new(corev1.Secret)
 			err = clnt.Get(ctx, secKey, sftpSec)
 			if err != nil {
-				return common.MakeErr(err)
+				return MakeErr(err)
 			}
 			sftpUser = string(sftpSec.Data["username"])
 			sftpPass = string(sftpSec.Data["password"])
@@ -151,7 +149,7 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 		vmi := srvm.getVMI(lab, nodeName, slot, licFullPath, sftpUser, sftpPass)
 		err = createIfNotExistsOrFailedOrRemove(ctx, clnt, lab, vmi, checkVMIfail, true, forceRemoval)
 		if err != nil {
-			return common.MakeErr(err)
+			return MakeErr(err)
 		}
 	}
 	return nil
@@ -160,7 +158,7 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuser, sftppass string) *kvv1.VirtualMachineInstance {
 	vmt, _ := ParseSRVMName_New(chassisName)
 	gconf := GCONF.Get()
-	isCPM := common.IsCPM(cardslot)
+	isCPM := IsCPM(cardslot)
 	r := new(kvv1.VirtualMachineInstance)
 	r.ObjectMeta = GetObjMeta(
 		GetSRVMCardVMName(lab.Lab.Name, chassisName, cardslot),
@@ -172,31 +170,31 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 
 	r.ObjectMeta.Labels[vSROSIDLabel] = getFullQualifiedSRVMChassisName(lab.Lab.Name, chassisName)
 	//add sysinfo for SR like node
-	cfgURL := fmt.Sprintf("ftp://ftp:ftp@%v/cfg/config.cfg", common.FixedFTPProxySvr)
+	cfgURL := fmt.Sprintf("ftp://ftp:ftp@%v/cfg/config.cfg", FixedFTPProxySvr)
 	//add ftp Path Map
 	ftpPathMap := map[string]string{
-		"/i386-boot.tim": fmt.Sprintf("%v/i386-boot.tim", common.GetSFTPSROSImgPath(lab.Lab.Name, chassisName)),
-		"/i386-iom.tim":  fmt.Sprintf("%v/i386-iom.tim", common.GetSFTPSROSImgPath(lab.Lab.Name, chassisName)),
-		"/sros":          common.GetSFTPSROSImgPath(lab.Lab.Name, chassisName),
-		"/cfg":           common.GetSRConfigFTPSubFolder(lab.Lab.Name, chassisName),
+		"/i386-boot.tim": fmt.Sprintf("%v/i386-boot.tim", GetSFTPSROSImgPath(lab.Lab.Name, chassisName)),
+		"/i386-iom.tim":  fmt.Sprintf("%v/i386-iom.tim", GetSFTPSROSImgPath(lab.Lab.Name, chassisName)),
+		"/sros":          GetSFTPSROSImgPath(lab.Lab.Name, chassisName),
+		"/cfg":           GetSRConfigFTPSubFolder(lab.Lab.Name, chassisName),
 		"/lic":           licPath,
 	}
 	pathMapBuf, err := json.Marshal(ftpPathMap)
 	if err != nil {
 		panic(err)
 	}
-	fixedLicLocalFTPURL := fmt.Sprintf("ftp://ftp:ftp@%v/lic", common.FixedFTPProxySvr)
+	fixedLicLocalFTPURL := fmt.Sprintf("ftp://ftp:ftp@%v/lic", FixedFTPProxySvr)
 
 	r.ObjectMeta.Annotations = map[string]string{
-		dict.SftpSVRAnnontation:  *gconf.SFTPSever,
-		dict.SftpPassAnnontation: sftppass,
-		dict.SftpUserAnnontation: sftpuser,
-		// dict.LabNameAnnotation:       lab.Lab.Name,
-		// dict.ChassisNameAnnotation:   chassisName,
-		// dict.ChassisTypeAnnotation:   string(*srvm.Chassis.Type),
-		dict.FTPPathMapAnnotation:    string(pathMapBuf),
-		dict.KvirtSideCarAnnontation: fmt.Sprintf(`[{"image": "%v"}]`, *gconf.SideCarHookImg),
-		dict.VSROSSysinfoAnno:        common.GenSysinfo(*srvm.Chassis.Cards[cardslot].SysInfo, cfgURL, fixedLicLocalFTPURL),
+		SftpSVRAnnontation:  *gconf.SFTPSever,
+		SftpPassAnnontation: sftppass,
+		SftpUserAnnontation: sftpuser,
+		// LabNameAnnotation:       lab.Lab.Name,
+		// ChassisNameAnnotation:   chassisName,
+		// ChassisTypeAnnotation:   string(*srvm.Chassis.Type),
+		FTPPathMapAnnotation:    string(pathMapBuf),
+		KvirtSideCarAnnontation: fmt.Sprintf(`[{"image": "%v"}]`, *gconf.SideCarHookImg),
+		VSROSSysinfoAnno:        GenSysinfo(*srvm.Chassis.Cards[cardslot].SysInfo, cfgURL, fixedLicLocalFTPURL),
 	}
 
 	//can't set pc here will be rejected by adminssion webhook
@@ -212,7 +210,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 	}
 
 	//check if need pin CPU
-	// if common.IsResourcePinNeededViaSysinfo(node.SRSysinfoStr) {
+	// if IsResourcePinNeededViaSysinfo(node.SRSysinfoStr) {
 	dedicated := *srvm.Dedicate
 
 	// switch vmt {
@@ -226,7 +224,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 	}
 
 	//disable video
-	r.Spec.Domain.Devices.AutoattachGraphicsDevice = common.ReturnPointerVal(false)
+	r.Spec.Domain.Devices.AutoattachGraphicsDevice = ReturnPointerVal(false)
 
 	//cpu & memory
 	r.Spec.Domain.CPU.Cores = uint32(srvm.Chassis.Cards[cardslot].ReqCPU.AsApproximateFloat64()) //if the cpu is decimal, this round down to the int
@@ -263,15 +261,15 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 	if isCPM {
 		r.Spec.Volumes = append(r.Spec.Volumes,
 			kvv1.Volume{
-				Name: common.KNLROOTName,
+				Name: KNLROOTName,
 				VolumeSource: kvv1.VolumeSource{
 					DataVolume: &kvv1.DataVolumeSource{
-						Name: common.GetSRVMDVName(lab.Lab.Name, chassisName, cardslot),
+						Name: GetSRVMDVName(lab.Lab.Name, chassisName, cardslot),
 					},
 					// //note: vsim only support qcow2, not RAW, so using hostdisk and hook to change it to qcow2
 					// PersistentVolumeClaim: &kvv1.PersistentVolumeClaimVolumeSource{
 					// 	PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-					// 		ClaimName: common.PVCName,
+					// 		ClaimName: PVCName,
 					// 	},
 				},
 			},
@@ -285,7 +283,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 		}
 		r.Spec.Volumes = append(r.Spec.Volumes,
 			kvv1.Volume{
-				Name: common.KNLROOTName,
+				Name: KNLROOTName,
 				VolumeSource: kvv1.VolumeSource{
 					ContainerDisk: &kvv1.ContainerDiskSource{
 						Image: iomImage,
@@ -293,7 +291,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 					// //note: vsim only support qcow2, not RAW, so using hostdisk and hook to change it to qcow2
 					// PersistentVolumeClaim: &kvv1.PersistentVolumeClaimVolumeSource{
 					// 	PersistentVolumeClaimVolumeSource: corev1.PersistentVolumeClaimVolumeSource{
-					// 		ClaimName: common.PVCName,
+					// 		ClaimName: PVCName,
 					// 	},
 				},
 			},
@@ -301,7 +299,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 	}
 	r.Spec.Domain.Devices.Disks = append(r.Spec.Domain.Devices.Disks,
 		kvv1.Disk{
-			Name: common.KNLROOTName,
+			Name: KNLROOTName,
 			DiskDevice: kvv1.DiskDevice{
 				Disk: &kvv1.DiskTarget{
 					Bus: kvv1.DiskBusVirtio,
@@ -330,14 +328,14 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 	//fabric
 	switch vmt {
 	case SRVMVSIM, SRVMMAGC:
-		if !common.IsIntegratedChassisViaSysinfo(*srvm.Chassis.Cards[cardslot].SysInfo) {
+		if !IsIntegratedChassisViaSysinfo(*srvm.Chassis.Cards[cardslot].SysInfo) {
 			//add fabric only if it is not integrated chassis
 			r.Spec.Networks = append(r.Spec.Networks,
 				kvv1.Network{
 					Name: "fb-net",
 					NetworkSource: kvv1.NetworkSource{
 						Multus: &kvv1.MultusNetwork{
-							NetworkName: common.GetVSROSFBName(lab.Lab.Name, chassisName),
+							NetworkName: GetVSROSFBName(lab.Lab.Name, chassisName),
 						},
 					},
 				})
@@ -357,7 +355,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 					Name: "df-net",
 					NetworkSource: kvv1.NetworkSource{
 						Multus: &kvv1.MultusNetwork{
-							NetworkName: common.GetMAGCDFName(lab.Lab.Name, chassisName),
+							NetworkName: GetMAGCDFName(lab.Lab.Name, chassisName),
 						},
 					},
 				})
@@ -375,7 +373,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 	}
 
 	//port links
-	for _, linkName := range common.GetSortedKeySlice(lab.SpokeMap[chassisName]) {
+	for _, linkName := range GetSortedKeySlice(lab.SpokeMap[chassisName]) {
 		spokes := lab.SpokeMap[chassisName][linkName]
 		// for _, spokes := range lab.SpokeMap[chassisName] {
 		for _, spokeName := range spokes {

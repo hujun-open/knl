@@ -15,7 +15,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
-	"kubenetlab.net/knl/common"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -131,8 +130,8 @@ type SRLinux struct {
 }
 
 func (srl *SRLinux) SetToAppDefVal() {
-	srl.Chassis = common.ReturnPointerVal("ixr-d3l")
-	srl.ReqMemory = common.ReturnPointerVal(resource.MustParse(DefaultSRLMem))
+	srl.Chassis = ReturnPointerVal("ixr-d3l")
+	srl.ReqMemory = ReturnPointerVal(resource.MustParse(DefaultSRLMem))
 }
 
 func (srl *SRLinux) FillDefaultVal(nodeName string) {
@@ -181,7 +180,7 @@ func (srl *SRLinux) getEtcPVC(ns, nodeName, labName string) *corev1.PersistentVo
 		ObjectMeta: GetObjMeta(name, labName, ns, nodeName, SRL),
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes:      []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOncePod},
-			StorageClassName: common.GetPointerVal(*gconf.PVCStorageClass),
+			StorageClassName: GetPointerVal(*gconf.PVCStorageClass),
 			Resources: corev1.VolumeResourceRequirements{
 				Requests: map[corev1.ResourceName]resource.Quantity{
 					corev1.ResourceStorage: resource.MustParse(EtcPVCSize),
@@ -216,12 +215,12 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 	// gconf := GCONF.Get()
 	val := ctx.Value(ParsedLabKey)
 	if val == nil {
-		return common.MakeErr(fmt.Errorf("failed to get parsed lab obj from context"))
+		return MakeErr(fmt.Errorf("failed to get parsed lab obj from context"))
 	}
 	var lab *ParsedLab
 	var ok bool
 	if lab, ok = val.(*ParsedLab); !ok {
-		return common.MakeErr(fmt.Errorf("context stored value is not a ParsedLabSpec"))
+		return MakeErr(fmt.Errorf("context stored value is not a ParsedLabSpec"))
 	}
 	//create configmap
 	topoCM := srl.getConfigMapFromSRLChassis(lab.Lab.Namespace, nodeName, lab.Lab.Name, lab.Lab.Spec.GetNodeSortIndex(nodeName))
@@ -245,9 +244,9 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 		Image:   *srl.Image,
 		Command: []string{"sh", "-c", "rm -rf /etc/opt/srlinux/*; rsync -rptgoD /persis-etc/ /etc/opt/srlinux/"},
 		SecurityContext: &corev1.SecurityContext{
-			Privileged: common.ReturnPointerVal(true),
-			RunAsUser:  common.ReturnPointerVal(int64(0)),
-			RunAsGroup: common.ReturnPointerVal(int64(0)),
+			Privileged: ReturnPointerVal(true),
+			RunAsUser:  ReturnPointerVal(int64(0)),
+			RunAsGroup: ReturnPointerVal(int64(0)),
 		},
 		VolumeMounts: []corev1.VolumeMount{
 			{
@@ -263,7 +262,7 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 	pod.Spec.InitContainers = append(pod.Spec.InitContainers, initContainer)
 	pod.Spec.Containers[0].Command = []string{"/tini", "--", "fixuid", "-q", "/entrypoint.sh", "sudo", "bash", "/opt/srlinux/bin/sr_linux"}
 	pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
-		Privileged: common.ReturnPointerVal(true),
+		Privileged: ReturnPointerVal(true),
 	}
 	pod.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
 		{
@@ -303,7 +302,7 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 			Name: "etc",
 			VolumeSource: corev1.VolumeSource{
 				EmptyDir: &corev1.EmptyDirVolumeSource{
-					SizeLimit: common.ReturnPointerVal(resource.MustParse(EtcPVCSize)),
+					SizeLimit: ReturnPointerVal(resource.MustParse(EtcPVCSize)),
 				},
 			},
 		},
@@ -338,7 +337,7 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 	netStr := ""
 	i := 1
 	pod.Spec.Containers[0].Resources.Limits = make(corev1.ResourceList)
-	for _, linkName := range common.GetSortedKeySlice(lab.SpokeMap[nodeName]) {
+	for _, linkName := range GetSortedKeySlice(lab.SpokeMap[nodeName]) {
 		spokes := lab.SpokeMap[nodeName][linkName]
 		// for _, spokes := range lab.SpokeMap[nodeName] {
 		for _, spokeName := range spokes {
@@ -380,7 +379,7 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 
 func (srl *SRLinux) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
 	pod := &corev1.Pod{}
-	podKey := types.NamespacedName{Namespace: ns, Name: common.GetPodName(lab, chassis)}
+	podKey := types.NamespacedName{Namespace: ns, Name: GetPodName(lab, chassis)}
 	err := clnt.Get(ctx, podKey, pod)
 	if err != nil {
 		log.Fatalf("failed to list pods: %v", err)
@@ -389,15 +388,15 @@ func (srl *SRLinux) Shell(ctx context.Context, clnt client.Client, ns, lab, chas
 		username = "admin"
 	}
 	fmt.Println("connecting to", chassis, "at", pod.Status.PodIP, "username", username)
-	common.SysCallSSH(username, pod.Status.PodIP)
+	SysCallSSH(username, pod.Status.PodIP)
 }
 
 func (srl *SRLinux) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {
 	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
-	fmt.Printf("connecting to %v\n", common.GetPodName(lab, chassis))
+	fmt.Printf("connecting to %v\n", GetPodName(lab, chassis))
 	syscall.Exec("/bin/sh",
 		[]string{"sh", "-c",
 			fmt.Sprintf("kubectl -n %v exec -it %v -- bash",
-				ns, common.GetPodName(lab, chassis))},
+				ns, GetPodName(lab, chassis))},
 		envList)
 }

@@ -12,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
-	"kubenetlab.net/knl/common"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -59,7 +58,7 @@ func GetAvailableBrIndex(ctx context.Context, clnt client.Client, requiredNum in
 	bset := bitset.New(maxBridgeIndex)
 	bset = bset.Set(0)
 	nads := new(ncv1.NetworkAttachmentDefinitionList)
-	req, err := labels.NewRequirement(common.BridgeIndexLabelKey, selection.Exists, nil)
+	req, err := labels.NewRequirement(BridgeIndexLabelKey, selection.Exists, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -69,10 +68,10 @@ func GetAvailableBrIndex(ctx context.Context, clnt client.Client, requiredNum in
 		return nil, fmt.Errorf("failed to list net-attach-def, %w", err)
 	}
 	for _, nad := range nads.Items {
-		if val, ok := nad.Labels[common.BridgeIndexLabelKey]; ok {
+		if val, ok := nad.Labels[BridgeIndexLabelKey]; ok {
 			i, err := strconv.Atoi(val)
 			if err != nil {
-				return nil, fmt.Errorf("invalid %v value found in NAD %v: %v, %w", common.BridgeIndexLabelKey, val, nad.Name, err)
+				return nil, fmt.Errorf("invalid %v value found in NAD %v: %v, %w", BridgeIndexLabelKey, val, nad.Name, err)
 			}
 			bset.Set(uint(i))
 		}
@@ -152,7 +151,7 @@ func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) erro
 	if err != nil {
 		return fmt.Errorf("failed to get %d vni, %w", len(plab.Lab.Spec.LinkList), err)
 	}
-	for i, linkName := range common.GetSortedKeySlice(plab.Lab.Spec.LinkList) {
+	for i, linkName := range GetSortedKeySlice(plab.Lab.Spec.LinkList) {
 		// for linkName, link := range plab.Lab.Spec.LinkList {
 		link := plab.Lab.Spec.LinkList[linkName]
 		lan := new(k8slan.LAN)
@@ -169,13 +168,13 @@ func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) erro
 			lan = &k8slan.LAN{
 				ObjectMeta: GetObjMeta(Getk8lanName(plab.Lab.Name, linkName), plab.Lab.Name, plab.Lab.Namespace, "", ""),
 				Spec: k8slan.LANSpec{
-					NS:           common.GetPointerVal(Getk8lanName(plab.Lab.Name, linkName)),
-					BridgeName:   common.GetPointerVal(Getk8lanBRName(plab.Lab.Name, linkName)),
-					VxLANName:    common.GetPointerVal(Getk8lanVxName(plab.Lab.Name, linkName, vni)),
-					VNI:          common.GetPointerVal(vni),
+					NS:           GetPointerVal(Getk8lanName(plab.Lab.Name, linkName)),
+					BridgeName:   GetPointerVal(Getk8lanBRName(plab.Lab.Name, linkName)),
+					VxLANName:    GetPointerVal(Getk8lanVxName(plab.Lab.Name, linkName, vni)),
+					VNI:          GetPointerVal(vni),
 					DefaultVxDev: *gconf.VXLANDefaultDev,
 					VxDevMap:     gconf.VxDevMap,
-					VxPort:       common.GetPointerVal(VxLANPort),
+					VxPort:       GetPointerVal(VxLANPort),
 					VxLANGrp:     gconf.VXLANGrpAddr,
 					SpokeList:    []string{},
 				},

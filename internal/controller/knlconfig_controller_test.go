@@ -22,13 +22,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
+	"k8s.io/apimachinery/pkg/types"
 	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
-	"kubenetlab.net/knl/common"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 var _ = Describe("KNLConfig Controller", func() {
@@ -56,9 +53,9 @@ var _ = Describe("KNLConfig Controller", func() {
 					},
 					// TODO(user): Specify other spec details if needed.
 					Spec: knlv1beta1.KNLConfigSpec{
-						PVCStorageClass:  common.ReturnPointerVal("standard"),
-						SRIOMLoaderImage: common.ReturnPointerVal("localhost/iomload:v1"),
-						SideCarHookImg:   common.ReturnPointerVal("localhost/knl2sidecar:v15"),
+						PVCStorageClass:  knlv1beta1.ReturnPointerVal("standard"),
+						SRIOMLoaderImage: knlv1beta1.ReturnPointerVal("localhost/iomload:v1"),
+						SideCarHookImg:   knlv1beta1.ReturnPointerVal("localhost/knl2sidecar:v15"),
 					},
 				}
 				Expect(k8sClient.Create(ctx, resource)).To(Succeed())

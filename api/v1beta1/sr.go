@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
-	"kubenetlab.net/knl/common"
 	kvv1 "kubevirt.io/api/core/v1"
 )
 
@@ -113,7 +112,7 @@ type SRChassis struct {
 
 func (chassis *SRChassis) GetDefaultCPMSlot() string {
 	for slot := range chassis.Cards {
-		if common.IsCPM(slot) {
+		if IsCPM(slot) {
 			return slot
 		}
 	}
@@ -141,48 +140,48 @@ func (chassis *SRChassis) Validate() error {
 // DefaultSIMChassis return default chassis for SRSIM or VSIM
 func DefaultSIMChassis(nt NodeType) *SRChassis {
 	r := &SRChassis{
-		Type:  common.ReturnPointerVal(nt),
-		Model: common.ReturnPointerVal("SR-7"),
-		SFM:   common.ReturnPointerVal("m-sfm5-7"),
+		Type:  ReturnPointerVal(nt),
+		Model: ReturnPointerVal("SR-7"),
+		SFM:   ReturnPointerVal("m-sfm5-7"),
 	}
 	r.Cards = make(map[string]*SRCard)
 	r.Cards["A"] = &SRCard{
-		Model: common.ReturnPointerVal("cpm5"),
+		Model: ReturnPointerVal("cpm5"),
 	}
 	if nt == SRVMVSIM {
-		r.Cards["A"].ReqMemory = common.ReturnPointerVal(resource.MustParse(DefaultVSIMCPMMEM))
-		r.Cards["A"].ReqCPU = common.ReturnPointerVal(resource.MustParse(DefaultVSIMCPMCPU))
+		r.Cards["A"].ReqMemory = ReturnPointerVal(resource.MustParse(DefaultVSIMCPMMEM))
+		r.Cards["A"].ReqCPU = ReturnPointerVal(resource.MustParse(DefaultVSIMCPMCPU))
 		r.Cards["A"].ListenPorts = getCPMVMListenPorts()
 	} else {
 		//srsim
-		r.Cards["A"].ReqMemory = common.ReturnPointerVal(resource.MustParse(DefaultSRSIMCONTAINERMEM))
+		r.Cards["A"].ReqMemory = ReturnPointerVal(resource.MustParse(DefaultSRSIMCONTAINERMEM))
 	}
 	r.Cards["1"] = &SRCard{
-		Model: common.ReturnPointerVal("iom4-e"),
-		MDAs:  common.GetPointerVal([]string{"me10-10gb-sfp+", "me-isa2-ms"}),
+		Model: ReturnPointerVal("iom4-e"),
+		MDAs:  GetPointerVal([]string{"me10-10gb-sfp+", "me-isa2-ms"}),
 	}
 	if nt == SRVMVSIM {
-		r.Cards["1"].ReqMemory = common.ReturnPointerVal(resource.MustParse(DefaultVSIMIOMMEM))
-		r.Cards["1"].ReqCPU = common.ReturnPointerVal(resource.MustParse(DefaultVSIMIOMCPU))
+		r.Cards["1"].ReqMemory = ReturnPointerVal(resource.MustParse(DefaultVSIMIOMMEM))
+		r.Cards["1"].ReqCPU = ReturnPointerVal(resource.MustParse(DefaultVSIMIOMCPU))
 		r.Cards["1"].ListenPorts = getIOMVMListenPorts()
 	} else {
 		//srsim
-		r.Cards["1"].ReqMemory = common.ReturnPointerVal(resource.MustParse(DefaultSRSIMCONTAINERMEM))
+		r.Cards["1"].ReqMemory = ReturnPointerVal(resource.MustParse(DefaultSRSIMCONTAINERMEM))
 	}
 	return r
 }
 
 func DefaultVSRIChassis() *SRChassis {
 	r := &SRChassis{
-		Type:  common.ReturnPointerVal(SRVMVSRI),
-		Model: common.ReturnPointerVal("VSR-I"),
+		Type:  ReturnPointerVal(SRVMVSRI),
+		Model: ReturnPointerVal("VSR-I"),
 	}
 	r.Cards = make(map[string]*SRCard)
 	r.Cards["A"] = &SRCard{
-		Model:       common.ReturnPointerVal("cpm-v"),
-		MDAs:        common.GetPointerVal([]string{"m20-v", "isa-tunnel-v"}),
-		ReqMemory:   common.ReturnPointerVal(resource.MustParse(DefaultVSRIMEM)),
-		ReqCPU:      common.ReturnPointerVal(resource.MustParse(DefaultVSRICPU)),
+		Model:       ReturnPointerVal("cpm-v"),
+		MDAs:        GetPointerVal([]string{"m20-v", "isa-tunnel-v"}),
+		ReqMemory:   ReturnPointerVal(resource.MustParse(DefaultVSRIMEM)),
+		ReqCPU:      ReturnPointerVal(resource.MustParse(DefaultVSRICPU)),
 		ListenPorts: getCPMVMListenPorts(),
 	}
 	return r
@@ -190,28 +189,28 @@ func DefaultVSRIChassis() *SRChassis {
 
 func DefaultMAGCChassis() *SRChassis {
 	r := &SRChassis{
-		Type:  common.ReturnPointerVal(SRVMMAGC),
-		Model: common.ReturnPointerVal("VSR"),
+		Type:  ReturnPointerVal(SRVMMAGC),
+		Model: ReturnPointerVal("VSR"),
 	}
 	r.Cards = make(map[string]*SRCard)
 	r.Cards["A"] = &SRCard{
-		Model:       common.ReturnPointerVal("cpm-v"),
-		ReqMemory:   common.ReturnPointerVal(resource.MustParse(DefaultMAGCOAMMEM)),
-		ReqCPU:      common.ReturnPointerVal(resource.MustParse(DefaultMAGCOAMCPU)),
+		Model:       ReturnPointerVal("cpm-v"),
+		ReqMemory:   ReturnPointerVal(resource.MustParse(DefaultMAGCOAMMEM)),
+		ReqCPU:      ReturnPointerVal(resource.MustParse(DefaultMAGCOAMCPU)),
 		ListenPorts: getCPMVMListenPorts(),
 	}
 	r.Cards["1"] = &SRCard{
-		Model:       common.ReturnPointerVal("iom-v"),
-		MDAs:        common.GetPointerVal([]string{"m20-v"}),
-		ReqMemory:   common.ReturnPointerVal(resource.MustParse(DefaultMAGCLBMEM)),
-		ReqCPU:      common.ReturnPointerVal(resource.MustParse(DefaultMAGCLBCPU)),
+		Model:       ReturnPointerVal("iom-v"),
+		MDAs:        GetPointerVal([]string{"m20-v"}),
+		ReqMemory:   ReturnPointerVal(resource.MustParse(DefaultMAGCLBMEM)),
+		ReqCPU:      ReturnPointerVal(resource.MustParse(DefaultMAGCLBCPU)),
 		ListenPorts: getIOMVMListenPorts(),
 	}
 	r.Cards["2"] = &SRCard{
-		Model:       common.ReturnPointerVal("iom-v-mg"),
-		MDAs:        common.GetPointerVal([]string{"isa-ms-v"}),
-		ReqMemory:   common.ReturnPointerVal(resource.MustParse(DefaultMAGCMGMEM)),
-		ReqCPU:      common.ReturnPointerVal(resource.MustParse(DefaultMAGCMGCPU)),
+		Model:       ReturnPointerVal("iom-v-mg"),
+		MDAs:        GetPointerVal([]string{"isa-ms-v"}),
+		ReqMemory:   ReturnPointerVal(resource.MustParse(DefaultMAGCMGMEM)),
+		ReqCPU:      ReturnPointerVal(resource.MustParse(DefaultMAGCMGCPU)),
 		ListenPorts: getIOMVMListenPorts(),
 	}
 	return r
@@ -242,7 +241,7 @@ func (chassis *SRChassis) GetDefaultSysinfoStr(cardid string) string {
 		}
 	}
 	if *chassis.Type == SRVMMAGC {
-		if !common.IsCPM(cardid) {
+		if !IsCPM(cardid) {
 			rs += "ofabric/1=2 "
 			if strings.ToLower(strings.TrimSpace(*chassis.Cards[cardid].Model)) == "iom-v-mg" {
 				rs += "control-cpu-cores=4 "
@@ -258,13 +257,13 @@ func (chassis *SRChassis) GetDefaultSysinfoStr(cardid string) string {
 // GetDefaultMDASlot return default IOM slot
 func (chassis *SRChassis) GetDefaultMDASlot() string {
 	iomList := []int{}
-	if common.IsIntegratedChassis(*chassis.Model) {
+	if IsIntegratedChassis(*chassis.Model) {
 		for slot := range chassis.Cards {
 			return slot
 		}
 	} else {
 		for slot := range chassis.Cards {
-			if !common.IsCPM(slot) {
+			if !IsCPM(slot) {
 				slotNum, err := strconv.Atoi(strings.TrimSpace(slot))
 				if err != nil {
 					panic(err)
@@ -290,30 +289,30 @@ func (card *SRCard) FillDefaultVal(nt NodeType, cardid string) {
 	//cpu & memory
 	switch nt {
 	case SRSIM:
-		card.ReqMemory = common.SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultSRSIMCONTAINERMEM))
+		card.ReqMemory = SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultSRSIMCONTAINERMEM))
 	case SRVMVSIM:
-		if common.IsCPM(cardid) {
-			card.ReqMemory = common.SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultVSIMCPMMEM))
-			card.ReqCPU = common.SetDefaultGeneric(card.ReqCPU, resource.MustParse(DefaultVSIMCPMCPU))
+		if IsCPM(cardid) {
+			card.ReqMemory = SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultVSIMCPMMEM))
+			card.ReqCPU = SetDefaultGeneric(card.ReqCPU, resource.MustParse(DefaultVSIMCPMCPU))
 		} else {
-			card.ReqMemory = common.SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultVSIMIOMMEM))
-			card.ReqCPU = common.SetDefaultGeneric(card.ReqCPU, resource.MustParse(DefaultVSIMIOMCPU))
+			card.ReqMemory = SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultVSIMIOMMEM))
+			card.ReqCPU = SetDefaultGeneric(card.ReqCPU, resource.MustParse(DefaultVSIMIOMCPU))
 		}
 	case SRVMVSRI:
-		card.ReqMemory = common.SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultVSRIMEM))
-		card.ReqCPU = common.SetDefaultGeneric(card.ReqCPU, resource.MustParse(DefaultVSRICPU))
+		card.ReqMemory = SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultVSRIMEM))
+		card.ReqCPU = SetDefaultGeneric(card.ReqCPU, resource.MustParse(DefaultVSRICPU))
 	case SRVMMAGC:
-		if common.IsCPM(cardid) {
-			card.ReqMemory = common.SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultMAGCOAMMEM))
-			card.ReqCPU = common.SetDefaultGeneric(card.ReqCPU, resource.MustParse(DefaultMAGCOAMCPU))
+		if IsCPM(cardid) {
+			card.ReqMemory = SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultMAGCOAMMEM))
+			card.ReqCPU = SetDefaultGeneric(card.ReqCPU, resource.MustParse(DefaultMAGCOAMCPU))
 		} else {
 			if len(*card.MDAs) > 0 {
 				if (*card.MDAs)[0] == "iom-v-mg" {
-					card.ReqMemory = common.SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultMAGCMGMEM))
-					card.ReqCPU = common.SetDefaultGeneric(card.ReqCPU, resource.MustParse(DefaultMAGCMGCPU))
+					card.ReqMemory = SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultMAGCMGMEM))
+					card.ReqCPU = SetDefaultGeneric(card.ReqCPU, resource.MustParse(DefaultMAGCMGCPU))
 				} else {
-					card.ReqMemory = common.SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultMAGCLBMEM))
-					card.ReqCPU = common.SetDefaultGeneric(card.ReqCPU, resource.MustParse(DefaultMAGCLBCPU))
+					card.ReqMemory = SetDefaultGeneric(card.ReqMemory, resource.MustParse(DefaultMAGCLBMEM))
+					card.ReqCPU = SetDefaultGeneric(card.ReqCPU, resource.MustParse(DefaultMAGCLBCPU))
 
 				}
 			}
@@ -321,10 +320,10 @@ func (card *SRCard) FillDefaultVal(nt NodeType, cardid string) {
 	}
 	//listening ports
 	if nt != SRSIM {
-		if common.IsCPM(cardid) {
-			card.ListenPorts = common.SetDefaultGeneric(card.ListenPorts, *getCPMVMListenPorts())
+		if IsCPM(cardid) {
+			card.ListenPorts = SetDefaultGeneric(card.ListenPorts, *getCPMVMListenPorts())
 		} else {
-			card.ListenPorts = common.SetDefaultGeneric(card.ListenPorts, *getIOMVMListenPorts())
+			card.ListenPorts = SetDefaultGeneric(card.ListenPorts, *getIOMVMListenPorts())
 		}
 	}
 }

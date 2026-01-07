@@ -29,7 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"kubenetlab.net/knl/api/v1beta1"
 	knlv1beta1 "kubenetlab.net/knl/api/v1beta1"
-	"kubenetlab.net/knl/common"
 	kvv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -166,16 +165,16 @@ func registrResource[T any, PT myObj[T]](ctx context.Context, mgr ctrl.Manager) 
 // SetupWithManager sets up the controller with the Manager.
 func (r *LabReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := registrResource[corev1.Pod](context.Background(), mgr); err != nil {
-		return common.MakeErr(err)
+		return knlv1beta1.MakeErr(err)
 	}
 	if err := registrResource[corev1.PersistentVolumeClaim](context.Background(), mgr); err != nil {
-		return common.MakeErr(err)
+		return knlv1beta1.MakeErr(err)
 	}
 	if err := registrResource[kvv1.VirtualMachineInstance](context.Background(), mgr); err != nil {
-		return common.MakeErr(err)
+		return knlv1beta1.MakeErr(err)
 	}
 	if err := registrResource[k8slan.LAN](context.Background(), mgr); err != nil {
-		return common.MakeErr(err)
+		return knlv1beta1.MakeErr(err)
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&knlv1beta1.Lab{}).
