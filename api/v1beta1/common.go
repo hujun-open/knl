@@ -462,16 +462,17 @@ func GetVMPCDVName(lab, node string) string {
 }
 
 const (
-	FixedSRVMMgmtAddrPrefixStr = "10.0.2.2/24"
-	FixedFTPProxyUser          = "ftp"
-	FixedFTPProxyPass          = "ftp"
-	FixedFTPProxySvr           = "10.0.2.1"
+	FixedSRVMMgmtAddrPrefixStr        = "10.0.2.2/24"
+	FixedSRVMMgmtStandbyAddrPrefixStr = "10.0.2.3/24"
+	FixedFTPProxyUser                 = "ftp"
+	FixedFTPProxyPass                 = "ftp"
+	FixedFTPProxySvr                  = "10.0.2.1"
 )
 
 // chassis is sysinfo string specified in API that only contains chassis,card, mda, sfm
 func GenSysinfo(baseSysinfo string, cfgURL, licURL string) string {
-	return fmt.Sprintf("TIMOS: %v address=%v@active primary-config=%v license-file=%v static-route=0.0.0.0/0@%v",
-		baseSysinfo, FixedSRVMMgmtAddrPrefixStr, cfgURL, licURL, FixedFTPProxySvr)
+	return fmt.Sprintf("TIMOS: %v address=%v@active address=%v@standby primary-config=%v license-file=%v static-route=0.0.0.0/0@%v",
+		baseSysinfo, FixedSRVMMgmtAddrPrefixStr, FixedSRVMMgmtStandbyAddrPrefixStr, cfgURL, licURL, FixedFTPProxySvr)
 }
 
 func IsIntegratedChassis(chassisModel string) bool {
