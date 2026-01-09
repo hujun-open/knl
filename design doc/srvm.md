@@ -63,6 +63,9 @@ This way, we achieve following:
     </disk>
 
     ```
+# LImitation
+however this approach has limitation of not supporting two CPM, this is because two CPM needs two mgmt IP, where there is only one IP: 10.0.2.2 (need to investigate further to see if there is anyway to get a different IP than 10.0.2.2)
+
 - for IOM-VM, since there is no persistency requirement, just use a container disk, however this container disk image must use qcow2 format (the the actual image is same as CPM VM, just in qcow2 format) with Dockerfile like following: 
 ```
 FROM scratch

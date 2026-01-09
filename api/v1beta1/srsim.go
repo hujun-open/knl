@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"regexp"
 	"strings"
 	"syscall"
 
@@ -67,7 +68,16 @@ func (srsim *SRSim) Validate(lab *LabSpec, nodeName string) error {
 	if srsim.LicSecret == nil {
 		return fmt.Errorf("license secret not specified")
 	}
-
+	re := regexp.MustCompile(`^e\d{1,2}((-[a-z]\d{1,2})?-\d{1,2}){1,2}$`)
+	for linkName, link := range lab.LinkList {
+		for _, c := range link.Connectors {
+			if c.PortId != nil {
+				if !re.MatchString(*c.PortId) {
+					return fmt.Errorf("invlid port id %v in link %v", *c.PortId, linkName)
+				}
+			}
+		}
+	}
 	return srsim.Chassis.Validate()
 }
 
@@ -171,6 +181,13 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 
 		if IsCPM(slotid) {
 			//cpm
+			// chassis mac
+			if srsim.Chassis.ChassisMAC != nil {
+				container.Env = append(container.Env, corev1.EnvVar{
+					Name:  "NOKIA_SROS_SYSTEM_BASE_MAC",
+					Value: *srsim.Chassis.ChassisMAC,
+				})
+			}
 			//cf cards
 			for i := 1; i <= 3; i++ {
 				cfPVC := srsim.getCFPVC(lab.Lab.Namespace, nodeName, lab.Lab.Name, slotid, i)
@@ -227,10 +244,10 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 			lanName := Getk8lanName(lab.Lab.Name, lab.SpokeLinkMap[spokeName])
 			nadName := k8slan.GetNADName(lanName, spokeName, true)
 			if lab.SpokeConnectorMap[spokeName].PortId != nil {
-				netStr += fmt.Sprintf("%v@%v,", nadName, lab.SpokeConnectorMap[spokeName].PortId)
+				netStr += fmt.Sprintf("%v@%v,", nadName, *(lab.SpokeConnectorMap[spokeName].PortId))
 			} else {
-				//if port is not specified, default to card 1 mda 1
-				netStr += fmt.Sprintf("%v@e1-1-%d,", nadName, i)
+				//if port is not specified, default to mda 1 of first IOM slot
+				netStr += fmt.Sprintf("%v@e%v-1-%d,", nadName, srsim.Chassis.GetDefaultMDASlot(), i)
 			}
 			resKey := fmt.Sprintf("%v/%v", K8sLANResKeyPrefix, nadName)
 			pod.Spec.Containers[0].Resources.Limits[corev1.ResourceName(resKey)] = resource.MustParse("1")

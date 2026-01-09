@@ -134,17 +134,17 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 		//get sftp credentials
 		sftpUser := ""
 		sftpPass := ""
-		if strings.HasPrefix(*srvm.Image, FTPImagePrefix) {
-			secKey := types.NamespacedName{Namespace: MYNAMESPACE, Name: KNLSftpCredentialSecret}
-			sftpSec := new(corev1.Secret)
-			err = clnt.Get(ctx, secKey, sftpSec)
-			if err != nil {
-				return MakeErr(err)
-			}
-			sftpUser = string(sftpSec.Data["username"])
-			sftpPass = string(sftpSec.Data["password"])
-
+		// if strings.HasPrefix(*srvm.Image, FTPImagePrefix) {
+		secKey := types.NamespacedName{Namespace: MYNAMESPACE, Name: KNLSftpCredentialSecret}
+		sftpSec := new(corev1.Secret)
+		err = clnt.Get(ctx, secKey, sftpSec)
+		if err != nil {
+			return MakeErr(err)
 		}
+		sftpUser = string(sftpSec.Data["username"])
+		sftpPass = string(sftpSec.Data["password"])
+
+		// }
 		//VMI
 		vmi := srvm.getVMI(lab, nodeName, slot, licFullPath, sftpUser, sftpPass)
 		err = createIfNotExistsOrFailedOrRemove(ctx, clnt, lab, vmi, checkVMIfail, true, forceRemoval)
@@ -171,6 +171,11 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 	r.ObjectMeta.Labels[vSROSIDLabel] = getFullQualifiedSRVMChassisName(lab.Lab.Name, chassisName)
 	//add sysinfo for SR like node
 	cfgURL := fmt.Sprintf("ftp://ftp:ftp@%v/cfg/config.cfg", FixedFTPProxySvr)
+	if *srvm.Chassis.Type == SRVMMAGC {
+		if isCPM {
+			cfgURL = `cf3:/config.cfg`
+		}
+	}
 	//add ftp Path Map
 	ftpPathMap := map[string]string{
 		"/i386-boot.tim": fmt.Sprintf("%v/i386-boot.tim", GetSFTPSROSImgPath(lab.Lab.Name, chassisName)),

@@ -233,6 +233,16 @@ func onDefineDomain(vmiJSON, domainXML []byte) (string, error) {
 }
 
 const (
+	/*
+	   add following to enable loggin to file
+	   "logging": {
+	   "ftp_exchanges": true,
+	   "file_accesses": true,
+	   "file": "/tmp/ftpsvr.log"
+	   },
+
+	*/
+
 	ftpSVRCFGTemplate = `{
 "version": 1,
 "listen_address": ":21",
@@ -249,11 +259,6 @@ const (
 	}
 }
 ],
-"logging": {
-ftp_exchanges: true,
-file_accesses: true,
-file: "/tmp/ftpsvr.log"
-},
 "passive_transfer_port_range": {
 "start": 2122,
 "end": 2130

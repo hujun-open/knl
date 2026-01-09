@@ -233,6 +233,7 @@ func ReturnPointerVal[T any](val T) *T {
 }
 
 var BaseMACAddr = net.HardwareAddr{0x12, 32, 34, 0, 0, 0}
+var ChassisBaseMACAddr = net.HardwareAddr{2, 0xcc, 0, 0, 0, 0}
 
 func DeriveMac(basemac net.HardwareAddr, offset int) net.HardwareAddr {
 	buf := make([]byte, 2)
@@ -241,6 +242,10 @@ func DeriveMac(basemac net.HardwareAddr, offset int) net.HardwareAddr {
 	basenum += uint64(offset)
 	binary.BigEndian.PutUint64(buf, basenum)
 	return buf[2:8]
+}
+
+func DeriveChassisMac(offset int) net.HardwareAddr {
+	return DeriveMac(ChassisBaseMACAddr, offset)
 }
 
 func MakeErr(ierr error) error {

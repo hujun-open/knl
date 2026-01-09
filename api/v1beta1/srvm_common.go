@@ -122,3 +122,27 @@ func IsSRVM(nodeT NodeType) bool {
 	}
 	return false
 }
+
+func IsSRType(nt NodeType) bool {
+	if IsSRVM(nt) {
+		return true
+	}
+	if nt == SRSIM {
+		return true
+	}
+	return false
+}
+
+func GetChassisFromSys(nodeName string, sys System) *SRChassis {
+	switch GetNodeTypeViaName(nodeName) {
+	case SRSIM:
+		return sys.(*SRSim).Chassis
+	case SRVMMAGC:
+		return sys.(*MAGC).Chassis
+	case SRVMVSIM:
+		return sys.(*VSIM).Chassis
+	case SRVMVSRI:
+		return sys.(*VSRI).Chassis
+	}
+	return nil
+}

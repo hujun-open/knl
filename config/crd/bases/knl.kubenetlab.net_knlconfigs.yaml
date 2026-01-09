@@ -137,6 +137,10 @@ spec:
                               a dictionary of CPM and IOM cards,
                               key is slot id, "A","B" for CPM, number for IOM
                             type: object
+                          chassisMac:
+                            description: Chassis Base MAC address, auto assigned if
+                              not specified
+                            type: string
                           model:
                             description: chassis model
                             type: string
@@ -341,6 +345,10 @@ spec:
                               a dictionary of CPM and IOM cards,
                               key is slot id, "A","B" for CPM, number for IOM
                             type: object
+                          chassisMac:
+                            description: Chassis Base MAC address, auto assigned if
+                              not specified
+                            type: string
                           model:
                             description: chassis model
                             type: string
@@ -532,6 +540,10 @@ spec:
                               a dictionary of CPM and IOM cards,
                               key is slot id, "A","B" for CPM, number for IOM
                             type: object
+                          chassisMac:
+                            description: Chassis Base MAC address, auto assigned if
+                              not specified
+                            type: string
                           model:
                             description: chassis model
                             type: string
@@ -669,6 +681,10 @@ spec:
                               a dictionary of CPM and IOM cards,
                               key is slot id, "A","B" for CPM, number for IOM
                             type: object
+                          chassisMac:
+                            description: Chassis Base MAC address, auto assigned if
+                              not specified
+                            type: string
                           model:
                             description: chassis model
                             type: string

@@ -108,6 +108,8 @@ type SRChassis struct {
 	Cards map[string]*SRCard `json:"cards,omitempty"`
 	//SFM model
 	SFM *string `json:"sfm,omitempty"`
+	//Chassis Base MAC address, auto assigned if not specified
+	ChassisMAC *string `json:"chassisMac,omitempty"`
 }
 
 func (chassis *SRChassis) GetDefaultCPMSlot() string {
@@ -217,6 +219,7 @@ func DefaultMAGCChassis() *SRChassis {
 }
 
 // GetDefaultSysinfoStr return a default vsim/vsr/mag-c sysinfo string for the specified card
+// note: this function doesn't generate license url and config url
 func (chassis *SRChassis) GetDefaultSysinfoStr(cardid string) string {
 	var rs string
 	if chassis.SFM != nil {
@@ -241,15 +244,15 @@ func (chassis *SRChassis) GetDefaultSysinfoStr(cardid string) string {
 		}
 	}
 	if *chassis.Type == SRVMMAGC {
+		rs += "vf2vf=1 "
 		if !IsCPM(cardid) {
 			rs += "ofabric/1=2 "
 			if strings.ToLower(strings.TrimSpace(*chassis.Cards[cardid].Model)) == "iom-v-mg" {
-				rs += "control-cpu-cores=4 "
+				rs += "control-cpu-cores=4 compact-fp=1 "
 			} else {
 				rs += "control-cpu-cores=2 "
 			}
 		}
-
 	}
 	return rs
 }

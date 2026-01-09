@@ -119,28 +119,45 @@ func (d *LabCustomDefaulter) Default(_ context.Context, obj runtime.Object) erro
 		return err
 	}
 	//fill node specific Default
-	SRVMs := make(map[string]knlv1beta1.System)
+	// SRVMs := make(map[string]knlv1beta1.System)
 	for nodeName := range lab.Spec.NodeList {
 		sys, _ := lab.Spec.NodeList[nodeName].GetSystem()
 		sys.FillDefaultVal(nodeName)
-		if v1beta1.IsSRVM(knlv1beta1.GetNodeTypeViaName(nodeName)) {
-			SRVMs[nodeName] = sys
-		}
+		// if v1beta1.IsSRVM(knlv1beta1.GetNodeTypeViaName(nodeName)) {
+		// 	SRVMs[nodeName] = sys
+		// }
 	}
-	//fill port id for SRVM
+
 	for linkName, link := range lab.Spec.LinkList {
 		for cid, c := range link.Connectors {
-			if sys, ok := SRVMs[*c.NodeName]; ok {
+			nt := knlv1beta1.GetNodeTypeViaName(*c.NodeName)
+			if knlv1beta1.IsSRVM(nt) {
+				//fill port id for SRVM
 				if c.PortId != nil {
 					continue
 				}
+				sys, _ := lab.Spec.NodeList[*c.NodeName].GetSystem()
 				srvm := v1beta1.GetSRVMviaSys(*c.NodeName, sys)
 				c.PortId = knlv1beta1.ReturnPointerVal(srvm.Chassis.GetDefaultMDASlot())
 				lab.Spec.LinkList[linkName].Connectors[cid].PortId = knlv1beta1.SetDefaultGeneric(lab.Spec.LinkList[linkName].Connectors[cid].PortId, srvm.Chassis.GetDefaultMDASlot())
-
 			}
 		}
 	}
+
+	for i, nodeName := range knlv1beta1.GetSortedKeySlice(lab.Spec.NodeList) {
+		if knlv1beta1.IsSRType(knlv1beta1.GetNodeTypeViaName(nodeName)) {
+			//fill chassis base mac
+			sys, _ := lab.Spec.NodeList[nodeName].GetSystem()
+			chassis := knlv1beta1.GetChassisFromSys(nodeName, sys)
+			if chassis != nil {
+				if chassis.ChassisMAC == nil {
+					chassis.ChassisMAC = knlv1beta1.ReturnPointerVal(knlv1beta1.DeriveChassisMac(i).String())
+				}
+			}
+
+		}
+	}
+
 	return nil
 }
 

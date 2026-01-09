@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: basesvr.hj.dev:5000/knltwo
-  newTag: v25
+  newTag: v31
