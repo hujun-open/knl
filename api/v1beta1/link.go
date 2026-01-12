@@ -3,6 +3,8 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/netip"
 	"strconv"
 
 	"github.com/bits-and-blooms/bitset"
@@ -21,12 +23,34 @@ type Link struct {
 	//+required
 	//a list of nodes connect to the link's layer2 network
 	Connectors []Connector `json:"nodes"`
-	GWAddr     *string     `json:"gwAddr,omitempty"` //a prefix
+	GWAddr     *string     `json:"gw,omitempty"` //a prefix
 }
 
 func (link *Link) Validate() error {
 	if len(link.Connectors) < 2 {
 		return fmt.Errorf("the minimal number of nodes per link is 2")
+	}
+	if link.GWAddr != nil {
+		gw, err := netip.ParseAddr(*link.GWAddr)
+		if !gw.IsValid() || gw.IsMulticast() || err != nil {
+			return fmt.Errorf("%v is not valid unicast IP address, %w", *link.GWAddr, err)
+		}
+	}
+	for i, c := range link.Connectors {
+		if *c.NodeName == "" {
+			return fmt.Errorf("connector %d node name can't be empty", i)
+		}
+		if c.Addr != nil {
+			prefix, err := netip.ParsePrefix(*c.Addr)
+			if !prefix.IsValid() || prefix.Addr().IsMulticast() || err != nil {
+				return fmt.Errorf("%v is not valid unicast IP prefix, %w", *c.Addr, err)
+			}
+		}
+		if c.Mac != nil {
+			if _, err := net.ParseMAC(*c.Mac); err != nil {
+				return fmt.Errorf("%v is not a valid mac address, %w", *c.Mac, err)
+			}
+		}
 	}
 	return nil
 }

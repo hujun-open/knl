@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: localhost/knltwo
-  newTag: v108
+  newTag: v110

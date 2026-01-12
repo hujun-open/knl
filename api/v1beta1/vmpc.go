@@ -360,10 +360,10 @@ method=manual
 				if c.Addr != nil {
 					gwStr := ""
 					if lab.Lab.Spec.LinkList[linkname].GWAddr != nil {
-						gwAddr := netip.MustParsePrefix(*lab.Lab.Spec.LinkList[linkname].GWAddr)
-						gwStr = fmt.Sprintf("gateway4: %v", gwAddr.Addr().String())
-						if gwAddr.Addr().Is6() {
-							gwStr = fmt.Sprintf("gateway6: %v", gwAddr.Addr().String())
+						gwAddr := netip.MustParseAddr(*lab.Lab.Spec.LinkList[linkname].GWAddr)
+						gwStr = fmt.Sprintf("gateway4: %v", gwAddr.String())
+						if gwAddr.Is6() {
+							gwStr = fmt.Sprintf("gateway6: %v", gwAddr.String())
 						}
 					}
 					//add network data for startup config

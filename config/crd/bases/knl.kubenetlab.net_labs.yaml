@@ -45,7 +45,7 @@ spec:
                     Link defines a layer2 connection between nodes,
                     two or more nodes per link are supported.
                   properties:
-                    gwAddr:
+                    gw:
                       type: string
                     nodes:
                       description: a list of nodes connect to the link's layer2 network
