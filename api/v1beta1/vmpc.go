@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/netip"
 	"net/url"
 	"os"
@@ -20,9 +21,11 @@ import (
 )
 
 const (
-	InitMethod_CLOUDINIT     = "cloudinit"
-	InitMethod_IGNITION_NMGR = "ignition_netmgr"
+	InitMethod_CLOUDINIT     = "cloud-init"
+	InitMethod_IGNITION_NMGR = "ignition"
 )
+
+var VMBaseMAC = net.HardwareAddr{2, 0xff, 0, 0, 0, 99}
 
 func init() {
 	NewSysRegistry[VM] = func() System { return new(GeneralVM) }
@@ -40,11 +43,11 @@ type GeneralVM struct {
 	PinCPU *bool `json:"cpuPin,omitempty"`
 	//request hugepage memory if true
 	HugePage *bool `json:"hugePage,omitempty"`
-	//kubevirt CDI supported URL, either HTTP or registry source
+	//kubevirt CDI supported URL, either HTTP (http://) or registry source (docker://)
 	Image *string `json:"image,omitempty"`
 	//intilization method, supports cloud-init or ignition
 	InitMethod *string `json:"init,omitempty"`
-	//listening port of the VM
+	//listening port of the VM on the 1st pod interface
 	Ports *[]kvv1.Port `json:"ports,omitempty"`
 	//username to login into VM, username and password are feed into vm initialization mechinism like cloud-init
 	Username *string `json:"user,omitempty"`
@@ -132,6 +135,7 @@ func (gvm *GeneralVM) Ensure(ctx context.Context, nodeName string, clnt client.C
 }
 
 func (gvm *GeneralVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachineInstance {
+	// log := ctrl.Log.WithName("Discover")
 	gconf := GCONF.Get()
 	r := new(kvv1.VirtualMachineInstance)
 	r.ObjectMeta = GetObjMeta(
@@ -189,10 +193,15 @@ func (gvm *GeneralVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachine
 			},
 		})
 	//add cloud-init vol
+	// NOTE: make sure there is no inconsistent indent in cloud-init template, like mixed tab and spaces
 	const initVolName = "cloudinitvol"
-	const cloudinitNetworkDataTemplateBase = `network:
+	var cloudinitNetworkDataTemplateBase = fmt.Sprintf(`network:
   version: 2
-  ethernets:`
+  ethernets:
+    firstnic:
+      match:
+        macaddress: "%v"
+      dhcp4: true`, VMBaseMAC)
 	const cloudinitNetworkDataTemplateIntf = `
     nic%d:
       match:
@@ -307,7 +316,8 @@ method=manual
 		kvv1.Interface{
 			Name: "pod-net",
 			//the port is needed here to prevent all traffic go into VM
-			Ports: *gvm.Ports,
+			Ports:      *gvm.Ports,
+			MacAddress: VMBaseMAC.String(),
 			InterfaceBindingMethod: kvv1.InterfaceBindingMethod{
 				Masquerade: &kvv1.InterfaceMasquerade{},
 			},
@@ -328,21 +338,25 @@ method=manual
 						},
 					},
 				})
-			r.Spec.Domain.Devices.Interfaces = append(r.Spec.Domain.Devices.Interfaces,
-				kvv1.Interface{
-					Name: spokeName,
-					Binding: &kvv1.PluginBinding{
-						Name: "macvtap",
-					},
+			spokeIf := kvv1.Interface{
+				Name: spokeName,
+				Binding: &kvv1.PluginBinding{
+					Name: "macvtap",
 				},
-			)
+			}
+			if lab.SpokeConnectorMap[spokeName].Mac != nil {
+				spokeIf.MacAddress = *lab.SpokeConnectorMap[spokeName].Mac
+			}
+			r.Spec.Domain.Devices.Interfaces = append(r.Spec.Domain.Devices.Interfaces, spokeIf)
 		}
 	}
 	//assign link address
+	i := 0
 	if links, ok := lab.ConnectorMap[vmname]; ok {
-		for i, linkname := range links {
+		for _, linkname := range links {
 			_, c := lab.getLinkandConnector(vmname, linkname)
 			if c != nil {
+				i++
 				if c.Addr != nil {
 					gwStr := ""
 					if lab.Lab.Spec.LinkList[linkname].GWAddr != nil {
@@ -391,7 +405,6 @@ method=manual
 							gwStr,
 						)
 					}
-
 				}
 			}
 		}

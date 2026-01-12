@@ -24,7 +24,7 @@ type ParsedLab struct {
 	Lab               *Lab
 	ConnectorMap      map[string][]string //key is node name, val is a list of link name
 	SetOwnerFunc      SetOwnerFuncType
-	SpokeMap          map[string]map[string][]string //1st key is nodename, 2nd key is LAN name, val is list of spoke name
+	SpokeMap          map[string]map[string][]string //1st key is nodename, 2nd key is link name, val is list of spoke name
 	SpokeConnectorMap map[string]*Connector          //key is the spokename, spokename is per connector
 	SpokeLinkMap      map[string]string              //key is the spokename, value is link name
 }
@@ -47,6 +47,7 @@ func ParseLab(lab *Lab, sch *runtime.Scheme) *ParsedLab {
 	}
 	return r
 }
+
 func (lab *ParsedLab) getLinkandConnector(node, linkName string) (*Link, *Connector) {
 	if link, ok := lab.Lab.Spec.LinkList[linkName]; ok {
 		for _, c := range link.Connectors {

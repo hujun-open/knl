@@ -395,8 +395,8 @@ spec:
                         description: request hugepage memory if true
                         type: boolean
                       image:
-                        description: kubevirt CDI supported URL, either HTTP or registry
-                          source
+                        description: kubevirt CDI supported URL, either HTTP (http://)
+                          or registry source (docker://)
                         type: string
                       init:
                         description: intilization method, supports cloud-init or ignition
@@ -412,7 +412,7 @@ spec:
                         description: password to login into VM
                         type: string
                       ports:
-                        description: listening port of the VM
+                        description: listening port of the VM on the 1st pod interface
                         items:
                           description: |-
                             Port represents a port to expose from the virtual machine.

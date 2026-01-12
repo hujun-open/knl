@@ -133,7 +133,7 @@ func getSpokeName(vni int32, connectorIndex int) string {
 }
 
 // this creates k8slan CR for all links
-// return two maps, first map: 1st key is nodename, 2nd key is LAN name, val is list of spoke name
+// return two maps, first map: 1st key is nodename, 2nd key is link name, val is list of spoke name
 // 2nd map: key is spokename, value is corrsponding connector
 func (plab *ParsedLab) EnsureLinks(ctx context.Context, clnt client.Client) error {
 	gconf := GCONF.Get()
