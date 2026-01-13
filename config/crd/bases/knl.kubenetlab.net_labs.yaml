@@ -45,16 +45,18 @@ spec:
                     Link defines a layer2 connection between nodes,
                     two or more nodes per link are supported.
                   properties:
-                    gw:
-                      type: string
                     nodes:
                       description: a list of nodes connect to the link's layer2 network
                       items:
                         description: Connector specifies a node name and how it connects
                           to the link
                         properties:
-                          addr:
-                            type: string
+                          addrs:
+                            description: a list of IP prefix in format `xxxx/yy`,
+                              use by node type pod and vm
+                            items:
+                              type: string
+                            type: array
                           mac:
                             type: string
                           node:
@@ -64,6 +66,12 @@ spec:
                             description: used by srsim for mda port id, by SRVM for
                               IOM slot id and by SRL for interface id
                             type: string
+                          routes:
+                            description: a list of static routes in format `<prefix>
+                              via <nexthop>`, use by node type pod and vm
+                            items:
+                              type: string
+                            type: array
                         required:
                         - node
                         type: object

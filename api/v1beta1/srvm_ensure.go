@@ -386,7 +386,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 				continue
 			}
 			lanName := Getk8lanName(lab.Lab.Name, lab.SpokeLinkMap[spokeName])
-			nadName := k8slan.GetNADName(lanName, spokeName, false)
+			nadName := k8slan.GetDefNADName(lanName, spokeName, false)
 			r.Spec.Networks = append(r.Spec.Networks,
 				kvv1.Network{
 					Name: spokeName,

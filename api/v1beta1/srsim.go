@@ -242,14 +242,15 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 		// for _, spokes := range lab.SpokeMap[nodeName] {
 		for _, spokeName := range spokes {
 			lanName := Getk8lanName(lab.Lab.Name, lab.SpokeLinkMap[spokeName])
-			nadName := k8slan.GetNADName(lanName, spokeName, true)
+			nadName := k8slan.GetDefNADName(lanName, spokeName, true)
 			if lab.SpokeConnectorMap[spokeName].PortId != nil {
 				netStr += fmt.Sprintf("%v@%v,", nadName, *(lab.SpokeConnectorMap[spokeName].PortId))
 			} else {
 				//if port is not specified, default to mda 1 of first IOM slot
 				netStr += fmt.Sprintf("%v@e%v-1-%d,", nadName, srsim.Chassis.GetDefaultMDASlot(), i)
 			}
-			resKey := fmt.Sprintf("%v/%v", K8sLANResKeyPrefix, nadName)
+			resName := k8slan.GetDPResouceName(lanName, spokeName, true)
+			resKey := fmt.Sprintf("%v/%v", K8sLANResKeyPrefix, resName)
 			pod.Spec.Containers[0].Resources.Limits[corev1.ResourceName(resKey)] = resource.MustParse("1")
 			i += 1
 		}

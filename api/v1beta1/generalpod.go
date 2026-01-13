@@ -3,6 +3,7 @@ package v1beta1
 import (
 	"context"
 	"fmt"
+	"net/netip"
 	"os"
 	"strings"
 	"syscall"
@@ -98,6 +99,33 @@ func (gpod *GeneralPod) Ensure(ctx context.Context, nodeName string, clnt client
 			},
 		},
 	}
+	//generate NAD if the connector address is specified
+	if linkSpokeMap, ok := lab.SpokeMap[nodeName]; ok {
+		for _, spokes := range linkSpokeMap {
+			for _, spokeName := range spokes {
+				if lab.SpokeConnectorMap[spokeName].Addrs != nil {
+					lanName := Getk8lanName(lab.Lab.Name, lab.SpokeLinkMap[spokeName])
+					prefixList := []netip.Prefix{}
+					for _, pstr := range lab.SpokeConnectorMap[spokeName].Addrs {
+						prefixList = append(prefixList, netip.MustParsePrefix(pstr))
+					}
+					routeList := []k8slan.Route{}
+					for _, rstr := range lab.SpokeConnectorMap[spokeName].Routes {
+						route, _ := parseRoute(rstr)
+						routeList = append(routeList, *route)
+					}
+
+					nad := k8slan.GenNAD(lanName, spokeName, MYNAMESPACE, true, prefixList, routeList)
+					err = createIfNotExistsOrRemove(ctx, clnt, lab, nad, true, false)
+					if err != nil {
+						return fmt.Errorf("failed to create general pod nad %v in lab %v, %w", nodeName, lab.Lab.Name, err)
+					}
+
+				}
+			}
+		}
+	}
+
 	//refer to NADs
 	netStr := ""
 	pod.Spec.Containers[0].Resources.Limits = make(corev1.ResourceList)
@@ -106,9 +134,18 @@ func (gpod *GeneralPod) Ensure(ctx context.Context, nodeName string, clnt client
 		// for _, spokes := range lab.SpokeMap[nodeName] {
 		for _, spokeName := range spokes {
 			lanName := Getk8lanName(lab.Lab.Name, lab.SpokeLinkMap[spokeName])
-			nadName := k8slan.GetNADName(lanName, spokeName, true)
-			netStr += fmt.Sprintf("%v,", nadName)
-			resKey := fmt.Sprintf("%v/%v", K8sLANResKeyPrefix, nadName)
+
+			nadName := k8slan.GetDefNADName(lanName, spokeName, true)
+			if lab.SpokeConnectorMap[spokeName].Addrs != nil {
+				nadName = k8slan.GetAddrNADName(lanName, spokeName)
+			}
+			if lab.SpokeConnectorMap[spokeName].PortId == nil {
+				netStr += fmt.Sprintf("%v,", nadName)
+			} else {
+				netStr += fmt.Sprintf("%v@%v,", nadName, *lab.SpokeConnectorMap[spokeName].PortId)
+			}
+			resName := k8slan.GetDPResouceName(lanName, spokeName, true)
+			resKey := fmt.Sprintf("%v/%v", K8sLANResKeyPrefix, resName)
 			pod.Spec.Containers[0].Resources.Limits[corev1.ResourceName(resKey)] = resource.MustParse("1")
 		}
 	}

@@ -195,20 +195,21 @@ func (gvm *GeneralVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachine
 	//add cloud-init vol
 	// NOTE: make sure there is no inconsistent indent in cloud-init template, like mixed tab and spaces
 	const initVolName = "cloudinitvol"
-	var cloudinitNetworkDataTemplateBase = fmt.Sprintf(`network:
-  version: 2
-  ethernets:
-    firstnic:
-      match:
-        macaddress: "%v"
-      dhcp4: true`, VMBaseMAC)
-	const cloudinitNetworkDataTemplateIntf = `
-    nic%d:
-      match:
-        macaddress: "%v"
-      addresses:
-        - %v
-      %v`
+	var cloudinitNetowkrCfg = getDefCloudinitNetworkCfg()
+	// 	var cloudinitNetworkDataTemplateBase = fmt.Sprintf(`network:
+	//   version: 2
+	//   ethernets:
+	//     firstnic:
+	//       match:
+	//         macaddress: "%v"
+	//       dhcp4: true`, VMBaseMAC)
+	// 	const cloudinitNetworkDataTemplateIntf = `
+	//     nic%d:
+	//       match:
+	//         macaddress: "%v"
+	//       addresses:
+	//         - %v
+	//       %v`
 	const cloudinitUserDataTemplate = `
 #cloud-config
 ssh_pwauth: True
@@ -328,7 +329,7 @@ method=manual
 		// for _, spokes := range lab.SpokeMap[vmname] {
 		for _, spokeName := range spokes {
 			lanName := Getk8lanName(lab.Lab.Name, lab.SpokeLinkMap[spokeName])
-			nadName := k8slan.GetNADName(lanName, spokeName, false)
+			nadName := k8slan.GetDefNADName(lanName, spokeName, false)
 			r.Spec.Networks = append(r.Spec.Networks,
 				kvv1.Network{
 					Name: spokeName,
@@ -357,27 +358,30 @@ method=manual
 			_, c := lab.getLinkandConnector(vmname, linkname)
 			if c != nil {
 				i++
-				if c.Addr != nil {
-					gwStr := ""
-					if lab.Lab.Spec.LinkList[linkname].GWAddr != nil {
-						gwAddr := netip.MustParseAddr(*lab.Lab.Spec.LinkList[linkname].GWAddr)
-						gwStr = fmt.Sprintf("gateway4: %v", gwAddr.String())
-						if gwAddr.Is6() {
-							gwStr = fmt.Sprintf("gateway6: %v", gwAddr.String())
-						}
-					}
+				if len(c.Addrs) > 0 {
+
 					//add network data for startup config
 
 					switch *gvm.InitMethod {
 					case InitMethod_IGNITION_NMGR:
-						caddr := netip.MustParsePrefix(*c.Addr)
+						// caddr := netip.MustParsePrefix(*c.Addrs)
 						v4addrstr := ""
 						v6addstr := ""
-						if caddr.Addr().Is4() {
-							v4addrstr = fmt.Sprintf("address1=%v,%v", caddr.String(), gwStr)
+						for i, addrStr := range c.Addrs {
+							addr := netip.MustParseAddr(addrStr)
+							if addr.Is4() {
+								v4addrstr += fmt.Sprintf("address%d=%v\n", i+1, addr.String())
+							} else {
+								v6addstr += fmt.Sprintf("address%d=%v\n", i+1, addr.String())
+							}
 						}
-						if caddr.Addr().Is6() {
-							v6addstr = fmt.Sprintf("address1=%v,%v", caddr.String(), gwStr)
+						for i, routeStr := range c.Routes {
+							route := mustParseRoute(routeStr)
+							if route.Via.Is4() {
+								v4addrstr += fmt.Sprintf("route%d=%v,%v\n", i+1, route.To.String(), route.Via.String())
+							} else {
+								v6addstr += fmt.Sprintf("route%d=%v,%v\n", i+1, route.To.String(), route.Via.String())
+							}
 						}
 						connectionFile := encodeDataURL(fmt.Sprintf(nm_file_template, i, *c.Mac, v4addrstr, v6addstr))
 						ignitionData.Storage.Files = append(ignitionData.Storage.Files,
@@ -393,21 +397,27 @@ method=manual
 							},
 						)
 					case InitMethod_CLOUDINIT:
-						if r.Spec.Volumes[initVolIndex].CloudInitNoCloud.NetworkData == "" {
-							r.Spec.Volumes[initVolIndex].CloudInitNoCloud.NetworkData = cloudinitNetworkDataTemplateBase
-						}
+						cloudinitNetowkrCfg.AddConnector(fmt.Sprintf("nic%d", i), c)
+						// if r.Spec.Volumes[initVolIndex].CloudInitNoCloud.NetworkData == "" {
+						// 	r.Spec.Volumes[initVolIndex].CloudInitNoCloud.NetworkData = cloudinitNetworkDataTemplateBase
+						// }
 
-						r.Spec.Volumes[initVolIndex].CloudInitNoCloud.NetworkData += fmt.Sprintf(
-							cloudinitNetworkDataTemplateIntf,
-							i,
-							*c.Mac,
-							*c.Addr,
-							gwStr,
-						)
+						// r.Spec.Volumes[initVolIndex].CloudInitNoCloud.NetworkData += fmt.Sprintf(
+						// 	cloudinitNetworkDataTemplateIntf,
+						// 	i,
+						// 	*c.Mac,
+						// 	*c.Addrs,
+						// 	gwStr,
+						// )
 					}
 				}
 			}
 		}
+	}
+	switch *gvm.InitMethod {
+	case InitMethod_CLOUDINIT:
+		r.Spec.Volumes[initVolIndex].CloudInitNoCloud.NetworkData = string(cloudinitNetowkrCfg.Marshal())
+
 	}
 
 	if *gvm.InitMethod == InitMethod_IGNITION_NMGR {

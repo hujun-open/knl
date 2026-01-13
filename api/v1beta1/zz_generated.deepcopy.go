@@ -39,10 +39,15 @@ func (in *Connector) DeepCopyInto(out *Connector) {
 		*out = new(string)
 		**out = **in
 	}
-	if in.Addr != nil {
-		in, out := &in.Addr, &out.Addr
-		*out = new(string)
-		**out = **in
+	if in.Addrs != nil {
+		in, out := &in.Addrs, &out.Addrs
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.Routes != nil {
+		in, out := &in.Routes, &out.Routes
+		*out = make([]string, len(*in))
+		copy(*out, *in)
 	}
 	if in.Mac != nil {
 		in, out := &in.Mac, &out.Mac
@@ -448,11 +453,6 @@ func (in *Link) DeepCopyInto(out *Link) {
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
-	}
-	if in.GWAddr != nil {
-		in, out := &in.GWAddr, &out.GWAddr
-		*out = new(string)
-		**out = **in
 	}
 }
 

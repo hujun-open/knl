@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/netip"
 	"strconv"
+	"strings"
 
 	"github.com/bits-and-blooms/bitset"
 	k8slan "github.com/hujun-open/k8slan/api/v1beta1"
@@ -23,27 +24,36 @@ type Link struct {
 	//+required
 	//a list of nodes connect to the link's layer2 network
 	Connectors []Connector `json:"nodes"`
-	GWAddr     *string     `json:"gw,omitempty"` //a prefix
 }
 
 func (link *Link) Validate() error {
 	if len(link.Connectors) < 2 {
 		return fmt.Errorf("the minimal number of nodes per link is 2")
 	}
-	if link.GWAddr != nil {
-		gw, err := netip.ParseAddr(*link.GWAddr)
-		if !gw.IsValid() || gw.IsMulticast() || err != nil {
-			return fmt.Errorf("%v is not valid unicast IP address, %w", *link.GWAddr, err)
-		}
-	}
+
 	for i, c := range link.Connectors {
 		if *c.NodeName == "" {
 			return fmt.Errorf("connector %d node name can't be empty", i)
 		}
-		if c.Addr != nil {
-			prefix, err := netip.ParsePrefix(*c.Addr)
-			if !prefix.IsValid() || prefix.Addr().IsMulticast() || err != nil {
-				return fmt.Errorf("%v is not valid unicast IP prefix, %w", *c.Addr, err)
+		// if c.Addr != nil {
+		// 	prefix, err := netip.ParsePrefix(*c.Addr)
+		// 	if !prefix.IsValid() || prefix.Addr().IsMulticast() || err != nil {
+		// 		return fmt.Errorf("%v is not valid unicast IP prefix, %w", *c.Addr, err)
+		// 	}
+		// }
+		for _, prefixStr := range c.Addrs {
+			prefix, err := netip.ParsePrefix(prefixStr)
+			if err != nil {
+				return fmt.Errorf("%v is not a valid IP prefix: %w", prefixStr, err)
+			}
+			if !prefix.IsValid() || prefix.Addr().IsMulticast() {
+				return fmt.Errorf("%v is not valid unicast IP prefix", prefixStr)
+			}
+		}
+		for _, routeStr := range c.Routes {
+			_, err := parseRoute(routeStr)
+			if err != nil {
+				return fmt.Errorf("route %v is not valid, %w", routeStr, err)
 			}
 		}
 		if c.Mac != nil {
@@ -62,8 +72,41 @@ type Connector struct {
 	NodeName *string `json:"node"` //node name
 	//used by srsim for mda port id, by SRVM for IOM slot id and by SRL for interface id
 	PortId *string `json:"port,omitempty"`
-	Addr   *string `json:"addr,omitempty"` //a prefix, used for cloud-init on vmLinux, and podlinux
-	Mac    *string `json:"mac,omitempty"`  //used for cloud-init on vmLinux, and podlinux
+	//a list of IP prefix in format `xxxx/yy`, use by node type pod and vm
+	Addrs []string `json:"addrs,omitempty"`
+	//a list of static routes in format `<prefix> via <nexthop>`, use by node type pod and vm
+	Routes []string `json:"routes,omitempty"`
+	//interface MAC address of the connecting node, used by node type pod and vm
+	Mac *string `json:"mac,omitempty"`
+}
+
+func mustParseRoute(routeStr string) *k8slan.Route {
+	r, err := parseRoute(routeStr)
+	if err != nil {
+		panic(err)
+	}
+	return r
+}
+
+func parseRoute(routeStr string) (*k8slan.Route, error) {
+	strList := strings.Split(strings.ToLower(routeStr), "via")
+	if len(strList) != 2 {
+		return nil, fmt.Errorf("%v is not valid route, expect <prefix> via <nexthop>", routeStr)
+	}
+	r := new(k8slan.Route)
+	var err error
+	r.To, err = netip.ParsePrefix(strings.TrimSpace(strList[0]))
+	if err != nil {
+		return nil, fmt.Errorf("%v is not a valid ip prefix, %w", strings.TrimSpace(strList[0]), err)
+	}
+	r.Via, err = netip.ParseAddr(strings.TrimSpace(strList[1]))
+	if err != nil {
+		return nil, fmt.Errorf("%v is not a valid address, %w", strings.TrimSpace(strList[1]), err)
+	}
+	if r.To.Addr().Is4() != r.Via.Is4() {
+		return nil, fmt.Errorf("%v prefix and nexthop is not same address family ", strList)
+	}
+	return r, nil
 }
 
 func Getk8lanName(lab, link string) string {

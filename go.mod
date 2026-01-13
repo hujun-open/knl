@@ -9,7 +9,7 @@ require (
 	github.com/distribution/reference v0.6.0
 	github.com/goccy/go-yaml v1.19.1
 	github.com/hujun-open/completers v0.0.1
-	github.com/hujun-open/k8slan v0.0.5
+	github.com/hujun-open/k8slan v0.0.7
 	github.com/hujun-open/myflags/v2 v2.2.3
 	github.com/k8snetworkplumbingwg/network-attachment-definition-client v1.7.7
 	github.com/onsi/ginkgo/v2 v2.27.2
@@ -35,6 +35,7 @@ require (
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/containernetworking/cni v1.3.0 // indirect
 	github.com/coreos/go-semver v0.3.1 // indirect
 	github.com/coreos/go-systemd/v22 v22.6.0 // indirect
 	github.com/coreos/vcontext v0.0.0-20230201181013-d72178a18687 // indirect
@@ -121,3 +122,5 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.1 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
+
+// replace github.com/hujun-open/k8slan => ../k8slan/
