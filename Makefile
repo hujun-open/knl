@@ -143,6 +143,7 @@ endif
 .PHONY: docker-push-sidecar
 docker-push-sidecar: docker-build-sidecar
 	$(CONTAINER_TOOL) push ${SCIMG}
+	$(CONTAINER_TOOL) buildx imagetools create --tag ${IMGNOTAG}:latest ${SCIMG}
 
 .PHONY: load-sidecar-kind
 load-sidecar-kind: docker-build-sidecar ## build and load sidecar image to local kind cluster
@@ -151,6 +152,7 @@ load-sidecar-kind: docker-build-sidecar ## build and load sidecar image to local
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
 	$(CONTAINER_TOOL) push ${IMG}
+	
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple
 # architectures. (i.e. make docker-buildx IMG=myregistry/mypoperator:0.0.1). To use this option you need to:

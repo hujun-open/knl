@@ -47,4 +47,4 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image on Dockerhub
-        run: make docker-push-sidecar SCIMG=${{ env.REGISTRY }}/${{ env.IMG_BASE }}:${{ env.TAG }}
+        run: make docker-push-sidecar SCIMG=${{ env.REGISTRY }}/${{ env.IMG_BASE }}:${{ env.TAG }} IMGNOTAG=${{ env.REGISTRY }}/${{ env.IMG_BASE }}
