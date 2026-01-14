@@ -24,7 +24,7 @@ jobs:
           submodules: 'true'
 
       - name: Extract Tag
-        run: echo "TAG=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+        run: echo "TAG=${GITHUB_REF#refs/tags/sidecar}" >> $GITHUB_ENV
 
       - name: Set up Docker Buildx
         id: buildx
