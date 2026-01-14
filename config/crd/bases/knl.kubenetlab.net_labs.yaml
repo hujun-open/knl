@@ -58,6 +58,8 @@ spec:
                               type: string
                             type: array
                           mac:
+                            description: interface MAC address of the connecting node,
+                              used by node type vm
                             type: string
                           node:
                             description: name of node connects to the link
@@ -257,6 +259,13 @@ spec:
                         privileged:
                           description: privileged pod if true
                           type: boolean
+                        pvcSize:
+                          anyOf:
+                          - type: integer
+                          - type: string
+                          description: size of pvc mounted on /root
+                          pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                          x-kubernetes-int-or-string: true
                       type: object
                     srl:
                       description: SRLinux specifies a Nokia SRLinux chassis;

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/netip"
 	"os"
-	"strings"
 	"syscall"
 
+	shlex "github.com/carapace-sh/carapace-shlex"
 	k8slan "github.com/hujun-open/k8slan/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -22,6 +22,8 @@ type GeneralPod struct {
 	Command *string `json:"cmd,omitempty"`
 	//privileged pod if true
 	Privileged *bool `json:"privileged,omitempty"`
+	//size of pvc mounted on /root
+	PvcSize *resource.Quantity `json:"pvcSize,omitempty"`
 	//requested memory in k8s resource unit
 	// +optional
 	// +nullable
@@ -37,12 +39,12 @@ func init() {
 }
 
 const (
-	Pod         NodeType = "pod"
-	RootPVCSize string   = "100Mi"
+	Pod            NodeType = "pod"
+	DefRootPVCSize string   = "100Mi"
 )
 
 func (gpod *GeneralPod) SetToAppDefVal() {
-
+	gpod.PvcSize = ReturnPointerVal(resource.MustParse(DefRootPVCSize))
 }
 
 func (gpod *GeneralPod) FillDefaultVal(nodeName string) {
@@ -55,6 +57,15 @@ func (gpod *GeneralPod) GetNodeType(name string) NodeType {
 func (gpod *GeneralPod) Validate(lab *LabSpec, nodeName string) error {
 	if gpod.Image == nil {
 		return fmt.Errorf("image not specified")
+	}
+	if gpod.PvcSize == nil {
+		return fmt.Errorf("pvcSize not specified")
+	}
+	if gpod.Command != nil {
+		_, err := shlex.Split(*gpod.Command)
+		if err != nil {
+			return fmt.Errorf("%v is not a valid shell command: %w", *gpod.Command, err)
+		}
 	}
 	return nil
 }
@@ -70,7 +81,7 @@ func (gpod *GeneralPod) Ensure(ctx context.Context, nodeName string, clnt client
 		return MakeErr(fmt.Errorf("context stored value is not a ParsedLabSpec"))
 	}
 	//create PVC
-	rootPVC := gpod.getRootPVC(lab.Lab.Namespace, nodeName, lab.Lab.Name)
+	rootPVC := gpod.getRootPVC(lab.Lab.Namespace, nodeName, lab.Lab.Name, *gpod.PvcSize)
 	err := createIfNotExistsOrRemove(ctx, clnt, lab, rootPVC, false, false)
 	if err != nil {
 		return fmt.Errorf("failed to create etc pvc for pod %v in lab %v, %w", nodeName, lab.Lab.Name, err)
@@ -78,7 +89,8 @@ func (gpod *GeneralPod) Ensure(ctx context.Context, nodeName string, clnt client
 	//create pod
 	pod := NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *gpod.Image, Pod)
 	if gpod.Command != nil {
-		pod.Spec.Containers[0].Command = strings.Fields(*gpod.Command)
+		tlist, _ := shlex.Split(*gpod.Command)
+		pod.Spec.Containers[0].Command = tlist.Strings()
 	}
 	pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{}
 	pod.Spec.Containers[0].SecurityContext.Privileged = gpod.Privileged
@@ -171,7 +183,7 @@ func (gpod *GeneralPod) Ensure(ctx context.Context, nodeName string, clnt client
 
 }
 
-func (gpod *GeneralPod) getRootPVC(ns, nodeName, labName string) *corev1.PersistentVolumeClaim {
+func (gpod *GeneralPod) getRootPVC(ns, nodeName, labName string, size resource.Quantity) *corev1.PersistentVolumeClaim {
 	gconf := GCONF.Get()
 	name := fmt.Sprintf("%v-%v-root", labName, nodeName)
 	return &corev1.PersistentVolumeClaim{
@@ -181,7 +193,7 @@ func (gpod *GeneralPod) getRootPVC(ns, nodeName, labName string) *corev1.Persist
 			StorageClassName: GetPointerVal(*gconf.PVCStorageClass),
 			Resources: corev1.VolumeResourceRequirements{
 				Requests: map[corev1.ResourceName]resource.Quantity{
-					corev1.ResourceStorage: resource.MustParse(RootPVCSize),
+					corev1.ResourceStorage: size,
 				},
 			},
 		},

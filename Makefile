@@ -126,7 +126,6 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: build ## Build docker image with the manager.
-	cp docker/cpm/vsimload.img cpmload.img
 	cp bin/manager .
 	$(CONTAINER_TOOL) build . -t ${IMG}
 
@@ -138,11 +137,8 @@ ifndef SCIMG # if statment can't have tab as prefix
 #error statment is used to stop make file execution with error msg	
 	$(error SCIMG not specified) 
 endif
-
 	$(CONTAINER_TOOL) build -t ${SCIMG} --file ./kvirtsidecar/docker/Dockerfile ./kvirtsidecar/docker/
-	-rm kvirtsidecar.tar.gz
-	$(CONTAINER_TOOL) save ${SCIMG} -o kvirtsidecar.tar
-	gzip kvirtsidecar.tar
+
 
 .PHONY: load-sidecar-kind
 load-sidecar-kind: docker-build-sidecar ## build and load sidecar image to local kind cluster
@@ -282,9 +278,23 @@ export: docker-build deploymanifests ## export controller image tar.gz and all.y
 .PHONY: exportall
 exportall: export docker-build-sidecar build-knlcli ## export controller , sidecar image tar.gz, knlcli.gz and all.yaml
 	gzip -c ./knlcli/knlcli > knlcli.gz
+	-rm kvirtsidecar.tar.gz
+	$(CONTAINER_TOOL) save ${SCIMG} -o kvirtsidecar.tar
+	gzip kvirtsidecar.tar
 
 .PHONY: api-doc
 api-doc: manifests ## generate API docs
 	- mkdir apidocs
 # 	crd-ref-docs --templates-dir=./crd-ref-doc-templates --max-depth 99 --source-path ./api/v1beta1/ --renderer=markdown --config crd-ref-docs_config.yaml --output-path=./apidocs/
 	crd-ref-docs --templates-dir=./crd-ref-doc-templates --max-depth 99 --source-path ./api/v1beta1/ --renderer=markdown --config crd-ref-docs_config.yaml --output-path=../../../webwork/knldoc/content/docs/api.md
+
+.PHONY: vsimloadimg
+vsimloadimg: ## generate cpm/iom load image
+ifndef CPMIMG 
+	$(error CPMIMG not specified) 
+endif	
+ifndef IOMIMG
+	$(error IOMIMG not specified) 
+endif	
+	$(CONTAINER_TOOL) build -t ${CPMIMG} --file ./docker/cpm/Dockerfile ./docker/cpm/
+	$(CONTAINER_TOOL) build -t ${IOMIMG} --file ./docker/iom/Dockerfile ./docker/iom/

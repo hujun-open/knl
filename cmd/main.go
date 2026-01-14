@@ -19,8 +19,6 @@ package main
 import (
 	"crypto/tls"
 	"flag"
-	"fmt"
-	"net/http"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -240,15 +238,6 @@ func main() {
 		setupLog.Error(err, "unable to set up ready check")
 		os.Exit(1)
 	}
-	//starting static http file server
-	setupLog.Info("starting http static file server")
-	go func() {
-		err = http.ListenAndServe(fmt.Sprintf(":%d", knlv1beta1.StaticHTTPSvrPort), http.FileServer(http.Dir(knlv1beta1.StaticHTTPFileFolder)))
-		if err != nil {
-			setupLog.Error(err, "static http server failed")
-			os.Exit(1)
-		}
-	}()
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")

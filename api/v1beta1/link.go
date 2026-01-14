@@ -76,7 +76,7 @@ type Connector struct {
 	Addrs []string `json:"addrs,omitempty"`
 	//a list of static routes in format `<prefix> via <nexthop>`, use by node type pod and vm
 	Routes []string `json:"routes,omitempty"`
-	//interface MAC address of the connecting node, used by node type pod and vm
+	//interface MAC address of the connecting node, used by node type vm
 	Mac *string `json:"mac,omitempty"`
 }
 

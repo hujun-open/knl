@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/distribution/reference"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -50,7 +51,7 @@ type KNLConfigSpec struct {
 	//name of k8s storageclass used to create PVCs
 	// +optional
 	PVCStorageClass *string `json:"storageClass,omitempty"`
-	//CPM loader image, used by vsim, vsri and magc, this url supported by kvirt cdi, either http or docker url
+	//CPM loader container image, used by vsim, vsri and magc
 	// +optional
 	SRCPMLoaderImage *string `json:"srCPMLoaderImage,omitempty"`
 	//IOM loader container image, used by vsim and magc
@@ -68,11 +69,8 @@ type KNLConfigSpec struct {
 // this is the application default, meaning when user didn't specify the corresponding field in KNLconfig
 func DefKNLConfig() KNLConfigSpec {
 	r := KNLConfigSpec{
-		SFTPSever:        ReturnPointerVal("knl-sftp-service.knl-system.svc.cluster.local:22"),
-		VXLANGrpAddr:     ReturnPointerVal("ff18::100"),
-		PVCStorageClass:  ReturnPointerVal("nfs-client"),
-		SRCPMLoaderImage: ReturnPointerVal("http://knl-http.knl-system.svc.cluster.local/cpmload.img"),
-		VXLANDefaultDev:  ReturnPointerVal("eth0"),
+		SFTPSever:    ReturnPointerVal("knl-sftp-service.knl-system.svc.cluster.local:22"),
+		VXLANGrpAddr: ReturnPointerVal("ff18::100"),
 	}
 	//create app default for each node type
 	defOne := OneOfSystem{}
@@ -86,11 +84,6 @@ func DefKNLConfig() KNLConfigSpec {
 	r.DefaultNode = &defOne
 	return r
 }
-
-const (
-	StaticHTTPFileFolder = "/static"
-	StaticHTTPSvrPort    = 8880
-)
 
 // KNLConfigStatus defines the observed state of KNLConfig.
 type KNLConfigStatus struct {
@@ -194,15 +187,32 @@ func (knlcfg *KNLConfig) Validate() error {
 	if isStrNotSpecfied(knlcfg.Spec.PVCStorageClass) {
 		return fmt.Errorf("storage class not specified")
 	}
-	if isStrNotSpecfied(knlcfg.Spec.SRCPMLoaderImage) {
-		return fmt.Errorf("SR CPM loader image not specified")
+	if isStrNotSpecfied(knlcfg.Spec.VXLANDefaultDev) && len(knlcfg.Spec.VxDevMap) == 0 {
+		return fmt.Errorf("vxlan dev not specified")
 	}
-	if isStrNotSpecfied(knlcfg.Spec.SRIOMLoaderImage) {
-		return fmt.Errorf("SR IOM loader image not specified")
+	// if isStrNotSpecfied(knlcfg.Spec.SRCPMLoaderImage) {
+	// 	return fmt.Errorf("SR CPM loader image not specified")
+	// }
+	if knlcfg.Spec.SRCPMLoaderImage != nil {
+		if _, err := reference.Parse(*knlcfg.Spec.SRCPMLoaderImage); err != nil {
+			return fmt.Errorf("%v is not valid container image url: %w", *knlcfg.Spec.SRCPMLoaderImage, err)
+		}
+	}
+	// if isStrNotSpecfied(knlcfg.Spec.SRIOMLoaderImage) {
+	// 	return fmt.Errorf("SR IOM loader image not specified")
+	// }
+	if knlcfg.Spec.SRIOMLoaderImage != nil {
+		if _, err := reference.Parse(*knlcfg.Spec.SRIOMLoaderImage); err != nil {
+			return fmt.Errorf("%v is not valid container image url: %w", *knlcfg.Spec.SRIOMLoaderImage, err)
+		}
 	}
 	if isStrNotSpecfied(knlcfg.Spec.SideCarHookImg) {
 		return fmt.Errorf("sidecar image not specified")
 	}
+	if _, err := reference.Parse(*knlcfg.Spec.SideCarHookImg); err != nil {
+		return fmt.Errorf("%v is not valid container image url: %w", *knlcfg.Spec.SideCarHookImg, err)
+	}
+
 	if knlcfg.Spec.SFTPSever != nil {
 		if !IsHostPort(*knlcfg.Spec.SFTPSever) {
 			return fmt.Errorf("%v must be in format as addr/host:port", *knlcfg.Spec.SFTPSever)

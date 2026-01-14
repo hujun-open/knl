@@ -9,6 +9,10 @@ processor:
     - "ParsedLab"
     - "SetOwnerFuncType"
     - '\bSystem\b'
+    - '\bCloudInitNetworkConfig\b'
+    - '\bCloudInitNetworkConfigBody\b'
+    - '\bNicConfig\b'
+    - '\bNicMatcher\b'
   ignoreFields:
     - "status$"
     - "TypeMeta$"

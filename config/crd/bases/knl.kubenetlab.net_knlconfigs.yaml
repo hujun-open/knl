@@ -212,6 +212,13 @@ spec:
                       privileged:
                         description: privileged pod if true
                         type: boolean
+                      pvcSize:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        description: size of pvc mounted on /root
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
                     type: object
                   srl:
                     description: SRLinux specifies a Nokia SRLinux chassis;
@@ -738,8 +745,7 @@ spec:
                 description: Kubevirt sidecar hook image, used by vsim, vsri and magc
                 type: string
               srCPMLoaderImage:
-                description: CPM loader image, used by vsim, vsri and magc, this url
-                  supported by kvirt cdi, either http or docker url
+                description: CPM loader container image, used by vsim, vsri and magc
                 type: string
               srIOMLoaderImage:
                 description: IOM loader container image, used by vsim and magc

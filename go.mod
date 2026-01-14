@@ -4,6 +4,7 @@ go 1.25.0
 
 require (
 	github.com/bits-and-blooms/bitset v1.24.4
+	github.com/carapace-sh/carapace-shlex v1.1.1
 	github.com/coreos/ignition/v2 v2.24.0
 	github.com/dchest/siphash v1.2.3
 	github.com/distribution/reference v0.6.0

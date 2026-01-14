@@ -84,6 +84,11 @@ func (in *GeneralPod) DeepCopyInto(out *GeneralPod) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.PvcSize != nil {
+		in, out := &in.PvcSize, &out.PvcSize
+		x := (*in).DeepCopy()
+		*out = &x
+	}
 	if in.ReqMemory != nil {
 		in, out := &in.ReqMemory, &out.ReqMemory
 		x := (*in).DeepCopy()

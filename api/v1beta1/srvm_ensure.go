@@ -119,7 +119,7 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 			cpmImage := "docker://" + *srvm.Image
 			diskSize := srvm.DiskSize
 			if strings.HasPrefix(*srvm.Image, FTPImagePrefix) {
-				cpmImage = *gconf.SRCPMLoaderImage
+				cpmImage = "docker://" + *gconf.SRCPMLoaderImage
 				diskSize = &SRCPMVMDiskSize
 			}
 
