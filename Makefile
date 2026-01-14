@@ -105,7 +105,7 @@ lint-config: golangci-lint ## Verify golangci-lint linter configuration
 ##@ Build
 
 .PHONY: build
-build: manifests generate fmt vet api-doc ## Build manager binary.
+build: manifests generate fmt vet ## Build manager binary.
 	CGO_ENABLED=0 go build -o bin/manager cmd/main.go
 
 
@@ -150,8 +150,9 @@ load-sidecar-kind: docker-build-sidecar ## build and load sidecar image to local
 	kind load docker-image ${SCIMG} --name kind
 
 .PHONY: docker-push
-docker-push: ## Push docker image with the manager.
+docker-push: docker-build ## Push docker image with the manager.
 	$(CONTAINER_TOOL) push ${IMG}
+	$(CONTAINER_TOOL) buildx imagetools create --tag ${IMGNOTAG}:latest ${IMG}
 	
 
 # PLATFORMS defines the target platforms for the manager image be built to provide support to multiple

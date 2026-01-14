@@ -69,8 +69,9 @@ type KNLConfigSpec struct {
 // this is the application default, meaning when user didn't specify the corresponding field in KNLconfig
 func DefKNLConfig() KNLConfigSpec {
 	r := KNLConfigSpec{
-		SFTPSever:    ReturnPointerVal("knl-sftp-service.knl-system.svc.cluster.local:22"),
-		VXLANGrpAddr: ReturnPointerVal("ff18::100"),
+		SFTPSever:      ReturnPointerVal("knl-sftp-service.knl-system.svc.cluster.local:22"),
+		VXLANGrpAddr:   ReturnPointerVal("ff18::100"),
+		SideCarHookImg: ReturnPointerVal("ghcr.io/hujun-open/knl/knlsidecar:latest"),
 	}
 	//create app default for each node type
 	defOne := OneOfSystem{}
