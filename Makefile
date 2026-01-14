@@ -140,6 +140,10 @@ endif
 	$(CONTAINER_TOOL) build -t ${SCIMG} --file ./kvirtsidecar/docker/Dockerfile ./kvirtsidecar/docker/
 
 
+.PHONY: docker-push-sidecar
+docker-push-sidecar: docker-build-sidecar
+	$(CONTAINER_TOOL) push ${SCIMG}
+
 .PHONY: load-sidecar-kind
 load-sidecar-kind: docker-build-sidecar ## build and load sidecar image to local kind cluster
 	kind load docker-image ${SCIMG} --name kind
