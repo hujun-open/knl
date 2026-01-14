@@ -1,0 +1,51 @@
+# sftp server sidecar-patch.yaml, not auto-generated
+# sidecar-pvc-patch.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: controller-manager
+  namespace: system
+spec:
+  template:
+    spec:
+      containers:
+      - name: manager
+        volumeMounts:
+          - name: knlroot
+            mountPath: /knlroot
+
+      - name: sftp-svr
+        image: linuxserver/openssh-server:10.0_p1-r9-ls209
+        securityContext:
+          runAsUser: 0
+          runAsGroup: 0
+          runAsNonRoot: false
+        env:      
+        - name: PUID
+          value: "2000"
+        - name: PGID
+          value: "2000"       
+        - name: USER_NAME
+          valueFrom:
+            secretKeyRef:
+              name: knl-sftp  # Name of the Secret
+              key: username   # Key within the Secret
+        - name: USER_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: knl-sftp  # Name of the Secret
+              key: password   # Key within the Secret
+        - name: PASSWORD_ACCESS
+          value: "true"
+        volumeMounts:
+          - name: knlroot
+            mountPath: /knlroot
+
+          # subPath: optional/directory/in/pvc (if needed)
+      
+      # --- Define the volume that references the PVC ---
+      # This is added to the main 'volumes' list in the Pod spec
+      volumes:
+      - name: knlroot
+        persistentVolumeClaim:
+          claimName: knl-pvc
