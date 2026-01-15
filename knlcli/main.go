@@ -23,6 +23,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+var VERSION string = "no_version"
+
 type CLI struct {
 	KubeCfgPath string `alias:"kubeconf" usage:"path to k8s config"`
 	Create      struct {
@@ -158,6 +160,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	filler.Version = VERSION
 	err = filler.Execute()
 	if err != nil {
 		panic(err)

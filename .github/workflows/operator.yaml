@@ -1,4 +1,4 @@
-name: KNL operator image & manifests
+name: KNL operator image, manifests and knlcli
 on:
   push:
     tags:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   build-and-push:
-    name: Build and push KNL operator image, also the manifest
+    name: Build and push KNL operator image, the manifest and knlcli
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -47,10 +47,13 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image on Dockerhub
-        run: make docker-push IMG=${{ env.REGISTRY }}/${{ env.IMG_BASE }}:${{ env.TAG }} IMGNOTAG=${{ env.REGISTRY }}/${{ env.IMG_BASE }}
+        run: make docker-push MGRVER=${{ env.TAG }} IMG=${{ env.REGISTRY }}/${{ env.IMG_BASE }}:${{ env.TAG }} IMGNOTAG=${{ env.REGISTRY }}/${{ env.IMG_BASE }}
 
       - name: build manifests
         run: make deploymanifests IMG=${{ env.REGISTRY }}/${{ env.IMG_BASE }}:${{ env.TAG }}
+
+      - name: build knlcli
+        run: make build-knlcli KNLCLIVER=${{ env.TAG }}    
 
       - name: Create Release
         env:
@@ -59,4 +62,4 @@ jobs:
           gh release create ${{ github.ref_name }} \
             --title "Release ${{ github.ref_name }}" \
             --notes "Automated release for ${{ github.ref_name }}" \
-            all.yaml        
+            all.yaml knlcli-linux-x86-64

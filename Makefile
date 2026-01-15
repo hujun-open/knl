@@ -1,6 +1,9 @@
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
 
+KNLCLIVER ?= $(shell git describe --tags --always --dirty)
+MGRVER ?= $(shell git describe --tags --always --dirty)
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -106,7 +109,7 @@ lint-config: golangci-lint ## Verify golangci-lint linter configuration
 
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
-	CGO_ENABLED=0 go build -o bin/manager cmd/main.go
+	CGO_ENABLED=0 go build -ldflags="-X main.VERSION=$(MGRVER)" -o bin/manager cmd/main.go
 
 
 .PHONY: build-sidecar
@@ -115,7 +118,7 @@ build-sidecar: manifests generate fmt vet ## Build manager binary.
 
 .PHONY: build-knlcli
 build-knlcli: manifests generate ## Build manager binary.
-	cd knlcli;go vet;CGO_ENABLED=0 go build -o knlcli
+	cd knlcli;go vet;CGO_ENABLED=0 go build -ldflags="-X main.VERSION=$(KNLCLIVER)" -o ../knlcli-linux-x86-64
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
