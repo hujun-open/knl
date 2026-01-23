@@ -47,4 +47,6 @@ example-lab:
              vsim-1
 
 ```
-  
+
+## knlcli
+`knlcli` is the command line tool for the KNL, [download from here](https://github.com/hujun-open/knlcli/releases)
