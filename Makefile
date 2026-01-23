@@ -1,7 +1,6 @@
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
 
-KNLCLIVER ?= $(shell git describe --tags --always --dirty)
 MGRVER ?= $(shell git describe --tags --always --dirty)
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
@@ -115,10 +114,6 @@ build: manifests generate fmt vet ## Build manager binary.
 .PHONY: build-sidecar
 build-sidecar: manifests generate fmt vet ## Build manager binary.
 	CGO_ENABLED=0 go build -o kvirtsidecar/docker/onDefineDomain kvirtsidecar/main.go
-
-.PHONY: build-knlcli
-build-knlcli: manifests generate ## Build manager binary.
-	cd knlcli;go vet;CGO_ENABLED=0 go build -ldflags="-X main.VERSION=$(KNLCLIVER)" -o ../knlcli-linux-x86-64
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
@@ -286,8 +281,7 @@ export: docker-build deploymanifests ## export controller image tar.gz and all.y
 	gzip knl2.tar
 
 .PHONY: exportall
-exportall: export docker-build-sidecar build-knlcli ## export controller , sidecar image tar.gz, knlcli.gz and all.yaml
-	gzip -c ./knlcli/knlcli > knlcli.gz
+exportall: export docker-build-sidecar ## export controller , sidecar image tar.gz and all.yaml
 	-rm kvirtsidecar.tar.gz
 	$(CONTAINER_TOOL) save ${SCIMG} -o kvirtsidecar.tar
 	gzip kvirtsidecar.tar

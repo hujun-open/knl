@@ -71,6 +71,9 @@ func (srsim *SRSim) Validate(lab *LabSpec, nodeName string) error {
 	re := regexp.MustCompile(`^e\d{1,2}((-[a-z]\d{1,2})?-\d{1,2}){1,2}$`)
 	for linkName, link := range lab.LinkList {
 		for _, c := range link.Connectors {
+			if *c.NodeName != nodeName {
+				continue
+			}
 			if c.PortId != nil {
 				if !re.MatchString(*c.PortId) {
 					return fmt.Errorf("invlid port id %v in link %v", *c.PortId, linkName)
