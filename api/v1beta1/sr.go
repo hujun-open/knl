@@ -1,12 +1,15 @@
 package v1beta1
 
 import (
+	"bufio"
 	"fmt"
+	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/api/resource"
+	"kubenetlab.net/knl/internal"
 	kvv1 "kubevirt.io/api/core/v1"
 )
 
@@ -329,4 +332,72 @@ func (card *SRCard) FillDefaultVal(nt NodeType, cardid string) {
 			card.ListenPorts = SetDefaultGeneric(card.ListenPorts, *getIOMVMListenPorts())
 		}
 	}
+}
+
+func getConfigureLines(input string) string {
+	scanner := bufio.NewScanner(strings.NewReader(input))
+	r := ""
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "    configure") {
+			r += line + "\n"
+		}
+	}
+	return r
+}
+
+func isCommitSucceed(log string) bool {
+	scanner := bufio.NewScanner(strings.NewReader(log))
+	r := []string{}
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, "MGMT_CORE") {
+			return false
+		}
+		r = append(r, line)
+	}
+	if strings.HasPrefix(r[len(r)-2], "(gl)[") {
+		return true
+	}
+	if strings.HasPrefix(r[len(r)-2], "*(gl)[") {
+		return false
+	}
+	panic("unexpected err")
+}
+
+// srGetCfg get configuration from running datastore of SR node via SSH and MD-CLI
+func srGetCfg(addr netip.Addr, username, passwd string) (string, error) {
+	sshrpc, err := internal.NewSSHRPC(netip.AddrPortFrom(addr, 22).String(), username, passwd)
+	if err != nil {
+		return "", fmt.Errorf("failed to connect %v via ssh: %w", addr, err)
+	}
+	cmds := []string{"edit-config global", "/info running flat /"}
+	output, err := sshrpc.ExecuteCmd(cmds)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute command in %v: %w", addr, err)
+	}
+	return getConfigureLines(output), nil
+}
+
+// srLoadCfg load cfg into SR node, via SSH and MD-CLI
+func srLoadCfg(addr netip.Addr, username, passwd, cfg string) error {
+	sshrpc, err := internal.NewSSHRPC(netip.AddrPortFrom(addr, 22).String(), username, passwd)
+	if err != nil {
+		panic(err)
+	}
+
+	cmds := []string{"edit-config global"}
+	scanner := bufio.NewScanner(strings.NewReader(cfg))
+	for scanner.Scan() {
+		cmds = append(cmds, scanner.Text())
+	}
+	cmds = append(cmds, "commit")
+	output, err := sshrpc.ExecuteCmd(cmds)
+	if err != nil {
+		panic(err)
+	}
+	if !isCommitSucceed(output) {
+		return fmt.Errorf("failed to apply config, %v", output)
+	}
+	return nil
 }

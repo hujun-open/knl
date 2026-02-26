@@ -24,6 +24,10 @@ type System interface {
 	Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string)
 	//Console is to login into system's console, not all system types support it
 	Console(ctx context.Context, clnt client.Client, ns, lab, chassis string)
+	//GetCfg return system's current running configuration like SROS config, not all system support this, emtyp+nil will be returned by non-supporting system
+	GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error)
+	//LoadCfg loads config (e.g. SROS config) into system, not all system support this, non-supporting system just returns false,nil
+	LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (support bool, err error)
 }
 
 type NodeType string

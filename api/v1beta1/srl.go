@@ -401,3 +401,11 @@ func (srl *SRLinux) Console(ctx context.Context, clnt client.Client, ns, lab, ch
 				ns, GetPodName(lab, chassis))},
 		envList)
 }
+
+func (srl *SRLinux) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {
+	return "", nil
+}
+
+func (srl *SRLinux) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (bool, error) {
+	return false, nil
+}

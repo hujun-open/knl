@@ -214,3 +214,11 @@ func (gpod *GeneralPod) Shell(ctx context.Context, clnt client.Client, ns, lab, 
 func (gpod *GeneralPod) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {
 	gpod.Shell(ctx, clnt, ns, lab, chassis, "")
 }
+
+func (gpod *GeneralPod) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {
+	return "", nil
+}
+
+func (gpod *GeneralPod) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (bool, error) {
+	return false, nil
+}

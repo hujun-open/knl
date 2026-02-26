@@ -476,3 +476,11 @@ func (gvm *GeneralVM) Console(ctx context.Context, clnt client.Client, ns, lab, 
 			fmt.Sprintf("telnet %v %d", podList.Items[0].Status.PodIP, SRVMConsoleTCPPort)},
 		envList)
 }
+
+func (gvm *GeneralVM) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {
+	return "", nil
+}
+
+func (gvm *GeneralVM) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (bool, error) {
+	return false, nil
+}

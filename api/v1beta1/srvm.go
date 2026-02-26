@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/netip"
 	"os"
 	"strings"
 	"syscall"
@@ -204,8 +205,7 @@ func (vsri *VSRI) Shell(ctx context.Context, clnt client.Client, ns, lab, chassi
 func (magc *MAGC) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
 	(*SRVM)(magc).Shell(ctx, clnt, ns, lab, chassis, username)
 }
-
-func (gvm *SRVM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
+func (gvm *SRVM) getSRVMCPMPodIP(ctx context.Context, clnt client.Client, ns, lab, chassis string) (netip.Addr, error) {
 	defCPMVMName := GetSRVMCardVMName(lab, chassis, gvm.Chassis.GetDefaultCPMSlot())
 	podList := &corev1.PodList{}
 	labelSelector := client.MatchingLabels{
@@ -213,17 +213,25 @@ func (gvm *SRVM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis
 	}
 	err := clnt.List(ctx, podList, client.InNamespace(ns), labelSelector)
 	if err != nil {
-		log.Fatalf("failed to list pods: %v", err)
+		return netip.Addr{}, fmt.Errorf("failed to list pods: %v", err)
+
 	}
 	if len(podList.Items) == 0 {
-		log.Fatalf("failed to find vm pod %v", defCPMVMName)
+		return netip.Addr{}, fmt.Errorf("failed to find vm pod %v", defCPMVMName)
+	}
+	return netip.MustParseAddr(podList.Items[0].Status.PodIP), nil
+}
 
+func (gvm *SRVM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
+	cpmIP, err := gvm.getSRVMCPMPodIP(ctx, clnt, ns, lab, chassis)
+	if err != nil {
+		log.Fatal(err)
 	}
 	if username == "" {
 		username = "admin"
 	}
-	fmt.Println("connecting to", chassis, "at", podList.Items[0].Status.PodIP, "username", username)
-	SysCallSSH(username, podList.Items[0].Status.PodIP)
+	fmt.Println("connecting to", chassis, "at", cpmIP, "username", username)
+	SysCallSSH(username, cpmIP.String())
 }
 
 func (vsim *VSIM) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {
@@ -238,23 +246,47 @@ func (magc *MAGC) Console(ctx context.Context, clnt client.Client, ns, lab, chas
 }
 
 func (gvm *SRVM) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {
-	defCPMVMName := GetSRVMCardVMName(lab, chassis, gvm.Chassis.GetDefaultCPMSlot())
-	podList := &corev1.PodList{}
-	labelSelector := client.MatchingLabels{
-		"vm.kubevirt.io/name": defCPMVMName,
-	}
-	err := clnt.List(ctx, podList, client.InNamespace(ns), labelSelector)
+	cpmIP, err := gvm.getSRVMCPMPodIP(ctx, clnt, ns, lab, chassis)
 	if err != nil {
-		log.Fatalf("failed to list pods: %v", err)
-	}
-	if len(podList.Items) == 0 {
-		log.Fatalf("failed to find vm pod %v", defCPMVMName)
-
+		log.Fatal(err)
 	}
 	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
-	fmt.Println("connecting to console of", chassis, "at", podList.Items[0].Status.PodIP)
+	fmt.Println("connecting to console of", chassis, "at", cpmIP)
 	syscall.Exec("/bin/sh",
 		[]string{"sh", "-c",
-			fmt.Sprintf("telnet %v %d", podList.Items[0].Status.PodIP, SRVMConsoleTCPPort)},
+			fmt.Sprintf("telnet %v %d", cpmIP, SRVMConsoleTCPPort)},
 		envList)
+}
+func (magc *MAGC) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {
+	return (*SRVM)(magc).GetCfg(ctx, clnt, ns, lab, chassis, user, pass)
+}
+func (vsri *VSRI) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {
+	return (*SRVM)(vsri).GetCfg(ctx, clnt, ns, lab, chassis, user, pass)
+}
+func (vsim *VSIM) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {
+	return (*SRVM)(vsim).GetCfg(ctx, clnt, ns, lab, chassis, user, pass)
+}
+func (gvm *SRVM) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {
+	cpmIP, err := gvm.getSRVMCPMPodIP(ctx, clnt, ns, lab, chassis)
+	if err != nil {
+		return "", fmt.Errorf("failed to get cpm IP for %v in lab %v, %w", chassis, lab, err)
+	}
+	return srGetCfg(cpmIP, user, pass)
+}
+
+func (magc *MAGC) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (bool, error) {
+	return (*SRVM)(magc).LoadCfg(ctx, clnt, ns, lab, chassis, user, pass, config)
+}
+func (vsri *VSRI) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (bool, error) {
+	return (*SRVM)(vsri).LoadCfg(ctx, clnt, ns, lab, chassis, user, pass, config)
+}
+func (vsim *VSIM) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (bool, error) {
+	return (*SRVM)(vsim).LoadCfg(ctx, clnt, ns, lab, chassis, user, pass, config)
+}
+func (gvm *SRVM) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (bool, error) {
+	cpmIP, err := gvm.getSRVMCPMPodIP(ctx, clnt, ns, lab, chassis)
+	if err != nil {
+		return true, fmt.Errorf("failed to get cpm IP for %v in lab %v, %w", chassis, lab, err)
+	}
+	return true, srLoadCfg(cpmIP, user, pass, config)
 }

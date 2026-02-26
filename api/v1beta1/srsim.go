@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/netip"
 	"os"
 	"regexp"
 	"strings"
@@ -272,18 +273,28 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 	return nil
 }
 
-func (srsim *SRSim) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
+func getSRSIMpodIP(ctx context.Context, clnt client.Client, ns, lab, chassis string) (netip.Addr, error) {
 	pod := &corev1.Pod{}
 	podKey := types.NamespacedName{Namespace: ns, Name: GetPodName(lab, chassis)}
 	err := clnt.Get(ctx, podKey, pod)
 	if err != nil {
-		log.Fatalf("failed to list pods: %v", err)
+		return netip.Addr{}, err
 	}
+	return netip.MustParseAddr(pod.Status.PodIP), nil
+
+}
+
+func (srsim *SRSim) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
+	podIP, err := getSRSIMpodIP(ctx, clnt, ns, lab, chassis)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	if username == "" {
 		username = "admin"
 	}
-	fmt.Println("connecting to", chassis, "at", pod.Status.PodIP, "username", username)
-	SysCallSSH(username, pod.Status.PodIP)
+	fmt.Println("connecting to", chassis, "at", podIP.String(), "username", username)
+	SysCallSSH(username, podIP.String())
 
 }
 
@@ -295,4 +306,19 @@ func (srsim *SRSim) Console(ctx context.Context, clnt client.Client, ns, lab, ch
 			fmt.Sprintf("kubectl -n %v exec -it %v -- bash",
 				ns, GetPodName(lab, chassis))},
 		envList)
+}
+func (srsim *SRSim) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {
+	podIP, err := getSRSIMpodIP(ctx, clnt, ns, lab, chassis)
+	if err != nil {
+		return "", fmt.Errorf("failed to get pod IP for %v in lab %v, %w", chassis, lab, err)
+	}
+	return srGetCfg(podIP, user, pass)
+}
+
+func (srsim *SRSim) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (bool, error) {
+	podIP, err := getSRSIMpodIP(ctx, clnt, ns, lab, chassis)
+	if err != nil {
+		return true, fmt.Errorf("failed to get pod IP for %v in lab %v, %w", chassis, lab, err)
+	}
+	return true, srLoadCfg(podIP, user, pass, config)
 }
