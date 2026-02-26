@@ -258,7 +258,7 @@ func (gvm *SRVM) Console(ctx context.Context, clnt client.Client, ns, lab, chass
 		envList)
 }
 func (magc *MAGC) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {
-	return (*SRVM)(magc).GetCfg(ctx, clnt, ns, lab, chassis, user, pass)
+	return "", nil
 }
 func (vsri *VSRI) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {
 	return (*SRVM)(vsri).GetCfg(ctx, clnt, ns, lab, chassis, user, pass)
@@ -275,7 +275,7 @@ func (gvm *SRVM) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassi
 }
 
 func (magc *MAGC) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (bool, error) {
-	return (*SRVM)(magc).LoadCfg(ctx, clnt, ns, lab, chassis, user, pass, config)
+	return false, nil
 }
 func (vsri *VSRI) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (bool, error) {
 	return (*SRVM)(vsri).LoadCfg(ctx, clnt, ns, lab, chassis, user, pass, config)
