@@ -76,25 +76,11 @@ func NewSSHRPC(sshsvr, user, pass string) (*SSHRPC, error) {
 
 }
 
-var SROS_CLI_PROMPT_PREFIXES = []string{"A:", "*A:"}
-
 const (
-	SROS_SSH_ENDMARK = "TiMOS"
-	SRL_SSH_ENDMARK  = "SRLEND"
+	SROS_SSH_MD_ENDMARK      = "TiMOS"
+	SROS_SSH_CLASSIC_ENDMARK = "ENDMARK"
+	SRL_SSH_ENDMARK          = "SRLEND"
 )
-
-func splitlines(inputstr string, trim bool) []string {
-	r := strings.Split(inputstr, "\n")
-	var r2 []string
-	for _, s := range r {
-		s3 := strings.TrimRight(s, "\n\r")
-		if trim {
-			s3 = strings.TrimSpace(s3)
-		}
-		r2 = append(r2, s3)
-	}
-	return r2
-}
 
 func (rpc *SSHRPC) Stop() {
 	rpc.stdinBuf.Close()
@@ -121,9 +107,14 @@ func (rpc *SSHRPC) SRLExecuteCmd(cmds []string) (string, error) {
 	return s, nil
 }
 
-// this function is specific to TIMOS
-func (rpc *SSHRPC) SROSExecuteCmd(cmds []string) (string, error) {
-	_, err := fmt.Fprintln(rpc.stdinBuf, "/environment more false")
+// this function is specific to TIMOS, via MDCLI or classic CLI
+func (rpc *SSHRPC) SROSExecuteCmd(cmds []string, isMDCLI bool) (string, error) {
+	var err error
+	if isMDCLI {
+		_, err = fmt.Fprintln(rpc.stdinBuf, "/environment more false")
+	} else {
+		_, err = fmt.Fprintln(rpc.stdinBuf, "/environment no more")
+	}
 	if err != nil {
 		panic(err)
 	}
@@ -133,16 +124,19 @@ func (rpc *SSHRPC) SROSExecuteCmd(cmds []string) (string, error) {
 			panic(err)
 		}
 	}
-	_, err = fmt.Fprintln(rpc.stdinBuf, "/show version")
+	endmark := SROS_SSH_MD_ENDMARK
+
+	if isMDCLI {
+		_, err = fmt.Fprintln(rpc.stdinBuf, "/show version")
+	} else {
+		_, err = fmt.Fprintf(rpc.stdinBuf, "echo %v\n", SROS_SSH_CLASSIC_ENDMARK)
+		endmark = SROS_SSH_CLASSIC_ENDMARK
+	}
 	if err != nil {
 		panic(err)
 	}
-	// _, err := rpc.stdinBuf.Write([]byte(cmd))
-	// if err != nil {
-	// 	return "", err
-	// }
 	time.Sleep(100 * time.Millisecond)
-	s := readUntillPrefix(rpc.stdoutBuf, SROS_CLI_PROMPT_PREFIXES, SROS_SSH_ENDMARK)
+	s := srosReadUntillPrefix(rpc.stdoutBuf, endmark)
 	return s, nil
 }
 
@@ -160,47 +154,15 @@ func srlReadUntillPrefix(input io.Reader) string {
 	return strings.Join(lineList, "\n")
 }
 
-func readUntillPrefix(input io.Reader, prefixstrs []string, endMark string) string {
-	const MAXLEN = 1000000
-	readbuf := make([]byte, 100000)
-	rstr := ""
-	gotend := false
-	lineid := 1
-	for {
-		byteCount, err := input.Read(readbuf)
-		if err != nil {
-			log.Fatal(err)
+func srosReadUntillPrefix(input io.Reader, endmark string) string {
+	scanner := bufio.NewScanner(input)
+	lineList := []string{}
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.Contains(line, endmark) {
+			break
 		}
-		cur_str := string(readbuf[:byteCount])
-		//fmt.Println("cur_str:", cur_str)
-		rstr += cur_str
-		line_list := splitlines(cur_str, false)
-		for _, line := range line_list {
-			if strings.Contains(line, endMark) {
-				gotend = true
-				break
-			}
-		}
-		if gotend {
-			lastline := line_list[len(line_list)-1]
-			checkline := strings.TrimSpace(lastline)
-			if matchPrefix(checkline, prefixstrs) {
-				break
-			}
-		}
-		lineid++
-		if len(rstr) >= MAXLEN {
-			log.Fatal("ssh output exceed max length, abort")
-		}
+		lineList = append(lineList, line)
 	}
-	return rstr
-
-}
-func matchPrefix(inpustr string, prefixes []string) bool {
-	for _, p := range prefixes {
-		if strings.HasPrefix(inpustr, p) {
-			return true
-		}
-	}
-	return false
+	return strings.Join(lineList, "\n")
 }

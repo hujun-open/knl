@@ -572,7 +572,7 @@ func SysCallSSH(username, ipaddr string) {
 		fmt.Fprintf(os.Stderr, "ssh not found in PATH: %v\n", err)
 		os.Exit(1)
 	}
-	argv := append([]string{"ssh"}, strings.Fields(fmt.Sprintf("-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %v@%v", username, ipaddr))...)
+	argv := append([]string{"ssh"}, strings.Fields(fmt.Sprintf("-o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %v@%v", username, ipaddr))...)
 	syscall.Exec(sshPath,
 		argv,
 		os.Environ())

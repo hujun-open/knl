@@ -334,7 +334,7 @@ func (card *SRCard) FillDefaultVal(nt NodeType, cardid string) {
 	}
 }
 
-func getSRConfigureLines(input string) string {
+func getSRMDConfigureLines(input string) string {
 	scanner := bufio.NewScanner(strings.NewReader(input))
 	r := ""
 	for scanner.Scan() {
@@ -346,7 +346,27 @@ func getSRConfigureLines(input string) string {
 	return r
 }
 
-func isSROSCommitSucceed(log string) bool {
+func getSRClassicConfigureLines(input string) string {
+	scanner := bufio.NewScanner(strings.NewReader(input))
+	r := ""
+	do := false
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "# TiMOS") {
+			do = true
+		}
+		if do {
+			r += line + "\n"
+		}
+		if strings.HasPrefix(line, "# Finished") {
+			break
+		}
+
+	}
+	return r
+}
+
+func isSROSMDCommitSucceed(log string) bool {
 	scanner := bufio.NewScanner(strings.NewReader(log))
 	r := []string{}
 	for scanner.Scan() {
@@ -365,22 +385,71 @@ func isSROSCommitSucceed(log string) bool {
 	panic("unexpected err")
 }
 
-// srGetCfgviaSSH get configuration from running datastore of SR node via SSH and MD-CLI
-func srGetCfgviaSSH(addr netip.Addr, username, passwd string) (string, error) {
+func isSROSClassicCommitSucceed(log string) bool {
+	scanner := bufio.NewScanner(strings.NewReader(log))
+	r := []string{}
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "Error:") {
+			return false
+		}
+		r = append(r, line)
+	}
+	return true
+}
+
+// srGetCfgviaSSHMDCLI get configuration from running datastore of SR node via SSH and MD-CLI
+func srGetCfgviaSSHMDCLI(addr netip.Addr, username, passwd string) (string, error) {
 	sshrpc, err := internal.NewSSHRPC(netip.AddrPortFrom(addr, 22).String(), username, passwd)
 	if err != nil {
 		return "", fmt.Errorf("failed to connect %v via ssh: %w", addr, err)
 	}
 	cmds := []string{"edit-config global", "/info running flat /"}
-	output, err := sshrpc.SROSExecuteCmd(cmds)
+	output, err := sshrpc.SROSExecuteCmd(cmds, true)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute command in %v: %w", addr, err)
 	}
-	return getSRConfigureLines(output), nil
+	return getSRMDConfigureLines(output), nil
 }
 
-// srLoadCfgviaSSH load cfg into SR node, via SSH and MD-CLI
-func srLoadCfgviaSSH(addr netip.Addr, username, passwd, cfg string) error {
+// srGetCfgviaSSHClassicCLI get config from a SROS node via SSH and classic CLI
+func srGetCfgviaSSHClassicCLI(addr netip.Addr, username, passwd string) (string, error) {
+	sshrpc, err := internal.NewSSHRPC(netip.AddrPortFrom(addr, 22).String(), username, passwd)
+	if err != nil {
+		return "", fmt.Errorf("failed to connect %v via ssh: %w", addr, err)
+	}
+	cmds := []string{"configure", "/admin display-config"}
+	output, err := sshrpc.SROSExecuteCmd(cmds, false)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute command in %v: %w", addr, err)
+	}
+	return getSRClassicConfigureLines(output), nil
+}
+
+// srLoadCfgviaSSHClassicCLI load cfg into SR node, via SSH and Classic CLI
+func srLoadCfgviaSSHClassicCLI(addr netip.Addr, username, passwd, cfg string) error {
+	sshrpc, err := internal.NewSSHRPC(netip.AddrPortFrom(addr, 22).String(), username, passwd)
+	if err != nil {
+		panic(err)
+	}
+
+	cmds := []string{}
+	scanner := bufio.NewScanner(strings.NewReader(cfg))
+	for scanner.Scan() {
+		cmds = append(cmds, scanner.Text())
+	}
+	output, err := sshrpc.SROSExecuteCmd(cmds, false)
+	if err != nil {
+		panic(err)
+	}
+	if !isSROSClassicCommitSucceed(output) {
+		return fmt.Errorf("failed to apply config, %v", output)
+	}
+	return nil
+}
+
+// srLoadCfgviaSSHMDCLI load cfg into SR node, via SSH and MD-CLI
+func srLoadCfgviaSSHMDCLI(addr netip.Addr, username, passwd, cfg string) error {
 	sshrpc, err := internal.NewSSHRPC(netip.AddrPortFrom(addr, 22).String(), username, passwd)
 	if err != nil {
 		panic(err)
@@ -392,11 +461,11 @@ func srLoadCfgviaSSH(addr netip.Addr, username, passwd, cfg string) error {
 		cmds = append(cmds, scanner.Text())
 	}
 	cmds = append(cmds, "commit")
-	output, err := sshrpc.SROSExecuteCmd(cmds)
+	output, err := sshrpc.SROSExecuteCmd(cmds, true)
 	if err != nil {
 		panic(err)
 	}
-	if !isSROSCommitSucceed(output) {
+	if !isSROSMDCommitSucceed(output) {
 		return fmt.Errorf("failed to apply config, %v", output)
 	}
 	return nil
@@ -447,6 +516,6 @@ func srEnableGNMI(addr netip.Addr, username, passwd string) error {
 		fmt.Sprintf("configure system grpc listening-port %d", internal.DefaultgNMIPort),
 		fmt.Sprintf(`configure system security user-params local-user user "%v" access grpc true`, username),
 	}
-	return srLoadCfgviaSSH(addr, username, passwd, strings.Join(commands, "\n"))
+	return srLoadCfgviaSSHMDCLI(addr, username, passwd, strings.Join(commands, "\n"))
 
 }

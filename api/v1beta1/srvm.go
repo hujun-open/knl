@@ -258,7 +258,12 @@ func (gvm *SRVM) Console(ctx context.Context, clnt client.Client, ns, lab, chass
 		envList)
 }
 func (magc *MAGC) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {
-	return "", nil
+	cpmIP, err := (*SRVM)(magc).getSRVMCPMPodIP(ctx, clnt, ns, lab, chassis)
+	if err != nil {
+		return "", fmt.Errorf("failed to get cpm IP for %v in lab %v, %w", chassis, lab, err)
+	}
+	return srGetCfgviaSSHClassicCLI(cpmIP, user, pass)
+
 }
 func (vsri *VSRI) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {
 	return (*SRVM)(vsri).GetCfg(ctx, clnt, ns, lab, chassis, user, pass)
@@ -275,7 +280,11 @@ func (gvm *SRVM) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassi
 }
 
 func (magc *MAGC) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (bool, error) {
-	return false, nil
+	cpmIP, err := (*SRVM)(magc).getSRVMCPMPodIP(ctx, clnt, ns, lab, chassis)
+	if err != nil {
+		return true, fmt.Errorf("failed to get cpm IP for %v in lab %v, %w", chassis, lab, err)
+	}
+	return true, srLoadCfgviaSSHClassicCLI(cpmIP, user, pass, config)
 }
 func (vsri *VSRI) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (bool, error) {
 	return (*SRVM)(vsri).LoadCfg(ctx, clnt, ns, lab, chassis, user, pass, config)
