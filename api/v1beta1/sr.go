@@ -334,7 +334,7 @@ func (card *SRCard) FillDefaultVal(nt NodeType, cardid string) {
 	}
 }
 
-func getConfigureLines(input string) string {
+func getSRConfigureLines(input string) string {
 	scanner := bufio.NewScanner(strings.NewReader(input))
 	r := ""
 	for scanner.Scan() {
@@ -346,7 +346,7 @@ func getConfigureLines(input string) string {
 	return r
 }
 
-func isCommitSucceed(log string) bool {
+func isSROSCommitSucceed(log string) bool {
 	scanner := bufio.NewScanner(strings.NewReader(log))
 	r := []string{}
 	for scanner.Scan() {
@@ -365,22 +365,22 @@ func isCommitSucceed(log string) bool {
 	panic("unexpected err")
 }
 
-// srGetCfg get configuration from running datastore of SR node via SSH and MD-CLI
-func srGetCfg(addr netip.Addr, username, passwd string) (string, error) {
+// srGetCfgviaSSH get configuration from running datastore of SR node via SSH and MD-CLI
+func srGetCfgviaSSH(addr netip.Addr, username, passwd string) (string, error) {
 	sshrpc, err := internal.NewSSHRPC(netip.AddrPortFrom(addr, 22).String(), username, passwd)
 	if err != nil {
 		return "", fmt.Errorf("failed to connect %v via ssh: %w", addr, err)
 	}
 	cmds := []string{"edit-config global", "/info running flat /"}
-	output, err := sshrpc.ExecuteCmd(cmds)
+	output, err := sshrpc.SROSExecuteCmd(cmds)
 	if err != nil {
 		return "", fmt.Errorf("failed to execute command in %v: %w", addr, err)
 	}
-	return getConfigureLines(output), nil
+	return getSRConfigureLines(output), nil
 }
 
-// srLoadCfg load cfg into SR node, via SSH and MD-CLI
-func srLoadCfg(addr netip.Addr, username, passwd, cfg string) error {
+// srLoadCfgviaSSH load cfg into SR node, via SSH and MD-CLI
+func srLoadCfgviaSSH(addr netip.Addr, username, passwd, cfg string) error {
 	sshrpc, err := internal.NewSSHRPC(netip.AddrPortFrom(addr, 22).String(), username, passwd)
 	if err != nil {
 		panic(err)
@@ -392,12 +392,61 @@ func srLoadCfg(addr netip.Addr, username, passwd, cfg string) error {
 		cmds = append(cmds, scanner.Text())
 	}
 	cmds = append(cmds, "commit")
-	output, err := sshrpc.ExecuteCmd(cmds)
+	output, err := sshrpc.SROSExecuteCmd(cmds)
 	if err != nil {
 		panic(err)
 	}
-	if !isCommitSucceed(output) {
+	if !isSROSCommitSucceed(output) {
 		return fmt.Errorf("failed to apply config, %v", output)
 	}
 	return nil
+}
+
+func srGetCfgviaGNMI(addr netip.Addr, username, passwd string) (string, error) {
+	rpc := internal.NewGNMIRPC(netip.AddrPortFrom(addr, internal.DefaultgNMIPort), username, passwd, false)
+	defer rpc.Close()
+	out, err := rpc.GetConfig()
+	if err == nil {
+		return out, nil
+	}
+	//using gNMI failed, try to enable gNMI
+	err = srEnableGNMI(addr, username, passwd)
+	if err != nil {
+		return "", fmt.Errorf("failed to enable gNMI for %v, %w", addr, err)
+	}
+	//try agin
+	rpc = internal.NewGNMIRPC(netip.AddrPortFrom(addr, internal.DefaultgNMIPort), username, passwd, false)
+	defer rpc.Close()
+	return rpc.GetConfig()
+}
+
+func srLoadCfgviaGNMI(addr netip.Addr, username, passwd, cfg string) error {
+	rpc := internal.NewGNMIRPC(netip.AddrPortFrom(addr, internal.DefaultgNMIPort), username, passwd, false)
+	defer rpc.Close()
+	err := rpc.LoadJsonCfg("configure", cfg)
+	if err == nil {
+		return nil
+	}
+	//using gNMI failed, try to enable gNMI
+	err = srEnableGNMI(addr, username, passwd)
+	if err != nil {
+		return fmt.Errorf("failed to enable gNMI for %v, %w", addr, err)
+	}
+	//try agin
+	rpc = internal.NewGNMIRPC(netip.AddrPortFrom(addr, internal.DefaultgNMIPort), username, passwd, false)
+	defer rpc.Close()
+	return rpc.LoadJsonCfg("configure", cfg)
+}
+
+// srEnableGNMI enable gNMI for the username, via SSH and MD-CLI
+func srEnableGNMI(addr netip.Addr, username, passwd string) error {
+	commands := []string{
+		"configure system grpc admin-state enable",
+		"configure system grpc allow-unsecure-connection",
+		"configure system grpc gnmi admin-state enable",
+		fmt.Sprintf("configure system grpc listening-port %d", internal.DefaultgNMIPort),
+		fmt.Sprintf(`configure system security user-params local-user user "%v" access grpc true`, username),
+	}
+	return srLoadCfgviaSSH(addr, username, passwd, strings.Join(commands, "\n"))
+
 }

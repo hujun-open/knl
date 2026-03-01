@@ -1,10 +1,12 @@
 package v1beta1
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log"
 	"net"
+	"net/netip"
 	"os"
 	"strconv"
 	"strings"
@@ -15,6 +17,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/types"
+	"kubenetlab.net/knl/internal"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -378,18 +381,26 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 
 }
 
-func (srl *SRLinux) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
+func getSRLPodIP(ctx context.Context, clnt client.Client, ns, lab, chassis string) (netip.Addr, error) {
 	pod := &corev1.Pod{}
 	podKey := types.NamespacedName{Namespace: ns, Name: GetPodName(lab, chassis)}
 	err := clnt.Get(ctx, podKey, pod)
 	if err != nil {
-		log.Fatalf("failed to list pods: %v", err)
+		return netip.Addr{}, fmt.Errorf("failed to get pod IP for %v", chassis)
+	}
+	return netip.MustParseAddr(pod.Status.PodIP), nil
+}
+
+func (srl *SRLinux) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
+	podIP, err := getSRLPodIP(ctx, clnt, ns, lab, chassis)
+	if err != nil {
+		log.Fatal(err)
 	}
 	if username == "" {
 		username = "admin"
 	}
-	fmt.Println("connecting to", chassis, "at", pod.Status.PodIP, "username", username)
-	SysCallSSH(username, pod.Status.PodIP)
+	fmt.Println("connecting to", chassis, "at", podIP.String(), "username", username)
+	SysCallSSH(username, podIP.String())
 }
 
 func (srl *SRLinux) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {
@@ -403,9 +414,92 @@ func (srl *SRLinux) Console(ctx context.Context, clnt client.Client, ns, lab, ch
 }
 
 func (srl *SRLinux) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {
-	return "", nil
+	podIP, err := getSRLPodIP(ctx, clnt, ns, lab, chassis)
+	if err != nil {
+		return "", err
+	}
+
+	return srlGetCfgviaGNMI(podIP, user, pass)
 }
 
 func (srl *SRLinux) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (bool, error) {
-	return false, nil
+	podIP, err := getSRLPodIP(ctx, clnt, ns, lab, chassis)
+	if err != nil {
+		return true, err
+	}
+	err = srlLoadCfgviaGNMI(podIP, user, pass, config)
+
+	return true, err
+}
+func getSRLConfigureLines(input string) string {
+	scanner := bufio.NewScanner(strings.NewReader(input))
+	r := ""
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "set / ") {
+			r += line + "\n"
+		}
+	}
+	return r
+}
+
+func srlGetCfgviaSSH(addr netip.Addr, username, passwd string) (string, error) {
+	sshrpc, err := internal.NewSSHRPC(netip.AddrPortFrom(addr, 22).String(), username, passwd)
+	if err != nil {
+		return "", fmt.Errorf("failed to connect %v via ssh: %w", addr, err)
+	}
+	cmds := []string{"/info from running flat /"}
+	output, err := sshrpc.SRLExecuteCmd(cmds)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute command in %v: %w", addr, err)
+	}
+	return getSRLConfigureLines(output), nil
+}
+
+func srlGetCfgviaGNMI(addr netip.Addr, username, passwd string) (string, error) {
+	rpc := internal.NewGNMIRPC(netip.AddrPortFrom(addr, internal.DefaultgNMIPort), username, passwd, true)
+	defer rpc.Close()
+	return rpc.GetConfig()
+}
+
+func isSRLCommitSucceed(log string) bool {
+	scanner := bufio.NewScanner(strings.NewReader(log))
+	lineList := []string{}
+	for scanner.Scan() {
+		line := scanner.Text()
+		lineList = append(lineList, line)
+	}
+	if strings.HasPrefix(lineList[len(lineList)-1], "All changes have been committed") {
+		return true
+	}
+	if strings.HasPrefix(lineList[len(lineList)-1], "Nothing to commit") {
+		return true
+	}
+	return false
+}
+func srlLoadCfgviaSSH(addr netip.Addr, username, passwd, cfg string) error {
+	sshrpc, err := internal.NewSSHRPC(netip.AddrPortFrom(addr, 22).String(), username, passwd)
+	if err != nil {
+		return fmt.Errorf("failed to connect %v via ssh: %w", addr, err)
+	}
+	cmds := []string{"enter candidate"}
+	scanner := bufio.NewScanner(strings.NewReader(cfg))
+	for scanner.Scan() {
+		cmds = append(cmds, scanner.Text())
+	}
+	cmds = append(cmds, "commit save")
+	output, err := sshrpc.SRLExecuteCmd(cmds)
+	if err != nil {
+		return fmt.Errorf("failed to execute command in %v: %w", addr, err)
+	}
+	if !isSRLCommitSucceed(output) {
+		return fmt.Errorf("failed to commit\n%v", output)
+	}
+	return nil
+}
+
+func srlLoadCfgviaGNMI(addr netip.Addr, username, passwd, cfg string) error {
+	rpc := internal.NewGNMIRPC(netip.AddrPortFrom(addr, internal.DefaultgNMIPort), username, passwd, true)
+	defer rpc.Close()
+	return rpc.LoadJsonCfg("", cfg)
 }

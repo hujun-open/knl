@@ -312,7 +312,7 @@ func (srsim *SRSim) GetCfg(ctx context.Context, clnt client.Client, ns, lab, cha
 	if err != nil {
 		return "", fmt.Errorf("failed to get pod IP for %v in lab %v, %w", chassis, lab, err)
 	}
-	return srGetCfg(podIP, user, pass)
+	return srGetCfgviaGNMI(podIP, user, pass)
 }
 
 func (srsim *SRSim) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (bool, error) {
@@ -320,5 +320,5 @@ func (srsim *SRSim) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, ch
 	if err != nil {
 		return true, fmt.Errorf("failed to get pod IP for %v in lab %v, %w", chassis, lab, err)
 	}
-	return true, srLoadCfg(podIP, user, pass, config)
+	return true, srLoadCfgviaGNMI(podIP, user, pass, config)
 }

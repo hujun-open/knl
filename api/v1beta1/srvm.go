@@ -271,7 +271,7 @@ func (gvm *SRVM) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassi
 	if err != nil {
 		return "", fmt.Errorf("failed to get cpm IP for %v in lab %v, %w", chassis, lab, err)
 	}
-	return srGetCfg(cpmIP, user, pass)
+	return srGetCfgviaGNMI(cpmIP, user, pass)
 }
 
 func (magc *MAGC) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (bool, error) {
@@ -288,5 +288,5 @@ func (gvm *SRVM) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chass
 	if err != nil {
 		return true, fmt.Errorf("failed to get cpm IP for %v in lab %v, %w", chassis, lab, err)
 	}
-	return true, srLoadCfg(cpmIP, user, pass, config)
+	return true, srLoadCfgviaGNMI(cpmIP, user, pass, config)
 }
