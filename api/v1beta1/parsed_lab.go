@@ -35,11 +35,7 @@ func ParseLab(lab *Lab, sch *runtime.Scheme) *ParsedLab {
 	r.ConnectorMap = make(map[string][]string)
 	for linkName, link := range r.Lab.Spec.LinkList {
 		for _, c := range link.Connectors {
-			if _, ok := r.ConnectorMap[*c.NodeName]; ok {
-				r.ConnectorMap[*c.NodeName] = append(r.ConnectorMap[*c.NodeName], linkName)
-			} else {
-				r.ConnectorMap[*c.NodeName] = []string{linkName}
-			}
+			r.ConnectorMap[*c.NodeName] = append(r.ConnectorMap[*c.NodeName], linkName)
 		}
 	}
 	r.SetOwnerFunc = func(controlled metav1.Object) error {

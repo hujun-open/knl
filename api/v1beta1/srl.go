@@ -373,6 +373,11 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 		pod.Spec.Containers[0].Resources.Requests[corev1.ResourceMemory] = *srl.ReqMemory
 	}
 
+	//remove failed pod
+	if err := removeFailedPod(ctx, clnt, lab.Lab.Namespace, pod.Name); err != nil {
+		return fmt.Errorf("remove pod %v in lab %v, %w", pod.Name, lab.Lab.Name, err)
+	}
+
 	err = createIfNotExistsOrRemove(ctx, clnt, lab, pod, true, false)
 	if err != nil {
 		return fmt.Errorf("failed to create SRL pod %v in lab %v, %w", nodeName, lab.Lab.Name, err)

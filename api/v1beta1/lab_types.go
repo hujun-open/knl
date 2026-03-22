@@ -128,3 +128,14 @@ func (labspec *LabSpec) GetNodeSortIndex(nodeName string) int {
 	}
 	return -1
 }
+
+// GetCleanManifest return a Lab object that removed all fields that not needed for recreation
+func (lab *Lab) GetClean() *Lab {
+	r := new(Lab)
+	r.APIVersion = lab.APIVersion
+	r.Kind = lab.Kind
+	r.Name = lab.Name
+	r.Namespace = lab.Namespace
+	r.Spec = lab.Spec
+	return r
+}

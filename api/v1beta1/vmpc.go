@@ -127,6 +127,10 @@ func (gvm *GeneralVM) Ensure(ctx context.Context, nodeName string, clnt client.C
 	}
 	//create vm
 	vmi := gvm.getVMI(lab, nodeName)
+	//remove failed vmi
+	if err = removeFailedVMI(ctx, clnt, lab.Lab.Namespace, vmi.Name); err != nil {
+		return fmt.Errorf("remove vmi %v in lab %v, %w", vmi.Name, lab.Lab.Name, err)
+	}
 	err = createIfNotExistsOrFailedOrRemove(ctx, clnt, lab, vmi, checkVMIfail, true, forceRemoval)
 	if err != nil {
 		return MakeErr(err)

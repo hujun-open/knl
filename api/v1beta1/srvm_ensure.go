@@ -147,6 +147,10 @@ func (srvm *SRVM) Ensure(ctx context.Context, nodeName string, clnt client.Clien
 		// }
 		//VMI
 		vmi := srvm.getVMI(lab, nodeName, slot, licFullPath, sftpUser, sftpPass)
+		//remove failed vmi
+		if err = removeFailedVMI(ctx, clnt, lab.Lab.Namespace, vmi.Name); err != nil {
+			return fmt.Errorf("remove vmi %v in lab %v, %w", vmi.Name, lab.Lab.Name, err)
+		}
 		err = createIfNotExistsOrFailedOrRemove(ctx, clnt, lab, vmi, checkVMIfail, true, forceRemoval)
 		if err != nil {
 			return MakeErr(err)
@@ -425,6 +429,5 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 			},
 		},
 	}
-
 	return r
 }

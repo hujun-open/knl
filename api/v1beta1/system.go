@@ -19,6 +19,7 @@ type System interface {
 	//Validate is used by validation webhook
 	Validate(lab *LabSpec, nodeName string) error
 	//Ensure is called by controller to reconcile
+	//NOTE: currently forceRemoval is not used
 	Ensure(ctx context.Context, nodeName string, clnt client.Client, forceRemoval bool) error
 	//Shell is to shell into the system, used by knlcli
 	Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string)

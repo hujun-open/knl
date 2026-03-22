@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
@@ -12,6 +14,74 @@ import (
 	kvv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+const (
+	pendingTimeOut = 300 * time.Second
+)
+
+// removeFailedPod remove VMI in failed state, no-op if it is running or doesn't exists,
+// return error if a remove action was taken
+func removeFailedVMI(ctx context.Context, clnt client.Client, ns, name string) error {
+	vmi := new(kvv1.VirtualMachineInstance)
+	err := clnt.Get(ctx,
+		types.NamespacedName{Namespace: ns, Name: name},
+		vmi,
+	)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		} else {
+			return fmt.Errorf("fail get get vmi %v in namespace %v, %w", name, ns, err)
+		}
+	}
+	switch vmi.Status.Phase {
+	case kvv1.Running:
+		return nil
+	case kvv1.VmPhaseUnset, kvv1.Pending, kvv1.Scheduling, kvv1.Scheduled, kvv1.WaitingForSync:
+		if time.Since(vmi.CreationTimestamp.Time) < pendingTimeOut {
+			return nil
+		}
+	}
+	trigger := fmt.Errorf("vmi %v in ns %v is removed due to its phase is %v", name, ns, vmi.Status.Phase)
+	//remove the vmi
+	err = clnt.Delete(ctx, vmi)
+	if err != nil {
+		return fmt.Errorf("failed to remove vmi trigger by %w, %w", trigger, err)
+	}
+	return trigger
+}
+
+// removeFailedPod remove pod in failed state, no-op if it is running or doesn't exists,
+// return error if a remove action was taken
+func removeFailedPod(ctx context.Context, clnt client.Client, ns, name string) error {
+	pod := new(corev1.Pod)
+	err := clnt.Get(ctx,
+		types.NamespacedName{Namespace: ns, Name: name},
+		pod,
+	)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return nil
+		} else {
+			return fmt.Errorf("fail get get pod %v in namespace %v, %w", name, ns, err)
+		}
+	}
+	switch pod.Status.Phase {
+	case corev1.PodRunning:
+		return nil
+	case corev1.PodPending:
+		if time.Since(pod.CreationTimestamp.Time) < pendingTimeOut {
+			return nil
+		}
+	}
+	trigger := fmt.Errorf("pod %v in ns %v is removed due to its phase is %v", name, ns, pod.Status.Phase)
+	//remove the pod
+	err = clnt.Delete(ctx, pod)
+	if err != nil {
+		return fmt.Errorf("failed to remove pod trigger by %w, %w", trigger, err)
+	}
+	return trigger
+}
 
 // if remove is false, createIfNotExistsOrRemove creates target if it is not already exists in the lab's ns,
 // otherwise remove the target
