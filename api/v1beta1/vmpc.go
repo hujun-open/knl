@@ -488,3 +488,7 @@ func (gvm *GeneralVM) GetCfg(ctx context.Context, clnt client.Client, ns, lab, c
 func (gvm *GeneralVM) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (bool, error) {
 	return false, nil
 }
+
+func (gvm *GeneralVM) IsReady(ctx context.Context, clnt client.Client, ns, labName, nodeName string) error {
+	return IsVMIReady(ctx, clnt, ns, GetPodName(labName, nodeName))
+}

@@ -67,7 +67,8 @@ type LabStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-
+// +kubebuilder:printcolumn:name="Ready",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].status"
+// +kubebuilder:printcolumn:name="Msg",type="string",JSONPath=".status.conditions[?(@.type==\"Ready\")].message"
 // Lab is the Schema for the labs API
 type Lab struct {
 	metav1.TypeMeta `json:",inline"`

@@ -328,3 +328,7 @@ func (srsim *SRSim) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, ch
 	}
 	return true, srLoadCfgviaGNMI(podIP, user, pass, config)
 }
+
+func (srsim *SRSim) IsReady(ctx context.Context, clnt client.Client, ns, labName, nodeName string) error {
+	return IsPodReady(ctx, clnt, ns, GetPodName(labName, nodeName))
+}

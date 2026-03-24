@@ -227,3 +227,7 @@ func (gpod *GeneralPod) GetCfg(ctx context.Context, clnt client.Client, ns, lab,
 func (gpod *GeneralPod) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (bool, error) {
 	return false, nil
 }
+
+func (gpod *GeneralPod) IsReady(ctx context.Context, clnt client.Client, ns, labName, nodeName string) error {
+	return IsPodReady(ctx, clnt, ns, GetPodName(labName, nodeName))
+}

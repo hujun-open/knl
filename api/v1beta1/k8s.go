@@ -222,6 +222,47 @@ func checkVMIfail(obj client.Object) error {
 	}
 }
 
+func IsVMIReady(ctx context.Context, clnt client.Client, ns, vmName string) error {
+	vm := new(kvv1.VirtualMachineInstance)
+	vmKey := types.NamespacedName{Namespace: ns, Name: vmName}
+	err := clnt.Get(ctx, vmKey, vm)
+	if err != nil {
+		return fmt.Errorf("VMI %v not found, %w", vmName, err)
+	}
+	for _, c := range vm.Status.Conditions {
+		if c.Type == kvv1.VirtualMachineInstanceReady {
+			if c.Status != corev1.ConditionTrue {
+				return fmt.Errorf("VMI %v is not ready", vmName)
+			} else {
+				return nil
+			}
+
+		}
+	}
+	return fmt.Errorf("VMI %v is not ready", vmName)
+}
+
+func IsPodReady(ctx context.Context, clnt client.Client, ns, podName string) error {
+	pod := new(corev1.Pod)
+	podKey := types.NamespacedName{Namespace: ns, Name: podName}
+	err := clnt.Get(ctx, podKey, pod)
+	if err != nil {
+		return fmt.Errorf("pod %v not found, %w", podName, err)
+	}
+	for _, c := range pod.Status.Conditions {
+		if c.Type == corev1.PodReady {
+			if c.Status != corev1.ConditionTrue {
+
+			} else {
+				return nil
+			}
+
+		}
+	}
+	return fmt.Errorf("pod %v is not ready", podName)
+
+}
+
 const (
 	MultusAnnoKey      = "k8s.v1.cni.cncf.io/networks"
 	K8sLANResKeyPrefix = "macvtap.k8slan.io"

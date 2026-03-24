@@ -299,3 +299,24 @@ func (gvm *SRVM) LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chass
 	}
 	return true, srLoadCfgviaGNMI(cpmIP, user, pass, config)
 }
+
+func (vsim *VSIM) IsReady(ctx context.Context, clnt client.Client, ns, labName, chassisName string) error {
+	return (*SRVM)(vsim).IsReady(ctx, clnt, ns, labName, chassisName)
+}
+
+func (vsri *VSRI) IsReady(ctx context.Context, clnt client.Client, ns, labName, chassisName string) error {
+	return (*SRVM)(vsri).IsReady(ctx, clnt, ns, labName, chassisName)
+}
+
+func (magc *MAGC) IsReady(ctx context.Context, clnt client.Client, ns, labName, chassisName string) error {
+	return (*SRVM)(magc).IsReady(ctx, clnt, ns, labName, chassisName)
+}
+func (gvm *SRVM) IsReady(ctx context.Context, clnt client.Client, ns, labName, chassisName string) error {
+	for slot := range gvm.Chassis.Cards {
+		vmName := GetSRVMCardVMName(labName, chassisName, slot)
+		if err := IsVMIReady(ctx, clnt, ns, vmName); err != nil {
+			return err
+		}
+	}
+	return nil
+}

@@ -24,6 +24,8 @@ import (
 	ncv1 "github.com/k8snetworkplumbingwg/network-attachment-definition-client/pkg/apis/k8s.cni.cncf.io/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
+
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -35,6 +37,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+)
+
+const (
+	typeDeployedCondition = "Deployed"
+	typeReadyCondition    = "Ready"
 )
 
 // LabReconciler reconciles a Lab object
@@ -74,8 +81,32 @@ func (r *LabReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	plab := knlv1beta1.ParseLab(lab, r.Scheme)
-
+	updateStatusFunc := func(conType string, s metav1.ConditionStatus, reason, msg string) error {
+		meta.SetStatusCondition(&lab.Status.Conditions, metav1.Condition{
+			Type:    conType,
+			Status:  s,
+			Reason:  reason,
+			Message: msg,
+		})
+		if statusErr := r.Status().Update(ctx, lab); statusErr != nil {
+			logger.Error(statusErr, "Failed to update lab status")
+			return statusErr
+		}
+		return nil
+	}
 	// name of our custom finalizer
+	if len(lab.Status.Conditions) == 0 {
+		err := updateStatusFunc(typeDeployedCondition, metav1.ConditionUnknown, "Reconciling", "Starting reconciliation")
+		if err != nil {
+			logger.Error(err, "Failed to update lab status")
+			return ctrl.Result{}, err
+		}
+		err = updateStatusFunc(typeReadyCondition, metav1.ConditionFalse, "Reconciling", "Starting reconciliation")
+		if err != nil {
+			logger.Error(err, "Failed to update lab status")
+			return ctrl.Result{}, err
+		}
+	}
 
 	// examine DeletionTimestamp to determine if object is under deletion
 	if lab.ObjectMeta.DeletionTimestamp.IsZero() {
@@ -110,10 +141,12 @@ func (r *LabReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 	//reconcile logic here
 	//create k8sLAN CRs
+
 	var err error
 	err = plab.EnsureLinks(ctx, r.Client)
 	if err != nil {
 		logger.Error(err, "failed to create links")
+		updateStatusFunc(typeDeployedCondition, metav1.ConditionFalse, "ensuring", fmt.Sprintf("failed to ensure links: %v", err))
 		return ctrl.Result{}, nil
 	}
 	logger.Info("links ensured", "SpokeMap", fmt.Sprintf("%+v", plab.SpokeMap))
@@ -124,9 +157,25 @@ func (r *LabReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		err = sys.Ensure(ensureCTX, nodeName, r.Client, false)
 		if err != nil {
 			logger.Error(err, "failed to ensure node", "node", nodeName)
+			updateStatusFunc(typeDeployedCondition, metav1.ConditionFalse, "ensuring", fmt.Sprintf("failed to ensure node %v: %v", nodeName, err))
 			return ctrl.Result{}, nil
 		}
 	}
+	updateStatusFunc(typeDeployedCondition, metav1.ConditionTrue, "ensured", "lab ensured")
+	allReady := true
+	for nodeName, node := range plab.Lab.Spec.NodeList {
+		sys, _ := node.GetSystem()
+		err = sys.IsReady(ensureCTX, r.Client, plab.Lab.Namespace, plab.Lab.Name, nodeName)
+		if err != nil {
+			updateStatusFunc(typeReadyCondition, metav1.ConditionFalse, "running", fmt.Sprintf("node %v is not ready, %v", nodeName, err))
+			allReady = false
+			break
+		}
+	}
+	if allReady {
+		updateStatusFunc(typeReadyCondition, metav1.ConditionTrue, "running", "all nodes are ready")
+	}
+
 	return ctrl.Result{}, nil
 }
 

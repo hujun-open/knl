@@ -29,6 +29,8 @@ type System interface {
 	GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error)
 	//LoadCfg loads config (e.g. SROS config) into system, not all system support this, non-supporting system just returns false,nil
 	LoadCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, config string) (support bool, err error)
+	//IsReady return nil if all components of system is ready
+	IsReady(ctx context.Context, clnt client.Client, ns, labName, chassisName string) error
 }
 
 type NodeType string

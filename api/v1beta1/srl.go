@@ -508,3 +508,7 @@ func srlLoadCfgviaGNMI(addr netip.Addr, username, passwd, cfg string) error {
 	defer rpc.Close()
 	return rpc.LoadJsonCfg("", cfg)
 }
+
+func (srl *SRLinux) IsReady(ctx context.Context, clnt client.Client, ns, labName, nodeName string) error {
+	return IsPodReady(ctx, clnt, ns, GetPodName(labName, nodeName))
+}
