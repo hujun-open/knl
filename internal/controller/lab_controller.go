@@ -39,11 +39,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-const (
-	typeDeployedCondition = "Deployed"
-	typeReadyCondition    = "Ready"
-)
-
 // LabReconciler reconciles a Lab object
 type LabReconciler struct {
 	client.Client
@@ -96,12 +91,12 @@ func (r *LabReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 	// name of our custom finalizer
 	if len(lab.Status.Conditions) == 0 {
-		err := updateStatusFunc(typeDeployedCondition, metav1.ConditionUnknown, "Reconciling", "Starting reconciliation")
+		err := updateStatusFunc(knlv1beta1.DeployedCondition, metav1.ConditionUnknown, "Reconciling", "Starting reconciliation")
 		if err != nil {
 			logger.Error(err, "Failed to update lab status")
 			return ctrl.Result{}, err
 		}
-		err = updateStatusFunc(typeReadyCondition, metav1.ConditionFalse, "Reconciling", "Starting reconciliation")
+		err = updateStatusFunc(knlv1beta1.ReadyCondition, metav1.ConditionFalse, "Reconciling", "Starting reconciliation")
 		if err != nil {
 			logger.Error(err, "Failed to update lab status")
 			return ctrl.Result{}, err
@@ -146,7 +141,7 @@ func (r *LabReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	err = plab.EnsureLinks(ctx, r.Client)
 	if err != nil {
 		logger.Error(err, "failed to create links")
-		updateStatusFunc(typeDeployedCondition, metav1.ConditionFalse, "ensuring", fmt.Sprintf("failed to ensure links: %v", err))
+		updateStatusFunc(knlv1beta1.DeployedCondition, metav1.ConditionFalse, "ensuring", fmt.Sprintf("failed to ensure links: %v", err))
 		return ctrl.Result{}, nil
 	}
 	logger.Info("links ensured", "SpokeMap", fmt.Sprintf("%+v", plab.SpokeMap))
@@ -157,23 +152,23 @@ func (r *LabReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		err = sys.Ensure(ensureCTX, nodeName, r.Client, false)
 		if err != nil {
 			logger.Error(err, "failed to ensure node", "node", nodeName)
-			updateStatusFunc(typeDeployedCondition, metav1.ConditionFalse, "ensuring", fmt.Sprintf("failed to ensure node %v: %v", nodeName, err))
+			updateStatusFunc(knlv1beta1.DeployedCondition, metav1.ConditionFalse, "ensuring", fmt.Sprintf("failed to ensure node %v: %v", nodeName, err))
 			return ctrl.Result{}, nil
 		}
 	}
-	updateStatusFunc(typeDeployedCondition, metav1.ConditionTrue, "ensured", "lab ensured")
+	updateStatusFunc(knlv1beta1.DeployedCondition, metav1.ConditionTrue, "ensured", "lab ensured")
 	allReady := true
 	for nodeName, node := range plab.Lab.Spec.NodeList {
 		sys, _ := node.GetSystem()
 		err = sys.IsReady(ensureCTX, r.Client, plab.Lab.Namespace, plab.Lab.Name, nodeName)
 		if err != nil {
-			updateStatusFunc(typeReadyCondition, metav1.ConditionFalse, "running", fmt.Sprintf("node %v is not ready, %v", nodeName, err))
+			updateStatusFunc(knlv1beta1.ReadyCondition, metav1.ConditionFalse, "running", fmt.Sprintf("node %v is not ready, %v", nodeName, err))
 			allReady = false
 			break
 		}
 	}
 	if allReady {
-		updateStatusFunc(typeReadyCondition, metav1.ConditionTrue, "running", "all nodes are ready")
+		updateStatusFunc(knlv1beta1.ReadyCondition, metav1.ConditionTrue, "running", "all nodes are ready")
 	}
 
 	return ctrl.Result{}, nil

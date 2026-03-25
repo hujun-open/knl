@@ -140,3 +140,10 @@ func (lab *Lab) GetClean() *Lab {
 	r.Spec = lab.Spec
 	return r
 }
+
+const (
+	//DeployedCondition is true when all components of a lab gets scheduled
+	DeployedCondition = "Deployed"
+	//ReadyCondition is true when all components of a lab are running
+	ReadyCondition = "Ready"
+)
