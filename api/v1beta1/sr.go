@@ -430,7 +430,7 @@ func srGetCfgviaSSHClassicCLI(addr netip.Addr, username, passwd string) (string,
 func srLoadCfgviaSSHClassicCLI(addr netip.Addr, username, passwd, cfg string) error {
 	sshrpc, err := internal.NewSSHRPC(netip.AddrPortFrom(addr, 22).String(), username, passwd)
 	if err != nil {
-		panic(err)
+		return (err)
 	}
 
 	cmds := []string{}
@@ -440,7 +440,7 @@ func srLoadCfgviaSSHClassicCLI(addr netip.Addr, username, passwd, cfg string) er
 	}
 	output, err := sshrpc.SROSExecuteCmd(cmds, false)
 	if err != nil {
-		panic(err)
+		return (err)
 	}
 	if !isSROSClassicCommitSucceed(output) {
 		return fmt.Errorf("failed to apply config, %v", output)
@@ -452,7 +452,7 @@ func srLoadCfgviaSSHClassicCLI(addr netip.Addr, username, passwd, cfg string) er
 func srLoadCfgviaSSHMDCLI(addr netip.Addr, username, passwd, cfg string) error {
 	sshrpc, err := internal.NewSSHRPC(netip.AddrPortFrom(addr, 22).String(), username, passwd)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	cmds := []string{"edit-config global"}
@@ -463,7 +463,7 @@ func srLoadCfgviaSSHMDCLI(addr netip.Addr, username, passwd, cfg string) error {
 	cmds = append(cmds, "commit")
 	output, err := sshrpc.SROSExecuteCmd(cmds, true)
 	if err != nil {
-		panic(err)
+		return (err)
 	}
 	if !isSROSMDCommitSucceed(output) {
 		return fmt.Errorf("failed to apply config, %v", output)
