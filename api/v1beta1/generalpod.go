@@ -205,7 +205,7 @@ func (gpod *GeneralPod) getRootPVC(ns, nodeName, labName string, size resource.Q
 	}
 }
 
-func (gpod *GeneralPod) Shell(ctx context.Context, clnt client.Client, ns, lab, node, username string) {
+func (gpod *GeneralPod) Shell(ctx context.Context, clnt client.Client, ns, lab, node, username, passwd string) {
 	envList := []string{fmt.Sprintf("HOME=%v", os.Getenv("HOME"))}
 	fmt.Printf("connecting to %v\n", GetPodName(lab, node))
 	syscall.Exec("/bin/sh",
@@ -217,7 +217,7 @@ func (gpod *GeneralPod) Shell(ctx context.Context, clnt client.Client, ns, lab, 
 }
 
 func (gpod *GeneralPod) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {
-	gpod.Shell(ctx, clnt, ns, lab, chassis, "")
+	gpod.Shell(ctx, clnt, ns, lab, chassis, "", "")
 }
 
 func (gpod *GeneralPod) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {

@@ -566,14 +566,15 @@ func GetSortedKeySlice[K cmp.Ordered, V any](m map[K]V) []K {
 	return keys
 }
 
-func SysCallSSH(username, ipaddr string) {
-	sshPath, err := exec.LookPath("ssh")
+func SysCallSSH(username, passwd, ipaddr string) {
+	sshpassPath, err := exec.LookPath("sshpass")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ssh not found in PATH: %v\n", err)
+		fmt.Fprintf(os.Stderr, "sshpass not found in PATH: %v\n", err)
 		os.Exit(1)
 	}
-	argv := append([]string{"ssh"}, strings.Fields(fmt.Sprintf("-o HostKeyAlgorithms=+ssh-rsa -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null %v@%v", username, ipaddr))...)
-	syscall.Exec(sshPath,
+
+	argv := []string{"sshpass", "-p", passwd, "ssh", "-o", "UserKnownHostsFile=/dev/null", "-o", "StrictHostKeyChecking=no", fmt.Sprintf("%v@%v", username, ipaddr)}
+	syscall.Exec(sshpassPath,
 		argv,
 		os.Environ())
 }

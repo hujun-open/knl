@@ -195,15 +195,15 @@ func GetSRVMviaSys(nodeName string, sys System) *SRVM {
 	return nil
 }
 
-func (vsim *VSIM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
-	(*SRVM)(vsim).Shell(ctx, clnt, ns, lab, chassis, username)
+func (vsim *VSIM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username, passwd string) {
+	(*SRVM)(vsim).Shell(ctx, clnt, ns, lab, chassis, username, passwd)
 }
 
-func (vsri *VSRI) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
-	(*SRVM)(vsri).Shell(ctx, clnt, ns, lab, chassis, username)
+func (vsri *VSRI) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username, passwd string) {
+	(*SRVM)(vsri).Shell(ctx, clnt, ns, lab, chassis, username, passwd)
 }
-func (magc *MAGC) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
-	(*SRVM)(magc).Shell(ctx, clnt, ns, lab, chassis, username)
+func (magc *MAGC) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username, passwd string) {
+	(*SRVM)(magc).Shell(ctx, clnt, ns, lab, chassis, username, passwd)
 }
 func (gvm *SRVM) getSRVMCPMPodIP(ctx context.Context, clnt client.Client, ns, lab, chassis string) (netip.Addr, error) {
 	defCPMVMName := GetSRVMCardVMName(lab, chassis, gvm.Chassis.GetDefaultCPMSlot())
@@ -222,7 +222,7 @@ func (gvm *SRVM) getSRVMCPMPodIP(ctx context.Context, clnt client.Client, ns, la
 	return netip.MustParseAddr(podList.Items[0].Status.PodIP), nil
 }
 
-func (gvm *SRVM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
+func (gvm *SRVM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username, passwd string) {
 	cpmIP, err := gvm.getSRVMCPMPodIP(ctx, clnt, ns, lab, chassis)
 	if err != nil {
 		log.Fatal(err)
@@ -231,7 +231,10 @@ func (gvm *SRVM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis
 		username = "admin"
 	}
 	fmt.Println("connecting to", chassis, "at", cpmIP, "username", username)
-	SysCallSSH(username, cpmIP.String())
+	if passwd == "" {
+		passwd = "admin"
+	}
+	SysCallSSH(username, passwd, cpmIP.String())
 }
 
 func (vsim *VSIM) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {

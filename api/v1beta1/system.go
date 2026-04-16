@@ -22,7 +22,7 @@ type System interface {
 	//NOTE: currently forceRemoval is not used
 	Ensure(ctx context.Context, nodeName string, clnt client.Client, forceRemoval bool) error
 	//Shell is to shell into the system, used by knlcli
-	Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string)
+	Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username, passwd string)
 	//Console is to login into system's console, not all system types support it
 	Console(ctx context.Context, clnt client.Client, ns, lab, chassis string)
 	//GetCfg return system's current running configuration like SROS config, not all system support this, emtyp+nil will be returned by non-supporting system

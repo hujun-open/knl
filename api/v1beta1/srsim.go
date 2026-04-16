@@ -290,7 +290,7 @@ func getSRSIMpodIP(ctx context.Context, clnt client.Client, ns, lab, chassis str
 
 }
 
-func (srsim *SRSim) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
+func (srsim *SRSim) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username, passwd string) {
 	podIP, err := getSRSIMpodIP(ctx, clnt, ns, lab, chassis)
 	if err != nil {
 		log.Fatal(err)
@@ -299,8 +299,11 @@ func (srsim *SRSim) Shell(ctx context.Context, clnt client.Client, ns, lab, chas
 	if username == "" {
 		username = "admin"
 	}
+	if passwd == "" {
+		passwd = "admin"
+	}
 	fmt.Println("connecting to", chassis, "at", podIP.String(), "username", username)
-	SysCallSSH(username, podIP.String())
+	SysCallSSH(username, passwd, podIP.String())
 
 }
 

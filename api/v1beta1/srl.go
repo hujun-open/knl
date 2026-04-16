@@ -396,7 +396,7 @@ func getSRLPodIP(ctx context.Context, clnt client.Client, ns, lab, chassis strin
 	return netip.MustParseAddr(pod.Status.PodIP), nil
 }
 
-func (srl *SRLinux) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
+func (srl *SRLinux) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username, passwd string) {
 	podIP, err := getSRLPodIP(ctx, clnt, ns, lab, chassis)
 	if err != nil {
 		log.Fatal(err)
@@ -405,7 +405,10 @@ func (srl *SRLinux) Shell(ctx context.Context, clnt client.Client, ns, lab, chas
 		username = "admin"
 	}
 	fmt.Println("connecting to", chassis, "at", podIP.String(), "username", username)
-	SysCallSSH(username, podIP.String())
+	if passwd == "" {
+		passwd = "NokiaSrl1!"
+	}
+	SysCallSSH(username, passwd, podIP.String())
 }
 
 func (srl *SRLinux) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {

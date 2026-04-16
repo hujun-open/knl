@@ -442,7 +442,7 @@ func encodeDataURL(msg string) string {
 	return fmt.Sprintf("data:,%v", url.PathEscape(msg))
 }
 
-func (gvm *GeneralVM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username string) {
+func (gvm *GeneralVM) Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username, passwd string) {
 	podList := &corev1.PodList{}
 	labelSelector := client.MatchingLabels{
 		"vm.kubevirt.io/name": GetPodName(lab, chassis),
@@ -455,8 +455,14 @@ func (gvm *GeneralVM) Shell(ctx context.Context, clnt client.Client, ns, lab, ch
 		log.Fatalf("failed to find vm pod %v", GetPodName(lab, chassis))
 
 	}
-	fmt.Println("connecting to", chassis, "at", podList.Items[0].Status.PodIP, "username", *gvm.Username)
-	SysCallSSH(*gvm.Username, podList.Items[0].Status.PodIP)
+	if username == "" {
+		username = *gvm.Username
+	}
+	if passwd == "" {
+		passwd = *gvm.Password
+	}
+	fmt.Println("connecting to", chassis, "at", podList.Items[0].Status.PodIP, "username", username)
+	SysCallSSH(username, passwd, podList.Items[0].Status.PodIP)
 }
 
 func (gvm *GeneralVM) Console(ctx context.Context, clnt client.Client, ns, lab, chassis string) {
