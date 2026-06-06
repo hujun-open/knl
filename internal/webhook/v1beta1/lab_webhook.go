@@ -66,6 +66,9 @@ func (d *LabCustomDefaulter) Default(_ context.Context, obj runtime.Object) erro
 	if !ok {
 		return fmt.Errorf("expected an Lab object but got %T", obj)
 	}
+	if !lab.DeletionTimestamp.IsZero() {
+		return nil
+	}
 	lablog.Info("Defaulting for Lab", "lab", lab.GetName())
 	if lab.Spec.NodeList == nil {
 		lab.Spec.NodeList = make(map[string]*knlv1beta1.OneOfSystem)
@@ -203,6 +206,10 @@ func (v *LabCustomValidator) ValidateUpdate(_ context.Context, oldObj, newObj ru
 	}
 
 	lablog.Info("Validation for Lab upon update", "name", lab.GetName())
+
+	if !lab.DeletionTimestamp.IsZero() {
+		return nil, nil
+	}
 
 	if !reflect.DeepEqual(lab.Spec, old.Spec) {
 		return nil, field.Forbidden(
