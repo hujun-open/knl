@@ -398,6 +398,19 @@ func isSROSClassicCommitSucceed(log string) bool {
 	return true
 }
 
+func srExecViaSSH(addr netip.Addr, username, passwd, cmd string, isMDCLI bool) (string, error) {
+	sshrpc, err := internal.NewSSHRPC(netip.AddrPortFrom(addr, 22).String(), username, passwd)
+	if err != nil {
+		return "", fmt.Errorf("failed to connect %v via ssh: %w", addr, err)
+	}
+	defer sshrpc.Stop()
+	output, err := sshrpc.SROSExecCmdLogout(cmd, isMDCLI)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute command in %v: %w", addr, err)
+	}
+	return output, nil
+}
+
 // srGetCfgviaSSHMDCLI get configuration from running datastore of SR node via SSH and MD-CLI
 func srGetCfgviaSSHMDCLI(addr netip.Addr, username, passwd string) (string, error) {
 	sshrpc, err := internal.NewSSHRPC(netip.AddrPortFrom(addr, 22).String(), username, passwd)

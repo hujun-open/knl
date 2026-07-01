@@ -421,6 +421,20 @@ func (srl *SRLinux) Console(ctx context.Context, clnt client.Client, ns, lab, ch
 		envList)
 }
 
+func (srl *SRLinux) Exec(ctx context.Context, clnt client.Client, ns, lab, chassis, username, passwd, cmd string) (string, error) {
+	podIP, err := getSRLPodIP(ctx, clnt, ns, lab, chassis)
+	if err != nil {
+		return "", err
+	}
+	if username == "" {
+		username = "admin"
+	}
+	if passwd == "" {
+		passwd = "NokiaSrl1!"
+	}
+	return srlExecViaSSH(podIP, username, passwd, cmd)
+}
+
 func (srl *SRLinux) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {
 	podIP, err := getSRLPodIP(ctx, clnt, ns, lab, chassis)
 	if err != nil {
@@ -449,6 +463,19 @@ func getSRLConfigureLines(input string) string {
 		}
 	}
 	return r
+}
+
+func srlExecViaSSH(addr netip.Addr, username, passwd, cmd string) (string, error) {
+	sshrpc, err := internal.NewSSHRPC(netip.AddrPortFrom(addr, 22).String(), username, passwd)
+	if err != nil {
+		return "", fmt.Errorf("failed to connect %v via ssh: %w", addr, err)
+	}
+	defer sshrpc.Stop()
+	output, err := sshrpc.SRLExecuteAndExtract(cmd)
+	if err != nil {
+		return "", fmt.Errorf("failed to execute command in %v: %w", addr, err)
+	}
+	return output, nil
 }
 
 func srlGetCfgviaSSH(addr netip.Addr, username, passwd string) (string, error) {

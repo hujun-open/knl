@@ -260,6 +260,33 @@ func (gvm *SRVM) Console(ctx context.Context, clnt client.Client, ns, lab, chass
 			fmt.Sprintf("telnet %v %d", cpmIP, SRVMConsoleTCPPort)},
 		envList)
 }
+
+func (gvm *SRVM) execViaSSH(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, cmd string, isMDCLI bool) (string, error) {
+	cpmIP, err := gvm.getSRVMCPMPodIP(ctx, clnt, ns, lab, chassis)
+	if err != nil {
+		return "", fmt.Errorf("failed to get cpm IP for %v in lab %v, %w", chassis, lab, err)
+	}
+	if user == "" {
+		user = "admin"
+	}
+	if pass == "" {
+		pass = "admin"
+	}
+	return srExecViaSSH(cpmIP, user, pass, cmd, isMDCLI)
+}
+
+func (vsim *VSIM) Exec(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, cmd string) (string, error) {
+	return (*SRVM)(vsim).execViaSSH(ctx, clnt, ns, lab, chassis, user, pass, cmd, true)
+}
+
+func (vsri *VSRI) Exec(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, cmd string) (string, error) {
+	return (*SRVM)(vsri).execViaSSH(ctx, clnt, ns, lab, chassis, user, pass, cmd, true)
+}
+
+func (magc *MAGC) Exec(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, cmd string) (string, error) {
+	return (*SRVM)(magc).execViaSSH(ctx, clnt, ns, lab, chassis, user, pass, cmd, false)
+}
+
 func (magc *MAGC) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {
 	cpmIP, err := (*SRVM)(magc).getSRVMCPMPodIP(ctx, clnt, ns, lab, chassis)
 	if err != nil {

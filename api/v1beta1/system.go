@@ -25,6 +25,8 @@ type System interface {
 	Shell(ctx context.Context, clnt client.Client, ns, lab, chassis, username, passwd string)
 	//Console is to login into system's console, not all system types support it
 	Console(ctx context.Context, clnt client.Client, ns, lab, chassis string)
+	//Exec runs a command on the system and returns its output, used by knlcli exec
+	Exec(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass, cmd string) (string, error)
 	//GetCfg return system's current running configuration like SROS config, not all system support this, emtyp+nil will be returned by non-supporting system
 	GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error)
 	//LoadCfg loads config (e.g. SROS config) into system, not all system support this, non-supporting system just returns false,nil

@@ -220,6 +220,10 @@ func (gpod *GeneralPod) Console(ctx context.Context, clnt client.Client, ns, lab
 	gpod.Shell(ctx, clnt, ns, lab, chassis, "", "")
 }
 
+func (gpod *GeneralPod) Exec(ctx context.Context, clnt client.Client, ns, lab, node, user, pass, cmd string) (string, error) {
+	return KubectlExec(ns, GetPodName(lab, node), cmd)
+}
+
 func (gpod *GeneralPod) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {
 	return "", nil
 }

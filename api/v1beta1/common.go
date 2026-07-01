@@ -566,6 +566,18 @@ func GetSortedKeySlice[K cmp.Ordered, V any](m map[K]V) []K {
 	return keys
 }
 
+func KubectlExec(ns, podName, cmd string) (string, error) {
+	kubectlPath, err := exec.LookPath("kubectl")
+	if err != nil {
+		return "", fmt.Errorf("kubectl not found in PATH: %w", err)
+	}
+	out, err := exec.Command(kubectlPath, "-n", ns, "exec", podName, "--", "sh", "-c", cmd).CombinedOutput()
+	if err != nil {
+		return string(out), fmt.Errorf("kubectl exec failed: %w", err)
+	}
+	return string(out), nil
+}
+
 func SysCallSSH(username, passwd, ipaddr string) {
 	sshpassPath, err := exec.LookPath("sshpass")
 	if err != nil {

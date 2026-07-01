@@ -16,6 +16,7 @@ import (
 	"github.com/tredoe/osutil/user/crypt/sha512_crypt"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"kubenetlab.net/knl/internal"
 	kvv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -485,6 +486,28 @@ func (gvm *GeneralVM) Console(ctx context.Context, clnt client.Client, ns, lab, 
 		[]string{"sh", "-c",
 			fmt.Sprintf("telnet %v %d", podList.Items[0].Status.PodIP, SRVMConsoleTCPPort)},
 		envList)
+}
+
+func (gvm *GeneralVM) Exec(ctx context.Context, clnt client.Client, ns, lab, chassis, username, passwd, cmd string) (string, error) {
+	podList := &corev1.PodList{}
+	labelSelector := client.MatchingLabels{
+		"vm.kubevirt.io/name": GetPodName(lab, chassis),
+	}
+	err := clnt.List(ctx, podList, client.InNamespace(ns), labelSelector)
+	if err != nil {
+		return "", fmt.Errorf("failed to list pods: %w", err)
+	}
+	if len(podList.Items) == 0 {
+		return "", fmt.Errorf("failed to find vm pod %v", GetPodName(lab, chassis))
+	}
+	if username == "" {
+		username = *gvm.Username
+	}
+	if passwd == "" {
+		passwd = *gvm.Password
+	}
+	podIP := netip.MustParseAddr(podList.Items[0].Status.PodIP)
+	return internal.SSHRunCommand(netip.AddrPortFrom(podIP, 22).String(), username, passwd, cmd)
 }
 
 func (gvm *GeneralVM) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {

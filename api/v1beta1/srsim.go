@@ -316,6 +316,21 @@ func (srsim *SRSim) Console(ctx context.Context, clnt client.Client, ns, lab, ch
 				ns, GetPodName(lab, chassis))},
 		envList)
 }
+
+func (srsim *SRSim) Exec(ctx context.Context, clnt client.Client, ns, lab, chassis, username, passwd, cmd string) (string, error) {
+	podIP, err := getSRSIMpodIP(ctx, clnt, ns, lab, chassis)
+	if err != nil {
+		return "", fmt.Errorf("failed to get pod IP for %v in lab %v, %w", chassis, lab, err)
+	}
+	if username == "" {
+		username = "admin"
+	}
+	if passwd == "" {
+		passwd = "admin"
+	}
+	return srExecViaSSH(podIP, username, passwd, cmd, false)
+}
+
 func (srsim *SRSim) GetCfg(ctx context.Context, clnt client.Client, ns, lab, chassis, user, pass string) (string, error) {
 	podIP, err := getSRSIMpodIP(ctx, clnt, ns, lab, chassis)
 	if err != nil {
