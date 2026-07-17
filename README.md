@@ -3,7 +3,7 @@ KubeNetLab (KNL) is a k8s operator creates and manages virtual network topology 
 
 ### [Check here](https://hujun-open.github.io/knldoc/) for installation & usage guide.
 
-For automated k3s setup, see [scripts/README.md](scripts/README.md).
+For automated k3s setup, see the [Install with scripts (k3s)](https://hujun-open.github.io/knldoc/docs/install/install/#install-with-scripts-k3s) guide in knldoc.
 
 
 KNL has following key features:

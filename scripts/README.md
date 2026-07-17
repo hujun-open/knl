@@ -4,7 +4,7 @@ These scripts automate bootstrapping a single-node **k3s** cluster and installin
 
 [`install-knl.sh`](install-knl.sh) is **distribution-agnostic**: it installs the KNL stack on any existing Kubernetes cluster, provided the required `KNL_*` environment variables are set. [`setup-k3s.sh`](setup-k3s.sh) is the reference cluster-setup script for k3s; other distributions can add a `setup-<distro>.sh` that exports the same variables.
 
-For manual or production installs, see the [knldoc install guide](https://hujun-open.github.io/knldoc/docs/install/install/).
+For manual or production installs, see [Manual install](https://hujun-open.github.io/knldoc/docs/install/install/#manual-install) in the knldoc install guide. Full scripts documentation: [Install with scripts (k3s)](https://hujun-open.github.io/knldoc/docs/install/install/#install-with-scripts-k3s).
 
 ## Quick start
 

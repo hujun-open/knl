@@ -52,7 +52,16 @@ func (srsim *SRSim) SetToAppDefVal() {
 }
 
 func (srsim *SRSim) FillDefaultVal(nodeName string) {
+	if srsim.Chassis == nil {
+		return
+	}
 	srsim.Chassis.Type = ReturnPointerVal(SRSIM)
+	if srsim.Chassis.Validate() != nil {
+		return
+	}
+	for slot := range srsim.Chassis.Cards {
+		srsim.Chassis.Cards[slot].FillDefaultVal(SRSIM, slot)
+	}
 }
 
 func (srsim *SRSim) GetNodeType(name string) NodeType {
