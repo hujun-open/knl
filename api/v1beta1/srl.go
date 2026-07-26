@@ -245,7 +245,7 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 	initContainer := corev1.Container{
 		Name:    "sync-srl-etc",
 		Image:   *srl.Image,
-		Command: []string{"sh", "-c", "rm -rf /etc/opt/srlinux/*; rsync -rptgoD /persis-etc/ /etc/opt/srlinux/"},
+		Command: []string{"sh", "-c", "rm -rf /etc/opt/srlinux/*; rsync -rptgoD /persis-etc/ /etc/opt/srlinux/; rm -f /etc/opt/srlinux/chassis_oper_options.json"},
 		SecurityContext: &corev1.SecurityContext{
 			Privileged: ReturnPointerVal(true),
 			RunAsUser:  ReturnPointerVal(int64(0)),
