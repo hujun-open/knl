@@ -194,6 +194,8 @@ func (srsim *SRSim) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 
 		if IsCPM(slotid) {
 			//cpm
+			container.StartupProbe = srsimCPMStartupProbe()
+			container.ReadinessProbe = srsimCPMReadinessProbe()
 			// chassis mac
 			if srsim.Chassis.ChassisMAC != nil {
 				container.Env = append(container.Env, corev1.EnvVar{

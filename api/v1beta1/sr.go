@@ -78,6 +78,32 @@ func srvmReadinessProbe() *kvv1.Probe {
 	}
 }
 
+func srsimCPMStartupProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Port: intstr.FromInt(SRVMSSHPort),
+			},
+		},
+		FailureThreshold: 60,
+		PeriodSeconds:    10,
+		TimeoutSeconds:   5,
+	}
+}
+
+func srsimCPMReadinessProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Port: intstr.FromInt(SRVMSSHPort),
+			},
+		},
+		FailureThreshold: 3,
+		PeriodSeconds:    10,
+		TimeoutSeconds:   5,
+	}
+}
+
 func getIOMVMListenPorts() *[]kvv1.Port {
 	r := []kvv1.Port{
 		{ //this is required, otherwise all traffic will be forwared to VM: https://kubevirt.io/user-guide/network/interfaces_and_networks/#masquerade
