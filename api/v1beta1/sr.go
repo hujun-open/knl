@@ -8,7 +8,9 @@ import (
 	"strconv"
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"kubenetlab.net/knl/internal"
 	kvv1 "kubevirt.io/api/core/v1"
 )
@@ -61,6 +63,21 @@ func (card *SRCard) Validate() error {
 	return nil
 }
 
+const SRVMSSHPort = 22
+
+func srvmReadinessProbe() *kvv1.Probe {
+	return &kvv1.Probe{
+		Handler: kvv1.Handler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Port: intstr.FromInt(SRVMSSHPort),
+			},
+		},
+		PeriodSeconds:    10,
+		TimeoutSeconds:   20,
+		FailureThreshold: 60,
+	}
+}
+
 func getIOMVMListenPorts() *[]kvv1.Port {
 	r := []kvv1.Port{
 		{ //this is required, otherwise all traffic will be forwared to VM: https://kubevirt.io/user-guide/network/interfaces_and_networks/#masquerade
@@ -78,7 +95,7 @@ func getCPMVMListenPorts() *[]kvv1.Port {
 		{
 			Name:     "ssh",
 			Protocol: "TCP",
-			Port:     22,
+			Port:     SRVMSSHPort,
 		},
 		{
 			Name:     "netconf",

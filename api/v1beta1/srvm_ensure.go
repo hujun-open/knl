@@ -283,6 +283,7 @@ func (srvm *SRVM) getVMI(lab *ParsedLab, chassisName, cardslot, licPath, sftpuse
 				},
 			},
 		)
+		r.Spec.ReadinessProbe = srvmReadinessProbe()
 	} else {
 		//IOM
 		// iomImage := strings.TrimPrefix(*srvm.Image, "docker://")
