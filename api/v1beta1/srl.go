@@ -30,7 +30,89 @@ const (
 	DefaultSRLMem string   = "4Gi"
 	BaseMACPrefix string   = "FA:FA"
 	EtcPVCSize    string   = "100Mi"
+
+	// Persistence: only config.json is kept on the PVC, guarded by a chassis marker.
+	srlChassisEnvKey     = "KNL_SRL_CHASSIS"
+	srlPersisChassisPath = "/persis-etc/.knl-chassis"
+	srlPersisConfigPath  = "/persis-etc/config.json"
+	srlRuntimeConfigPath = "/etc/opt/srlinux/config.json"
+	srlRuntimeEtcDir     = "/etc/opt/srlinux"
+	srlPersisEtcDir      = "/persis-etc"
 )
+
+// shouldRestoreSRLConfig reports whether a persisted config.json should be
+// restored. Legacy PVCs without a chassis marker are never restored.
+func shouldRestoreSRLConfig(markerExists bool, savedChassis, desiredChassis string) bool {
+	return markerExists && savedChassis == desiredChassis && desiredChassis != ""
+}
+
+// srlPersistRestoreCommand returns the init-container shell that optionally
+// copies config.json from the PVC when the chassis marker matches.
+func srlPersistRestoreCommand() string {
+	return strings.Join([]string{
+		fmt.Sprintf("rm -rf %s/*", srlRuntimeEtcDir),
+		fmt.Sprintf(`if [ -f %s ] && [ -f %s ]; then`, srlPersisChassisPath, srlPersisConfigPath),
+		fmt.Sprintf(`  saved=$(cat %s)`, srlPersisChassisPath),
+		fmt.Sprintf(`  if [ "$saved" = "$%s" ]; then`, srlChassisEnvKey),
+		fmt.Sprintf(`    cp %s %s`, srlPersisConfigPath, srlRuntimeConfigPath),
+		`  fi`,
+		`fi`,
+	}, "\n")
+}
+
+// srlPersistSaveCommand returns the preStop shell that persists only
+// config.json plus a chassis marker onto the PVC.
+func srlPersistSaveCommand() string {
+	return strings.Join([]string{
+		fmt.Sprintf("rm -rf %s/*", srlPersisEtcDir),
+		fmt.Sprintf(`if [ -f %s ]; then`, srlRuntimeConfigPath),
+		fmt.Sprintf(`  cp %s %s`, srlRuntimeConfigPath, srlPersisConfigPath),
+		fmt.Sprintf(`  printf '%%s' "$%s" > %s.tmp`, srlChassisEnvKey, srlPersisChassisPath),
+		fmt.Sprintf(`  mv %s.tmp %s`, srlPersisChassisPath, srlPersisChassisPath),
+		`fi`,
+	}, "\n")
+}
+
+func srlChassisEnv(chassis string) corev1.EnvVar {
+	return corev1.EnvVar{
+		Name:  srlChassisEnvKey,
+		Value: chassis,
+	}
+}
+
+func srlMgmtServerProbeCommand() []string {
+	return []string{
+		"/bin/bash",
+		"-lc",
+		"sr_cli -s 'info from state system app-management application mgmt_server state' | grep -q running",
+	}
+}
+
+func srlStartupProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: srlMgmtServerProbeCommand(),
+			},
+		},
+		FailureThreshold: 60,
+		PeriodSeconds:    10,
+		TimeoutSeconds:   20,
+	}
+}
+
+func srlReadinessProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: srlMgmtServerProbeCommand(),
+			},
+		},
+		PeriodSeconds:    10,
+		FailureThreshold: 3,
+		TimeoutSeconds:   20,
+	}
+}
 
 // chassis_type-base_mac-cpm-slot-iom-mda
 func parseChassisStr(chassis string) (*SRLChassis, error) {
@@ -240,12 +322,13 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 
 	//create pod
 	pod := NewBasePod(lab.Lab.Name, nodeName, lab.Lab.Namespace, *srl.Image, SRL)
-	//create init-container to sync file from pvc to emptydir
-
+	chassisEnv := srlChassisEnv(*srl.Chassis)
+	// create init-container to optionally restore config.json from pvc when chassis matches
 	initContainer := corev1.Container{
 		Name:    "sync-srl-etc",
 		Image:   *srl.Image,
-		Command: []string{"sh", "-c", "rm -rf /etc/opt/srlinux/*; rsync -rptgoD /persis-etc/ /etc/opt/srlinux/; rm -f /etc/opt/srlinux/chassis_oper_options.json"},
+		Command: []string{"sh", "-c", srlPersistRestoreCommand()},
+		Env:     []corev1.EnvVar{chassisEnv},
 		SecurityContext: &corev1.SecurityContext{
 			Privileged: ReturnPointerVal(true),
 			RunAsUser:  ReturnPointerVal(int64(0)),
@@ -264,9 +347,12 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 	}
 	pod.Spec.InitContainers = append(pod.Spec.InitContainers, initContainer)
 	pod.Spec.Containers[0].Command = []string{"/tini", "--", "fixuid", "-q", "/entrypoint.sh", "sudo", "bash", "/opt/srlinux/bin/sr_linux"}
+	pod.Spec.Containers[0].Env = append(pod.Spec.Containers[0].Env, chassisEnv)
 	pod.Spec.Containers[0].SecurityContext = &corev1.SecurityContext{
 		Privileged: ReturnPointerVal(true),
 	}
+	pod.Spec.Containers[0].StartupProbe = srlStartupProbe()
+	pod.Spec.Containers[0].ReadinessProbe = srlReadinessProbe()
 	pod.Spec.Containers[0].VolumeMounts = []corev1.VolumeMount{
 		{
 			Name:      "topo",
@@ -277,16 +363,16 @@ func (srl *SRLinux) Ensure(ctx context.Context, nodeName string, clnt client.Cli
 			Name:      "etc",
 			MountPath: "/etc/opt/srlinux/",
 		},
-		{ //this is a pvc, use to store persitent file to/from emptyDir volume
+		{ //this is a pvc, use to store persistent config.json to/from emptyDir volume
 			Name:      "persis-etc",
 			MountPath: "/persis-etc/",
 		},
 	}
-	//add pre-stop hook to sync files back to pvc
+	// add pre-stop hook to persist only config.json + chassis marker back to pvc
 	pod.Spec.Containers[0].Lifecycle = &corev1.Lifecycle{
 		PreStop: &corev1.LifecycleHandler{
 			Exec: &corev1.ExecAction{
-				Command: []string{"sh", "-c", "rm -rf /persis-etc/*;rsync -rptgoD /etc/opt/srlinux/ /persis-etc/"},
+				Command: []string{"sh", "-c", srlPersistSaveCommand()},
 			},
 		},
 	}
