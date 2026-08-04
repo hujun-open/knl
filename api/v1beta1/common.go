@@ -30,6 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	kvv1 "kubevirt.io/api/core/v1"
 	cdiv1 "kubevirt.io/containerized-data-importer-api/pkg/apis/core/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -157,12 +158,19 @@ func FillNilPointers(dst any, src any) error {
 	return nil
 }
 
-// return true if struct t is a type supported by k8s API natively
+// isTheStructK8sType returns true if struct t should be copied as a whole
+// (pointer assignment) rather than recursed into when filling defaults.
+// This covers native k8s value types (Quantity, Time) and opaque API types
+// whose embedded value structs would otherwise be skipped by fillNilPointersValue
+// (e.g. kvv1.Probe embeds Handler by value).
 func isTheStructK8sType(t reflect.Type) bool {
 	if t == reflect.TypeOf(resource.Quantity{}) {
 		return true
 	}
 	if t == reflect.TypeOf(metav1.Time{}) {
+		return true
+	}
+	if t == reflect.TypeOf(kvv1.Probe{}) {
 		return true
 	}
 	return false

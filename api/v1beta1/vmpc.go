@@ -16,6 +16,7 @@ import (
 	"github.com/tredoe/osutil/user/crypt/sha512_crypt"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"kubenetlab.net/knl/internal"
 	kvv1 "kubevirt.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,12 +55,50 @@ type GeneralVM struct {
 	Username *string `json:"user,omitempty"`
 	//password to login into VM
 	Password *string `json:"passwd,omitempty"`
+	//readiness probe of the VM, default is a TCP probe on port 22;
+	//specify an empty probe to disable readiness probing
+	// +optional
+	Readiness *kvv1.Probe `json:"readiness,omitempty"`
 }
 
 const (
 	DefVPCCPU = "2.0"
 	DefVPCMem = "4Gi"
+	VMSSHPort = 22
 )
+
+func defVMReadinessProbe() *kvv1.Probe {
+	return &kvv1.Probe{
+		Handler: kvv1.Handler{
+			TCPSocket: &corev1.TCPSocketAction{
+				Port: intstr.FromInt(VMSSHPort),
+			},
+		},
+		PeriodSeconds:    10,
+		TimeoutSeconds:   20,
+		FailureThreshold: 60,
+	}
+}
+
+func countProbeHandlers(p *kvv1.Probe) int {
+	if p == nil {
+		return 0
+	}
+	n := 0
+	if p.Exec != nil {
+		n++
+	}
+	if p.GuestAgentPing != nil {
+		n++
+	}
+	if p.HTTPGet != nil {
+		n++
+	}
+	if p.TCPSocket != nil {
+		n++
+	}
+	return n
+}
 
 const (
 	VM NodeType = "vm"
@@ -77,13 +116,18 @@ func (gvm *GeneralVM) SetToAppDefVal() {
 		{
 			Name:     "ssh",
 			Protocol: "TCP",
-			Port:     22,
+			Port:     VMSSHPort,
 		},
 	})
+	gvm.Readiness = defVMReadinessProbe()
 }
 
 func (gvm *GeneralVM) FillDefaultVal(nodeName string) {
-
+	// App default when KNLConfig.defaultNode.vm.readiness is unset (common for pre-existing configs).
+	// An explicitly empty probe (readiness: {}) disables probing and is left alone.
+	if gvm.Readiness == nil {
+		gvm.Readiness = defVMReadinessProbe()
+	}
 }
 
 func (gvm *GeneralVM) GetNodeType(name string) NodeType {
@@ -103,6 +147,9 @@ func (gvm *GeneralVM) Validate(lab *LabSpec, nodeName string) error {
 	}
 	if gvm.ReqMemory == nil {
 		return fmt.Errorf("memory not specified")
+	}
+	if countProbeHandlers(gvm.Readiness) > 1 {
+		return fmt.Errorf("readiness probe must specify at most one handler")
 	}
 
 	return nil
@@ -173,6 +220,13 @@ func (gvm *GeneralVM) getVMI(lab *ParsedLab, vmname string) *kvv1.VirtualMachine
 		r.Spec.Domain.Memory.Hugepages = &kvv1.Hugepages{
 			PageSize: "1Gi",
 		}
+	}
+	probe := gvm.Readiness
+	if probe == nil {
+		probe = defVMReadinessProbe()
+	}
+	if countProbeHandlers(probe) == 1 {
+		r.Spec.ReadinessProbe = probe
 	}
 	//enable video, no need to remove video
 	r.Spec.Domain.Devices.AutoattachGraphicsDevice = new(bool)

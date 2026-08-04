@@ -149,10 +149,71 @@ func LoadDef(in *LabSpec, def KNLConfigSpec) error {
 		if defNode.IsNil() {
 			continue
 		}
+		// #region agent log
+		func() {
+			f, err := os.OpenFile("/mnt/c/hujun/gomodules/src/knl2/.cursor/debug-73b8ca.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return
+			}
+			defer f.Close()
+			defReadinessNil := true
+			if gvm, ok := defNode.Interface().(*GeneralVM); ok {
+				defReadinessNil = gvm.Readiness == nil
+			}
+			nodeReadinessNilBefore := true
+			if gvm, ok := node.(*GeneralVM); ok {
+				nodeReadinessNilBefore = gvm.Readiness == nil
+			}
+			payload, _ := json.Marshal(map[string]any{
+				"sessionId":    "73b8ca",
+				"runId":        "pre-fix",
+				"hypothesisId": "A",
+				"location":     "knlconfig_types.go:LoadDef",
+				"message":      "before FillNilPointers",
+				"data": map[string]any{
+					"nodeName":               nodeName,
+					"fieldName":              fieldName,
+					"defReadinessNil":        defReadinessNil,
+					"nodeReadinessNilBefore": nodeReadinessNilBefore,
+				},
+				"timestamp": time.Now().UnixMilli(),
+			})
+			f.Write(append(payload, '\n'))
+		}()
+		// #endregion
 		err = FillNilPointers(node, defNode.Interface().(System))
 		if err != nil {
 			return err
 		}
+		// #region agent log
+		func() {
+			f, err := os.OpenFile("/mnt/c/hujun/gomodules/src/knl2/.cursor/debug-73b8ca.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return
+			}
+			defer f.Close()
+			nodeReadinessNilAfter := true
+			handlerCount := 0
+			if gvm, ok := node.(*GeneralVM); ok {
+				nodeReadinessNilAfter = gvm.Readiness == nil
+				handlerCount = countProbeHandlers(gvm.Readiness)
+			}
+			payload, _ := json.Marshal(map[string]any{
+				"sessionId":    "73b8ca",
+				"runId":        "pre-fix",
+				"hypothesisId": "B",
+				"location":     "knlconfig_types.go:LoadDef",
+				"message":      "after FillNilPointers",
+				"data": map[string]any{
+					"nodeName":              nodeName,
+					"nodeReadinessNilAfter": nodeReadinessNilAfter,
+					"handlerCount":          handlerCount,
+				},
+				"timestamp": time.Now().UnixMilli(),
+			})
+			f.Write(append(payload, '\n'))
+		}()
+		// #endregion
 
 	}
 	return nil
