@@ -22,6 +22,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           submodules: 'true'
+          fetch-depth: 0
 
       - name: Extract Tag
         run: echo "TAG=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
@@ -52,11 +53,29 @@ jobs:
       - name: build manifests
         run: make deploymanifests IMG=${{ env.REGISTRY }}/${{ env.IMG_BASE }}:${{ env.TAG }}
 
+      - name: Generate changelog
+        run: |
+          CURRENT_TAG="${{ github.ref_name }}"
+          PREV_TAG=$(git tag --sort=-version:refname --merged "$CURRENT_TAG" | grep -v "^${CURRENT_TAG}$" | head -n1)
+          {
+            echo "## Changes"
+            echo
+            if [ -n "$PREV_TAG" ]; then
+              echo "Commits since $PREV_TAG:"
+              echo
+              git log --pretty=format:"- %s (%h)" "${PREV_TAG}..${CURRENT_TAG}"
+            else
+              echo "Initial release."
+              echo
+              git log --pretty=format:"- %s (%h)" "${CURRENT_TAG}"
+            fi
+          } > release_notes.md
+
       - name: Create Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create ${{ github.ref_name }} \
             --title "Release ${{ github.ref_name }}" \
-            --notes "Automated release for ${{ github.ref_name }}" \
+            --notes-file release_notes.md \
             all.yaml
