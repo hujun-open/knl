@@ -1,17 +1,15 @@
-# <a href="https://hujun-open.github.io/knldoc/"><img src="logo.png" width="200"> </a>
+
+
 KubeNetLab (KNL) is a k8s operator creates and manages virtual network topology consists of VNF/CNF for learning and testing purposes. 
 
 ### [Check here](https://hujun-open.github.io/knldoc/) for installation & usage guide.
-
-For automated k3s setup, see the [Install with scripts (k3s)](https://hujun-open.github.io/knldoc/docs/install/install/#install-with-scripts-k3s) guide in knldoc.
-
 
 KNL has following key features:
 
 1. Running on top of k8s with capability of to scale out to entire k8s cluster. e.g. a single lab topology could span across multiple servers.
 2. Topology is defined via KNL `Lab` CR, standard k8s tool like `kubectl` or `k9s` could be used to create/manage labs, while KNL cli tool `knlcli` provides more user friendly CLI operations.
 3. Supports both CNF and VNF, following are node types supported today:
-    - Nokia vSIM
+  - Nokia vSIM
     - Nokia SR-SIM
     - Nokia VSR-I
     - Nokia MAG-c
@@ -35,8 +33,8 @@ spec:
       - node: vsim-1
 ```
 
-
 Use KNL command line tool `knlcli` to check the created Lab, the two lab nodes(`srsim-1` and `vsim-1`) run on two different servers (`worker-1` and `worker-2`), `link1` spans across these two servers.
+
 ```bash
 user@svr-1:~$ knlcli show
 example-lab:
@@ -50,5 +48,8 @@ example-lab:
 
 ```
 
+
+
 ## knlcli
+
 `knlcli` is the command line tool for the KNL, [download from here](https://github.com/hujun-open/knlcli/releases)
